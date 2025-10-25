@@ -333,6 +333,7 @@
 			}
 			if (bestG) bestG.memberIds.push(id);
 			else unassigned.push(id);
+			unassigned = studentOrder.filter((id) => !groups.some((g) => g.memberIds.includes(id)));
 		}
 
 		// local improvement: try a bounded number of beneficial swaps
