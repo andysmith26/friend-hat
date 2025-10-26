@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { dndzone } from 'svelte-dnd-action';
+
 	// Svelte 5 runes
 	type Student = {
 		id: string; // unique email address
@@ -78,6 +80,50 @@
 		}
 		unassigned = [...studentOrder];
 	}
+
+	// ---------- TEST DATA ----------
+	function loadTestData() {
+		const testTSV = `display name	id	friend 1 id	friend 2 id	friend 3 id
+Alice Anderson	001	002	003	009
+Bob Brown	002	001	013	020
+Carol Chen	003	001	005	011
+David Davis	004	006	016	019
+Eve Evans	005	003	011	018
+Frank Foster	006	004	012	017
+Grace Garcia	007	014	018	
+Henry Harris	008	010	015	019
+Iris Ivanov	009	001	013	
+Jack Jackson	010	008	015	
+Kate Kim	011	003	005	016
+Leo Lopez	012	006	017	
+Maya Miller	013	002	009	020
+Nina Nguyen	014	007	018	
+Oscar Ortiz	015	008	010	
+Paul Park	016	004	011	
+Quinn Quinn	017	006	012	
+Rose Roberts	018	005	007	014
+Sam Smith	019	004	008	
+Tina Taylor	020	002	013	`;
+
+		rawPaste = testTSV;
+		parsePasted(testTSV);
+
+		// Auto-create groups
+		numberOfGroups = 5;
+		mode = 'COUNT';
+		initGroups();
+	}
+	import { onMount } from 'svelte';
+	import { dev } from '$app/environment';
+
+	onMount(() => {
+		if (dev && studentOrder.length === 0) {
+			// Add slight delay to ensure DOM is ready
+			setTimeout(() => {
+				loadTestData();
+			}, 100);
+		}
+	});
 
 	// ---------- PARSING ----------
 	/**
@@ -178,62 +224,85 @@
 		}
 		return parts;
 	}
-
-	// ---------- DnD ----------
-	let dragId: string | null = null;
-
-	function onDragStart(ev: DragEvent, studentId: string) {
-		dragId = studentId;
-		ev.dataTransfer?.setData('text/plain', studentId);
-		ev.dataTransfer?.setDragImage?.(new Image(), 0, 0); // invisible ghost
+	// ---------- DnD with svelte-dnd-action ----------
+	function handleUnassignedConsider(e: CustomEvent) {
+		unassigned = e.detail.items.map((item: any) => item.id);
 	}
 
-	function onDragOver(ev: DragEvent) {
-		ev.preventDefault();
-	}
+	function handleUnassignedFinalize(e: CustomEvent) {
+		const newItems = e.detail.items.map((item: any) => item.id);
 
-	function moveToGroup(studentId: string, groupId: string | null) {
-		// remove from any group
-		for (const g of groups) {
-			const idx = g.memberIds.indexOf(studentId);
-			if (idx >= 0) g.memberIds.splice(idx, 1);
-		}
-		// remove from unassigned
-		{
-			const idx = unassigned.indexOf(studentId);
-			if (idx >= 0) unassigned.splice(idx, 1);
-		}
-		if (groupId === null) {
-			unassigned.push(studentId);
+		// Find items that LEFT unassigned (were removed)
+		const removedIds = unassigned.filter((id) => !newItems.includes(id));
+
+		if (removedIds.length > 0) {
+			// Item was dragged OUT of unassigned → don't update unassigned
+			// (let handleGroupFinalize handle it)
 			return;
 		}
-		const g = groups.find((x) => x.id === groupId);
-		if (!g) return;
-		// enforce capacity if set
-		if (g.capacity != null && g.memberIds.length >= g.capacity) {
-			// if full, push back to unassigned
-			unassigned.push(studentId);
+
+		// Item was dragged INTO unassigned from a group
+		unassigned = newItems;
+
+		// Find the newly added item
+		const addedIds = newItems.filter((id) => !unassigned.includes(id));
+
+		if (addedIds.length > 0) {
+			// Remove from all groups
+			groups = groups.map((g) => ({
+				...g,
+				memberIds: g.memberIds.filter((id) => !addedIds.includes(id))
+			}));
+		}
+	}
+
+	function handleGroupConsider(e: CustomEvent, groupId: string) {
+		const group = groups.find((g) => g.id === groupId);
+		if (group) {
+			group.memberIds = e.detail.items.map((item: any) => item.id);
+			groups = groups; // trigger reactivity
+		}
+	}
+
+	function handleGroupFinalize(e: CustomEvent, groupId: string) {
+		const group = groups.find((g) => g.id === groupId);
+		if (!group) return;
+
+		const newItemIds = e.detail.items.map((item: any) => item.id);
+		const oldItemIds = group.memberIds;
+
+		// Find items that LEFT this group
+		const removedIds = oldItemIds.filter((id) => !newItemIds.includes(id));
+
+		if (removedIds.length > 0) {
+			// Item was dragged OUT of this group → don't update this group
+			// (let the destination handler handle it)
 			return;
 		}
-		g.memberIds.push(studentId);
-	}
 
-	function onDropToUnassigned(ev: DragEvent) {
-		ev.preventDefault();
-		const id = dragId ?? ev.dataTransfer?.getData('text/plain') ?? '';
-		if (!id) return;
-		moveToGroup(id, null);
-		dragId = null;
-	}
+		// Find items that ENTERED this group
+		const addedIds = newItemIds.filter((id) => !oldItemIds.includes(id));
 
-	function onDropToGroup(ev: DragEvent, groupId: string) {
-		ev.preventDefault();
-		const id = dragId ?? ev.dataTransfer?.getData('text/plain') ?? '';
-		if (!id) return;
-		moveToGroup(id, groupId);
-		dragId = null;
-	}
+		if (addedIds.length > 0) {
+			const addedId = addedIds[0]; // Should only be one
 
+			// Check capacity
+			if (group.capacity != null && newItemIds.length > group.capacity) {
+				// Reject the drop
+				return;
+			}
+
+			// Remove from unassigned
+			unassigned = unassigned.filter((id) => id !== addedId);
+
+			// Remove from other groups
+			groups = groups.map((g) =>
+				g.id === groupId
+					? { ...g, memberIds: newItemIds }
+					: { ...g, memberIds: g.memberIds.filter((id) => id !== addedId) }
+			);
+		}
+	}
 	// ---------- METRICS ----------
 	function groupOf(studentId: string): Group | null {
 		for (const g of groups) if (g.memberIds.includes(studentId)) return g;
@@ -455,6 +524,9 @@
 				>
 					Parse data
 				</button>
+				<button class="rounded-md border px-3 py-2 hover:bg-gray-50" on:click={loadTestData}>
+					🧪 Load Test Data
+				</button>
 				{#if parseError}
 					<span class="text-sm text-red-600">{parseError}</span>
 				{:else if totalStudents > 0}
@@ -578,25 +650,28 @@
 
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
 				<!-- Unassigned -->
-				<div
-					class="flex flex-col rounded-lg border p-3"
-					on:dragover={onDragOver}
-					on:drop={onDropToUnassigned}
-				>
+				<div class="flex flex-col rounded-lg border p-3">
 					<div class="mb-2 flex items-center justify-between">
 						<div class="font-semibold">Unassigned</div>
 						<div class="text-xs text-gray-500">{unassigned.length}</div>
 					</div>
 
-					<ul class="min-h-24 flex-1 space-y-1">
+					<ul
+						class="min-h-24 flex-1 space-y-1"
+						use:dndzone={{
+							items: unassigned.map((id) => ({ id })),
+							flipDurationMs: 200,
+							dropTargetStyle: {}
+						}}
+						on:consider={handleUnassignedConsider}
+						on:finalize={handleUnassignedFinalize}
+					>
 						{#each unassigned as sid (sid)}
 							{#await Promise.resolve(studentsById[sid]) then s}
 								<li
 									class="flex cursor-move items-center justify-between gap-2 rounded border
-                       bg-white px-2 py-1 hover:bg-gray-50
-                       {isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
-									draggable="true"
-									on:dragstart={(e) => onDragStart(e, s.id)}
+						bg-white px-2 py-1 hover:bg-gray-50
+						{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
 									on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
 								>
 									<span class="truncate">{s.name || s.id}</span>
@@ -609,11 +684,7 @@
 
 				<!-- Groups -->
 				{#each groups as g (g.id)}
-					<div
-						class="flex flex-col rounded-lg border p-3"
-						on:dragover={onDragOver}
-						on:drop={(e) => onDropToGroup(e, g.id)}
-					>
+					<div class="flex flex-col rounded-lg border p-3">
 						<div class="mb-2 flex items-center justify-between gap-2">
 							<input class="flex-1 bg-transparent font-semibold outline-none" bind:value={g.name} />
 							<div class="flex items-center gap-1 text-xs text-gray-500">
@@ -633,15 +704,22 @@
 							</div>
 						</div>
 
-						<ul class="min-h-24 flex-1 space-y-1">
+						<ul
+							class="min-h-24 flex-1 space-y-1"
+							use:dndzone={{
+								items: g.memberIds.map((id) => ({ id })),
+								flipDurationMs: 200,
+								dropTargetStyle: {}
+							}}
+							on:consider={(e) => handleGroupConsider(e, g.id)}
+							on:finalize={(e) => handleGroupFinalize(e, g.id)}
+						>
 							{#each g.memberIds as sid (sid)}
 								{#await Promise.resolve(studentsById[sid]) then s}
 									<li
 										class="flex cursor-move items-center justify-between gap-2 rounded border
-                         bg-white px-2 py-1 hover:bg-gray-50
-                         {isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
-										draggable="true"
-										on:dragstart={(e) => onDragStart(e, s.id)}
+							bg-white px-2 py-1 hover:bg-gray-50
+							{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
 										on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
 									>
 										<span class="truncate">

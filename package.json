@@ -47,5 +47,8 @@
 			"@tailwindcss/oxide",
 			"esbuild"
 		]
+	},
+	"dependencies": {
+		"svelte-dnd-action": "^0.9.65"
 	}
 }
