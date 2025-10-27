@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { dndzone } from 'svelte-dnd-action';
-
 	// Svelte 5 runes
 	type Student = {
 		id: string; // unique email address
@@ -224,85 +222,7 @@ Tina Taylor	020	002	013	`;
 		}
 		return parts;
 	}
-	// ---------- DnD with svelte-dnd-action ----------
-	function handleUnassignedConsider(e: CustomEvent) {
-		unassigned = e.detail.items.map((item: any) => item.id);
-	}
 
-	function handleUnassignedFinalize(e: CustomEvent) {
-		const newItems = e.detail.items.map((item: any) => item.id);
-
-		// Find items that LEFT unassigned (were removed)
-		const removedIds = unassigned.filter((id) => !newItems.includes(id));
-
-		if (removedIds.length > 0) {
-			// Item was dragged OUT of unassigned → don't update unassigned
-			// (let handleGroupFinalize handle it)
-			return;
-		}
-
-		// Item was dragged INTO unassigned from a group
-		unassigned = newItems;
-
-		// Find the newly added item
-		const addedIds = newItems.filter((id) => !unassigned.includes(id));
-
-		if (addedIds.length > 0) {
-			// Remove from all groups
-			groups = groups.map((g) => ({
-				...g,
-				memberIds: g.memberIds.filter((id) => !addedIds.includes(id))
-			}));
-		}
-	}
-
-	function handleGroupConsider(e: CustomEvent, groupId: string) {
-		const group = groups.find((g) => g.id === groupId);
-		if (group) {
-			group.memberIds = e.detail.items.map((item: any) => item.id);
-			groups = groups; // trigger reactivity
-		}
-	}
-
-	function handleGroupFinalize(e: CustomEvent, groupId: string) {
-		const group = groups.find((g) => g.id === groupId);
-		if (!group) return;
-
-		const newItemIds = e.detail.items.map((item: any) => item.id);
-		const oldItemIds = group.memberIds;
-
-		// Find items that LEFT this group
-		const removedIds = oldItemIds.filter((id) => !newItemIds.includes(id));
-
-		if (removedIds.length > 0) {
-			// Item was dragged OUT of this group → don't update this group
-			// (let the destination handler handle it)
-			return;
-		}
-
-		// Find items that ENTERED this group
-		const addedIds = newItemIds.filter((id) => !oldItemIds.includes(id));
-
-		if (addedIds.length > 0) {
-			const addedId = addedIds[0]; // Should only be one
-
-			// Check capacity
-			if (group.capacity != null && newItemIds.length > group.capacity) {
-				// Reject the drop
-				return;
-			}
-
-			// Remove from unassigned
-			unassigned = unassigned.filter((id) => id !== addedId);
-
-			// Remove from other groups
-			groups = groups.map((g) =>
-				g.id === groupId
-					? { ...g, memberIds: newItemIds }
-					: { ...g, memberIds: g.memberIds.filter((id) => id !== addedId) }
-			);
-		}
-	}
 	// ---------- METRICS ----------
 	function groupOf(studentId: string): Group | null {
 		for (const g of groups) if (g.memberIds.includes(studentId)) return g;
@@ -656,28 +576,18 @@ Tina Taylor	020	002	013	`;
 						<div class="text-xs text-gray-500">{unassigned.length}</div>
 					</div>
 
-					<ul
-						class="min-h-24 flex-1 space-y-1"
-						use:dndzone={{
-							items: unassigned.map((id) => ({ id })),
-							flipDurationMs: 200,
-							dropTargetStyle: {}
-						}}
-						on:consider={handleUnassignedConsider}
-						on:finalize={handleUnassignedFinalize}
-					>
+					<ul class="min-h-24 flex-1 space-y-1">
 						{#each unassigned as sid (sid)}
-							{#await Promise.resolve(studentsById[sid]) then s}
-								<li
-									class="flex cursor-move items-center justify-between gap-2 rounded border
-						bg-white px-2 py-1 hover:bg-gray-50
-						{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
-									on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
-								>
-									<span class="truncate">{s.name || s.id}</span>
-									<span class="text-xs text-gray-500">{s.id}</span>
-								</li>
-							{/await}
+							{@const s = studentsById[sid]}
+							<li
+								class="flex cursor-move items-center justify-between gap-2 rounded border
+         bg-white px-2 py-1 hover:bg-gray-50
+         {isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
+								on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
+							>
+								<span class="truncate">{s.name || s.id}</span>
+								<span class="text-xs text-gray-500">{s.id}</span>
+							</li>
 						{/each}
 					</ul>
 				</div>
@@ -703,38 +613,6 @@ Tina Taylor	020	002	013	`;
 								/>
 							</div>
 						</div>
-
-						<ul
-							class="min-h-24 flex-1 space-y-1"
-							use:dndzone={{
-								items: g.memberIds.map((id) => ({ id })),
-								flipDurationMs: 200,
-								dropTargetStyle: {}
-							}}
-							on:consider={(e) => handleGroupConsider(e, g.id)}
-							on:finalize={(e) => handleGroupFinalize(e, g.id)}
-						>
-							{#each g.memberIds as sid (sid)}
-								{#await Promise.resolve(studentsById[sid]) then s}
-									<li
-										class="flex cursor-move items-center justify-between gap-2 rounded border
-							bg-white px-2 py-1 hover:bg-gray-50
-							{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
-										on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
-									>
-										<span class="truncate">
-											{s.name || s.id}
-											{#if studentHappiness(s.id) > 0}
-												<span class="ml-1 text-xs text-emerald-700"
-													>(+{studentHappiness(s.id)})</span
-												>
-											{/if}
-										</span>
-										<span class="text-xs text-gray-500">{s.id}</span>
-									</li>
-								{/await}
-							{/each}
-						</ul>
 					</div>
 				{/each}
 			</div>

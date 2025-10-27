@@ -49,6 +49,6 @@
 		]
 	},
 	"dependencies": {
-		"svelte-dnd-action": "^0.9.65"
+		"@thisux/sveltednd": "^0.0.20"
 	}
 }
