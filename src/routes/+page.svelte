@@ -288,7 +288,7 @@ Tina Taylor	020	002	013	`;
 		return count;
 	}
 
-	const totalHappiness = $derived(() => {
+	const totalHappiness = $derived.by(() => {
 		let sum = 0;
 		for (const id of studentOrder) sum += studentHappiness(id);
 		return sum;
@@ -458,9 +458,9 @@ Tina Taylor	020	002	013	`;
 	}
 
 	// ---------- DERIVED ----------
-	const totalStudents = $derived(() => studentOrder.length);
-	const placedCount = $derived(() => groups.reduce((acc, g) => acc + g.memberIds.length, 0));
-	const unassignedCount = $derived(() => unassigned.length);
+	const totalStudents = $derived(studentOrder.length);
+	const placedCount = $derived(groups.reduce((acc, g) => acc + g.memberIds.length, 0));
+	const unassignedCount = $derived(unassigned.length);
 
 	// recompute unassigned if user edits group capacities and prunes members by mistake (not needed in MVP)
 </script>
