@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { draggable, droppable, type DragDropState } from '@thisux/sveltednd';
+
 	// Svelte 5 runes
 	type Student = {
 		id: string; // unique email address
@@ -221,6 +223,49 @@ Tina Taylor	020	002	013	`;
 			while (parts.length < minCols) parts.push('');
 		}
 		return parts;
+	}
+
+	// ---------- DnD with @thisux/sveltednd ----------
+	function handleDrop(state: DragDropState<{ id: string }>) {
+		const { draggedItem, sourceContainer, targetContainer } = state;
+		const studentId = draggedItem.id;
+
+		if (!targetContainer || sourceContainer === targetContainer) {
+			return; // No-op if dropped in same container
+		}
+
+		// Find target group (or null if target is "unassigned")
+		const targetGroup =
+			targetContainer === 'unassigned' ? null : groups.find((g) => g.id === targetContainer);
+
+		// Capacity check for groups
+		if (targetGroup) {
+			const currentCount = targetGroup.memberIds.length;
+			if (targetGroup.capacity != null && currentCount >= targetGroup.capacity) {
+				// Reject drop - capacity exceeded
+				return;
+			}
+		}
+
+		// Remove from source
+		if (sourceContainer === 'unassigned') {
+			unassigned = unassigned.filter((id) => id !== studentId);
+		} else {
+			const sourceGroup = groups.find((g) => g.id === sourceContainer);
+			if (sourceGroup) {
+				sourceGroup.memberIds = sourceGroup.memberIds.filter((id) => id !== studentId);
+			}
+		}
+
+		// Add to target
+		if (targetContainer === 'unassigned') {
+			unassigned = [...unassigned, studentId];
+		} else if (targetGroup) {
+			targetGroup.memberIds = [...targetGroup.memberIds, studentId];
+		}
+
+		// Trigger reactivity
+		groups = groups;
 	}
 
 	// ---------- METRICS ----------
@@ -576,14 +621,24 @@ Tina Taylor	020	002	013	`;
 						<div class="text-xs text-gray-500">{unassigned.length}</div>
 					</div>
 
-					<ul class="min-h-24 flex-1 space-y-1">
+					<ul
+						class="min-h-24 flex-1 space-y-1"
+						use:droppable={{
+							container: 'unassigned',
+							callbacks: { onDrop: handleDrop }
+						}}
+					>
 						{#each unassigned as sid (sid)}
 							{@const s = studentsById[sid]}
 							<li
 								class="flex cursor-move items-center justify-between gap-2 rounded border
-         bg-white px-2 py-1 hover:bg-gray-50
-         {isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
+			bg-white px-2 py-1 hover:bg-gray-50
+			{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
 								on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
+								use:draggable={{
+									container: 'unassigned',
+									dragData: { id: sid }
+								}}
 							>
 								<span class="truncate">{s.name || s.id}</span>
 								<span class="text-xs text-gray-500">{s.id}</span>
@@ -613,6 +668,30 @@ Tina Taylor	020	002	013	`;
 								/>
 							</div>
 						</div>
+						<ul
+							class="min-h-24 flex-1 space-y-1"
+							use:droppable={{
+								container: g.id,
+								callbacks: { onDrop: handleDrop }
+							}}
+						>
+							{#each g.memberIds as sid (sid)}
+								{@const s = studentsById[sid]}
+								<li
+									class="flex cursor-move items-center justify-between gap-2 rounded border
+			bg-white px-2 py-1 hover:bg-gray-50
+			{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
+									on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
+									use:draggable={{
+										container: g.id,
+										dragData: { id: sid }
+									}}
+								>
+									<span class="truncate">{s.name || s.id}</span>
+									<span class="text-xs text-gray-500">{s.id}</span>
+								</li>
+							{/each}
+						</ul>
 					</div>
 				{/each}
 			</div>
