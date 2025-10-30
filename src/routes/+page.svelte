@@ -36,17 +36,25 @@
 
 	// groups
 	let groups = $state<Group[]>([]);
-	let unassigned = $state<string[]>([]); // student ids not in any group
+	const unassigned = $derived.by(() => {
+		const assignedIds = new Set(groups.flatMap((g) => g.memberIds));
+		return studentOrder.filter((id) => !assignedIds.has(id));
+	});
 
 	// selection/highlight
 	let selectedStudentId = $state<string | null>(null);
+
+	let isLoadingFromSheet = $state(false);
+	let sheetLoadError = $state('');
+
+	// Add after other state declarations (around line 40)
+	let currentlyDragging = $state<string | null>(null); // student ID being dragged
 
 	// ---------- HELPERS ----------
 	const uid = () => Math.random().toString(36).slice(2, 9);
 
 	function resetAll() {
 		groups = [];
-		unassigned = [];
 		selectedStudentId = null;
 		parseError = null;
 		unknownFriendIds = new Set();
@@ -54,7 +62,6 @@
 
 	function clearAssignments() {
 		groups = groups.map((g) => ({ ...g, memberIds: [] }));
-		unassigned = [...studentOrder];
 		selectedStudentId = null;
 	}
 
@@ -78,7 +85,6 @@
 				memberIds: []
 			}));
 		}
-		unassigned = [...studentOrder];
 	}
 
 	// ---------- TEST DATA ----------
@@ -113,17 +119,39 @@ Tina Taylor	020	002	013	`;
 		mode = 'COUNT';
 		initGroups();
 	}
-	import { onMount } from 'svelte';
-	import { dev } from '$app/environment';
+	// ---------- LOAD FROM SHEETS API ----------
 
-	onMount(() => {
-		if (dev && studentOrder.length === 0) {
-			// Add slight delay to ensure DOM is ready
-			setTimeout(() => {
-				loadTestData();
-			}, 100);
+	async function loadFromSheets() {
+		isLoadingFromSheet = true;
+		sheetLoadError = '';
+
+		try {
+			const response = await fetch('/api/data');
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || 'Failed to load from Google Sheets');
+			}
+
+			const result = await response.json();
+
+			if (!result.success || !result.students) {
+				throw new Error('Invalid response from Google Sheets API');
+			}
+
+			// Parse the structured data
+			parseFromSheets(result.students, result.connections);
+
+			initGroups();
+
+			console.log(`✅ Loaded ${result.studentCount} students from Google Sheets`);
+		} catch (error) {
+			console.error('Failed to load from Google Sheets:', error);
+			sheetLoadError = error instanceof Error ? error.message : 'Unknown error';
+		} finally {
+			isLoadingFromSheet = false;
 		}
-	});
+	}
 
 	// ---------- PARSING ----------
 	/**
@@ -225,47 +253,99 @@ Tina Taylor	020	002	013	`;
 		return parts;
 	}
 
+	function parseFromSheets(
+		students: Array<{ id: string; firstName: string; lastName: string; gender: string }>,
+		connections: Record<string, string[]>
+	) {
+		resetAll();
+
+		const map: Record<string, Student> = {};
+		const order: string[] = [];
+
+		for (const student of students) {
+			if (!student.id) continue;
+
+			const id = student.id.toLowerCase();
+			const displayName = `${student.firstName} ${student.lastName}`.trim();
+
+			if (map[id]) {
+				parseError = `Duplicate student ID: ${student.id}`;
+				return;
+			}
+
+			// Get friend IDs for this student from connections
+			const friendIds = connections[student.id] || [];
+
+			map[id] = {
+				id,
+				name: displayName,
+				friendIds: friendIds.map((fid) => fid.toLowerCase())
+			};
+
+			order.push(id);
+		}
+
+		// Validate friend IDs (same logic as parsePasted)
+		const unknownSet = new Set<string>();
+		for (const s of Object.values(map)) {
+			const validFriends: string[] = [];
+			for (const fid of s.friendIds) {
+				if (map[fid]) {
+					validFriends.push(fid);
+				} else {
+					unknownSet.add(fid);
+				}
+			}
+			s.friendIds = validFriends;
+		}
+
+		// Update state
+		studentsById = map;
+		studentOrder = order;
+		unknownFriendIds = unknownSet;
+		parseError = '';
+
+		console.log(`Parsed ${order.length} students with friend connections`);
+	}
+
 	// ---------- DnD with @thisux/sveltednd ----------
 	function handleDrop(state: DragDropState<{ id: string }>) {
 		const { draggedItem, sourceContainer, targetContainer } = state;
 		const studentId = draggedItem.id;
 
 		if (!targetContainer || sourceContainer === targetContainer) {
-			return; // No-op if dropped in same container
+			currentlyDragging = null;
+			return;
 		}
 
-		// Find target group (or null if target is "unassigned")
-		const targetGroup =
-			targetContainer === 'unassigned' ? null : groups.find((g) => g.id === targetContainer);
-
-		// Capacity check for groups
-		if (targetGroup) {
-			const currentCount = targetGroup.memberIds.length;
-			if (targetGroup.capacity != null && currentCount >= targetGroup.capacity) {
-				// Reject drop - capacity exceeded
-				return;
+		// Capacity check
+		if (targetContainer !== 'unassigned') {
+			const targetGroup = groups.find((g) => g.id === targetContainer);
+			if (targetGroup) {
+				const currentCount = targetGroup.memberIds.length;
+				if (targetGroup.capacity != null && currentCount >= targetGroup.capacity) {
+					console.warn(`Cannot drop: ${targetGroup.name} is at capacity`);
+					currentlyDragging = null;
+					return;
+				}
 			}
 		}
 
-		// Remove from source
-		if (sourceContainer === 'unassigned') {
-			unassigned = unassigned.filter((id) => id !== studentId);
-		} else {
-			const sourceGroup = groups.find((g) => g.id === sourceContainer);
-			if (sourceGroup) {
-				sourceGroup.memberIds = sourceGroup.memberIds.filter((id) => id !== studentId);
+		// Single atomic update: only update groups
+		groups = groups.map((g) => {
+			// Remove from source group
+			if (g.id === sourceContainer) {
+				return { ...g, memberIds: g.memberIds.filter((id) => id !== studentId) };
 			}
-		}
+			// Add to target group
+			if (g.id === targetContainer) {
+				return { ...g, memberIds: [...g.memberIds, studentId] };
+			}
+			return g;
+		});
 
-		// Add to target
-		if (targetContainer === 'unassigned') {
-			unassigned = [...unassigned, studentId];
-		} else if (targetGroup) {
-			targetGroup.memberIds = [...targetGroup.memberIds, studentId];
-		}
-
-		// Trigger reactivity
-		groups = groups;
+		// unassigned automatically updates via derivation
+		currentlyDragging = null;
 	}
 
 	// ---------- METRICS ----------
@@ -304,22 +384,33 @@ Tina Taylor	020	002	013	`;
 
 	// ---------- ASSIGNMENT ----------
 	function clearAndRandomAssign() {
-		clearAssignments();
+		// Start with empty groups
+		groups = groups.map((g) => ({ ...g, memberIds: [] }));
+
 		const shuffled = [...studentOrder].sort(() => Math.random() - 0.5);
+
+		// Build new memberIds arrays
+		const newMemberIds: Record<string, string[]> = {};
+		groups.forEach((g) => {
+			newMemberIds[g.id] = [];
+		});
+
 		let gi = 0;
 		for (const id of shuffled) {
-			// place into next group with space, wrap until found
 			let placed = false;
 			for (let k = 0; k < groups.length * 2; k++) {
 				const g = groups[gi % groups.length];
 				gi++;
-				if (g.capacity != null && g.memberIds.length >= g.capacity) continue;
-				g.memberIds.push(id);
+				if (g.capacity != null && newMemberIds[g.id].length >= g.capacity) continue;
+				newMemberIds[g.id].push(id);
 				placed = true;
 				break;
 			}
-			if (!placed) unassigned.push(id);
+			// If not placed, student will be in unassigned automatically
 		}
+
+		// Apply all updates at once
+		groups = groups.map((g) => ({ ...g, memberIds: newMemberIds[g.id] }));
 	}
 
 	// Build (undirected) adjacency from friendIds that exist
@@ -338,37 +429,53 @@ Tina Taylor	020	002	013	`;
 	}
 
 	function autoAssignBalanced() {
-		clearAssignments();
+		// Start with empty groups
+		groups = groups.map((g) => ({ ...g, memberIds: [] }));
+
 		const adj = buildAdjacency();
 		const degree = (id: string) => adj.get(id)?.size ?? 0;
-
-		// order by degree desc
 		const order = [...studentOrder].sort((a, b) => degree(b) - degree(a));
 
-		// helper: remaining capacity
-		const remaining = (g: Group) =>
-			g.capacity == null ? Infinity : g.capacity - g.memberIds.length;
+		// Build new memberIds arrays
+		const newMemberIds: Record<string, string[]> = {};
+		groups.forEach((g) => {
+			newMemberIds[g.id] = [];
+		});
 
-		// place greedily maximizing already-placed friends in the target group
+		const remaining = (gid: string) => {
+			const g = groups.find((gr) => gr.id === gid);
+			if (!g) return 0;
+			return g.capacity == null ? Infinity : g.capacity - newMemberIds[gid].length;
+		};
+
+		// Greedy placement
 		for (const id of order) {
-			let bestG: Group | null = null;
+			let bestG: string | null = null;
 			let bestScore = -1;
 
 			for (const g of groups) {
-				if (remaining(g) <= 0) continue;
-				// score = number of id's friends already in g
+				if (remaining(g.id) <= 0) continue;
+
+				// Score = number of id's friends already in g
 				let sc = 0;
-				const set = new Set(g.memberIds);
-				for (const fid of adj.get(id) ?? []) if (set.has(fid)) sc++;
+				const set = new Set(newMemberIds[g.id]);
+				for (const fid of adj.get(id) ?? []) {
+					if (set.has(fid)) sc++;
+				}
 				if (sc > bestScore) {
 					bestScore = sc;
-					bestG = g;
+					bestG = g.id;
 				}
 			}
-			if (bestG) bestG.memberIds.push(id);
-			else unassigned.push(id);
-			unassigned = studentOrder.filter((id) => !groups.some((g) => g.memberIds.includes(id)));
+
+			if (bestG) {
+				newMemberIds[bestG].push(id);
+			}
+			// If no bestG, student will be unassigned automatically
 		}
+
+		// Apply all updates at once (before local improvement)
+		groups = groups.map((g) => ({ ...g, memberIds: newMemberIds[g.id] }));
 
 		// local improvement: try a bounded number of beneficial swaps
 		const budget = 300;
@@ -461,8 +568,6 @@ Tina Taylor	020	002	013	`;
 	const totalStudents = $derived(studentOrder.length);
 	const placedCount = $derived(groups.reduce((acc, g) => acc + g.memberIds.length, 0));
 	const unassignedCount = $derived(unassigned.length);
-
-	// recompute unassigned if user edits group capacities and prunes members by mistake (not needed in MVP)
 </script>
 
 <!-- LAYOUT -->
@@ -489,10 +594,19 @@ Tina Taylor	020	002	013	`;
 				>
 					Parse data
 				</button>
+				<button
+					class="rounded-md bg-green-600 px-3 py-2 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+					on:click={loadFromSheets}
+					disabled={isLoadingFromSheet}
+				>
+					{isLoadingFromSheet ? '⏳ Loading...' : '📊 Load from Sheet'}
+				</button>
 				<button class="rounded-md border px-3 py-2 hover:bg-gray-50" on:click={loadTestData}>
 					🧪 Load Test Data
 				</button>
-				{#if parseError}
+				{#if sheetLoadError}
+					<span class="text-sm text-red-600">{sheetLoadError}</span>
+				{:else if parseError}
 					<span class="text-sm text-red-600">{parseError}</span>
 				{:else if totalStudents > 0}
 					<span class="text-sm text-gray-600">
@@ -623,6 +737,7 @@ Tina Taylor	020	002	013	`;
 
 					<ul
 						class="min-h-24 flex-1 space-y-1"
+						draggable={false}
 						use:droppable={{
 							container: 'unassigned',
 							callbacks: { onDrop: handleDrop }
@@ -632,13 +747,22 @@ Tina Taylor	020	002	013	`;
 							{@const s = studentsById[sid]}
 							<li
 								class="flex cursor-move items-center justify-between gap-2 rounded border
-			bg-white px-2 py-1 hover:bg-gray-50
-			{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
-								on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
+		bg-white px-2 py-1 hover:bg-gray-50
+		{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}
+		{sid === currentlyDragging ? 'opacity-30' : ''}"
 								use:draggable={{
 									container: 'unassigned',
-									dragData: { id: sid }
+									dragData: { id: sid },
+									callbacks: {
+										onDragStart: () => {
+											currentlyDragging = sid;
+										},
+										onDragEnd: () => {
+											currentlyDragging = null;
+										}
+									}
 								}}
+								on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
 							>
 								<span class="truncate">{s.name || s.id}</span>
 								<span class="text-xs text-gray-500">{s.id}</span>
@@ -670,6 +794,7 @@ Tina Taylor	020	002	013	`;
 						</div>
 						<ul
 							class="min-h-24 flex-1 space-y-1"
+							draggable={false}
 							use:droppable={{
 								container: g.id,
 								callbacks: { onDrop: handleDrop }
@@ -679,13 +804,22 @@ Tina Taylor	020	002	013	`;
 								{@const s = studentsById[sid]}
 								<li
 									class="flex cursor-move items-center justify-between gap-2 rounded border
-			bg-white px-2 py-1 hover:bg-gray-50
-			{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}"
-									on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
+		bg-white px-2 py-1 hover:bg-gray-50
+		{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}
+		{sid === currentlyDragging ? 'opacity-30' : ''}"
 									use:draggable={{
 										container: g.id,
-										dragData: { id: sid }
+										dragData: { id: sid },
+										callbacks: {
+											onDragStart: () => {
+												currentlyDragging = sid;
+											},
+											onDragEnd: () => {
+												currentlyDragging = null;
+											}
+										}
 									}}
+									on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
 								>
 									<span class="truncate">{s.name || s.id}</span>
 									<span class="text-xs text-gray-500">{s.id}</span>
