@@ -331,17 +331,11 @@ Tina Taylor	020	002	013	`;
 			}
 		}
 
-		// Single atomic update: only update groups
-		groups = groups.map((g) => {
-			// Remove from source group
-			if (g.id === sourceContainer) {
-				return { ...g, memberIds: g.memberIds.filter((id) => id !== studentId) };
-			}
-			// Add to target group
-			if (g.id === targetContainer) {
-				return { ...g, memberIds: [...g.memberIds, studentId] };
-			}
-			return g;
+		commandStore.dispatch({
+			type: 'ASSIGN_STUDENT',
+			studentId,
+			groupId: targetContainer,
+			previousGroupId: sourceContainer
 		});
 
 		// unassigned automatically updates via derivation
