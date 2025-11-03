@@ -12,10 +12,9 @@ Keeps focus on current priorities. Captures ideas for future work.
 
 _What am I actively working on right now?_
 
-- [x] Fix drag-drop duplicate key bug (15min) - both handlers firing
-- [x] Spike 1: Google Sheets API integration (3h) - test auth + read in production
-- [x] Spike 4: Algorithm validation (1.5h) - compare friend-based vs random
-- [x] set up doc system
+- [ ] capture plans from claude project knowledge
+- [ ] set up command pattern
+- [ ] Statistics panel (happiness metrics, balance visualization)
 
 ---
 
@@ -23,9 +22,10 @@ _What am I actively working on right now?_
 
 _What's queued up after current work completes?_
 
+- full testing
+- document existing algorithms
+- plan new algorithms
 - Group preferences mode (toggle between friends/preferences)
-- set up testing system (but dont spend a lot of time fixing bugs until command pattern installed)
-- set up command pattern
 
 ---
 
@@ -33,7 +33,6 @@ _What's queued up after current work completes?_
 
 _What ideas am I capturing for potential future work?_
 
-- Statistics panel (happiness metrics, balance visualization)
 - Pin students to specific groups
 - Command pattern for undo/redo (if spikes succeed)
 - Save results back to Google Sheets
