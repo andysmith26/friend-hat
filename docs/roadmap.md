@@ -15,7 +15,7 @@ _What am I actively working on right now?_
 - [x] Fix drag-drop duplicate key bug (15min) - both handlers firing
 - [x] Spike 1: Google Sheets API integration (3h) - test auth + read in production
 - [x] Spike 4: Algorithm validation (1.5h) - compare friend-based vs random
-- [ ] set up doc system
+- [x] set up doc system
 
 ---
 
