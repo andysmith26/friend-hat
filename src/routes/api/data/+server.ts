@@ -1,29 +1,43 @@
 import { json } from '@sveltejs/kit';
 import { google } from 'googleapis';
-import { GOOGLE_SA_EMAIL, GOOGLE_SA_KEY, SHEET_ID } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
-	try {
-		// Authenticate
-		const auth = new google.auth.GoogleAuth({
-			credentials: {
-				client_email: GOOGLE_SA_EMAIL,
-				private_key: GOOGLE_SA_KEY.replace(/\\n/g, '\n')
-			},
-			scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
-		});
+        try {
+                const clientEmail = env.GOOGLE_SA_EMAIL;
+                const privateKey = env.GOOGLE_SA_KEY;
+                const sheetId = env.SHEET_ID;
 
-		const sheets = google.sheets({ version: 'v4', auth });
+                if (!clientEmail || !privateKey || !sheetId) {
+                        console.error('Missing Google Sheets configuration env vars');
+                        return json(
+                                {
+                                        error: 'Server is not configured to access Google Sheets. Please set GOOGLE_SA_EMAIL, GOOGLE_SA_KEY and SHEET_ID.'
+                                },
+                                { status: 500 }
+                        );
+                }
 
-		// Fetch both tabs in parallel
-		const [studentsResponse, connectionsResponse] = await Promise.all([
-			sheets.spreadsheets.values.get({
-				spreadsheetId: SHEET_ID,
+                // Authenticate
+                const auth = new google.auth.GoogleAuth({
+                        credentials: {
+                                client_email: clientEmail,
+                                private_key: privateKey.replace(/\\n/g, '\n')
+                        },
+                        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
+                });
+
+                const sheets = google.sheets({ version: 'v4', auth });
+
+                // Fetch both tabs in parallel
+                const [studentsResponse, connectionsResponse] = await Promise.all([
+                        sheets.spreadsheets.values.get({
+                                spreadsheetId: sheetId,
 				range: 'Students!A:D' // ID, FirstName, LastName, Gender
 			}),
-			sheets.spreadsheets.values.get({
-				spreadsheetId: SHEET_ID,
+                        sheets.spreadsheets.values.get({
+                                spreadsheetId: sheetId,
 				range: 'Connections!A:Z' // display name, id, friend ids...
 			})
 		]);
