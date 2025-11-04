@@ -12,8 +12,8 @@ Keeps focus on current priorities. Captures ideas for future work.
 
 _What am I actively working on right now?_
 
-- [ ] capture plans from claude project knowledge
 - [ ] set up command pattern
+- [ ] capture plans from claude project knowledge (11/3 -- claude was confused. restart.)
 - [ ] Statistics panel (happiness metrics, balance visualization)
 
 ---

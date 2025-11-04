@@ -1,19 +1,8 @@
 <script lang="ts">
 	import { draggable, droppable, type DragDropState } from '@thisux/sveltednd';
-
-	// Svelte 5 runes
-	type Student = {
-		id: string; // unique email address
-		name: string; // display name
-		friendIds: string[]; // raw friend ids (emails)
-	};
-
-	type Group = {
-		id: string; // internal uid
-		name: string; // editable label
-		capacity: number | null; // null = no hard cap
-		memberIds: string[]; // student ids
-	};
+	import type { Student, Group, Mode } from '$lib/types';
+	import { commandStore } from '$lib/stores/commands.svelte';
+	import { onMount } from 'svelte';
 
 	// ---------- STATE ----------
 	let rawPaste = $state('');
@@ -27,7 +16,6 @@
 	let unknownFriendIds = $state<Set<string>>(new Set());
 
 	// UI mode: groups by count or by target size
-	type Mode = 'COUNT' | 'SIZE';
 	let mode = $state<Mode>('COUNT');
 
 	// controls
@@ -35,7 +23,9 @@
 	let targetGroupSize = $state(10);
 
 	// groups
-	let groups = $state<Group[]>([]);
+	// Read groups from store (reactive)
+	// This creates a reactive reference - when store's groups change, UI updates
+	let groups = $derived(commandStore.groups);
 	const unassigned = $derived.by(() => {
 		const assignedIds = new Set(groups.flatMap((g) => g.memberIds));
 		return studentOrder.filter((id) => !assignedIds.has(id));
@@ -61,15 +51,22 @@
 	}
 
 	function clearAssignments() {
-		groups = groups.map((g) => ({ ...g, memberIds: [] }));
+		// Create new groups with empty member lists
+		const clearedGroups = commandStore.groups.map((g) => ({ ...g, memberIds: [] }));
+
+		// Reinitialize store with cleared groups
+		commandStore.initializeGroups(clearedGroups);
+
 		selectedStudentId = null;
 	}
 
 	function initGroups() {
 		const total = studentOrder.length;
+		let newGroups: Group[];
+
 		if (mode === 'COUNT') {
 			const n = Math.max(1, numberOfGroups | 0);
-			groups = Array.from({ length: n }, (_, i) => ({
+			newGroups = Array.from({ length: n }, (_, i) => ({
 				id: uid(),
 				name: `Group ${i + 1}`,
 				capacity: Math.ceil(total / n),
@@ -78,13 +75,16 @@
 		} else {
 			const size = Math.max(1, targetGroupSize | 0);
 			const n = Math.max(1, Math.ceil(total / size));
-			groups = Array.from({ length: n }, (_, i) => ({
+			newGroups = Array.from({ length: n }, (_, i) => ({
 				id: uid(),
 				name: `Group ${i + 1}`,
 				capacity: size,
 				memberIds: []
 			}));
 		}
+
+		// Initialize groups in store (this clears history too)
+		commandStore.initializeGroups(newGroups);
 	}
 
 	// ---------- TEST DATA ----------
@@ -378,33 +378,36 @@ Tina Taylor	020	002	013	`;
 
 	// ---------- ASSIGNMENT ----------
 	function clearAndRandomAssign() {
+		// Read current groups from store
+		const currentGroups = commandStore.groups;
+
 		// Start with empty groups
-		groups = groups.map((g) => ({ ...g, memberIds: [] }));
+		const emptyGroups = currentGroups.map((g) => ({ ...g, memberIds: [] }));
 
 		const shuffled = [...studentOrder].sort(() => Math.random() - 0.5);
 
 		// Build new memberIds arrays
 		const newMemberIds: Record<string, string[]> = {};
-		groups.forEach((g) => {
+		emptyGroups.forEach((g) => {
 			newMemberIds[g.id] = [];
 		});
 
 		let gi = 0;
 		for (const id of shuffled) {
 			let placed = false;
-			for (let k = 0; k < groups.length * 2; k++) {
-				const g = groups[gi % groups.length];
+			for (let k = 0; k < emptyGroups.length * 2; k++) {
+				const g = emptyGroups[gi % emptyGroups.length];
 				gi++;
 				if (g.capacity != null && newMemberIds[g.id].length >= g.capacity) continue;
 				newMemberIds[g.id].push(id);
 				placed = true;
 				break;
 			}
-			// If not placed, student will be in unassigned automatically
 		}
 
 		// Apply all updates at once
-		groups = groups.map((g) => ({ ...g, memberIds: newMemberIds[g.id] }));
+		const finalGroups = emptyGroups.map((g) => ({ ...g, memberIds: newMemberIds[g.id] }));
+		commandStore.initializeGroups(finalGroups);
 	}
 
 	// Build (undirected) adjacency from friendIds that exist
@@ -423,66 +426,101 @@ Tina Taylor	020	002	013	`;
 	}
 
 	function autoAssignBalanced() {
-		// Start with empty groups
-		groups = groups.map((g) => ({ ...g, memberIds: [] }));
+		// ============================================================================
+		// STEP 1: Get current groups from store and create working copy
+		// ============================================================================
+
+		// Read current groups from store (read-only reference)
+		const currentGroups = commandStore.groups;
+
+		// Start with empty groups - we'll build assignments from scratch
+		const emptyGroups = currentGroups.map((g) => ({ ...g, memberIds: [] }));
+
+		// ============================================================================
+		// STEP 2: Build friend adjacency graph
+		// ============================================================================
 
 		const adj = buildAdjacency();
 		const degree = (id: string) => adj.get(id)?.size ?? 0;
+
+		// Sort students by friend degree (most connected first)
+		// Students with more friends get assigned first (greedy approach)
 		const order = [...studentOrder].sort((a, b) => degree(b) - degree(a));
 
-		// Build new memberIds arrays
+		// ============================================================================
+		// STEP 3: Greedy placement - assign each student to best group
+		// ============================================================================
+
+		// Track member IDs separately during construction
 		const newMemberIds: Record<string, string[]> = {};
-		groups.forEach((g) => {
+		emptyGroups.forEach((g) => {
 			newMemberIds[g.id] = [];
 		});
 
+		// Helper: how many spots left in a group?
 		const remaining = (gid: string) => {
-			const g = groups.find((gr) => gr.id === gid);
+			const g = emptyGroups.find((gr) => gr.id === gid);
 			if (!g) return 0;
 			return g.capacity == null ? Infinity : g.capacity - newMemberIds[gid].length;
 		};
 
-		// Greedy placement
+		// Assign each student to the group where they have the most friends
 		for (const id of order) {
 			let bestG: string | null = null;
 			let bestScore = -1;
 
-			for (const g of groups) {
-				if (remaining(g.id) <= 0) continue;
+			// Check all groups, find the one with most of this student's friends
+			for (const g of emptyGroups) {
+				if (remaining(g.id) <= 0) continue; // Skip full groups
 
-				// Score = number of id's friends already in g
+				// Score = number of this student's friends already in this group
 				let sc = 0;
 				const set = new Set(newMemberIds[g.id]);
 				for (const fid of adj.get(id) ?? []) {
 					if (set.has(fid)) sc++;
 				}
+
 				if (sc > bestScore) {
 					bestScore = sc;
 					bestG = g.id;
 				}
 			}
 
+			// Assign student to best group (or leave unassigned if no capacity)
 			if (bestG) {
 				newMemberIds[bestG].push(id);
 			}
-			// If no bestG, student will be unassigned automatically
 		}
 
-		// Apply all updates at once (before local improvement)
-		groups = groups.map((g) => ({ ...g, memberIds: newMemberIds[g.id] }));
+		// ============================================================================
+		// STEP 4: Apply greedy results to create working groups array
+		// ============================================================================
 
-		// local improvement: try a bounded number of beneficial swaps
+		// Create groups array with assignments from greedy phase
+		// We'll mutate this during local improvement (it's a working copy)
+		let workingGroups = emptyGroups.map((g) => ({
+			...g,
+			memberIds: newMemberIds[g.id]
+		}));
+
+		// ============================================================================
+		// STEP 5: Local improvement via random swaps
+		// ============================================================================
+
+		// Try random swaps and keep beneficial ones
+		// This improves on greedy by finding local optimizations
 		const budget = 300;
 		for (let t = 0; t < budget; t++) {
-			// pick two random distinct students in different groups
+			// Pick two random students from different groups
 			const a = pickRandomPlaced();
 			const b = pickRandomPlaced();
 			if (!a || !b || a.id === b.id || a.group.id === b.group.id) continue;
 
+			// Calculate if swapping them increases overall happiness
 			const delta = swapDeltaHappiness(a.id, b.id, a.group, b.group);
-			// capacity is unchanged by swap, so no need to recheck
+
+			// Only perform swap if it improves things
 			if (delta > 0) {
-				// perform swap
 				const ai = a.group.memberIds.indexOf(a.id);
 				const bi = b.group.memberIds.indexOf(b.id);
 				a.group.memberIds[ai] = b.id;
@@ -490,46 +528,79 @@ Tina Taylor	020	002	013	`;
 			}
 		}
 
+		// ============================================================================
+		// STEP 6: Save final groups to store
+		// ============================================================================
+
+		// Initialize store with our final groups
+		// This clears command history (intentional - auto-assign is a fresh start)
+		commandStore.initializeGroups(workingGroups);
+
+		// ============================================================================
+		// HELPER FUNCTIONS (closures over workingGroups)
+		// ============================================================================
+
+		/**
+		 * Pick a random student who has been placed in a group.
+		 * Returns { id, group } or null if no students placed.
+		 */
 		function pickRandomPlaced() {
 			const placedPairs: { id: string; group: Group }[] = [];
-			for (const g of groups) for (const id of g.memberIds) placedPairs.push({ id, group: g });
+
+			// Build list of all (student, group) pairs
+			for (const g of workingGroups) {
+				for (const id of g.memberIds) {
+					placedPairs.push({ id, group: g });
+				}
+			}
+
 			if (!placedPairs.length) return null;
 			return placedPairs[(Math.random() * placedPairs.length) | 0];
 		}
 
+		/**
+		 * Calculate happiness change if we swap student A and B between their groups.
+		 * Uses simulation (swap, measure, unswap) to avoid side effects.
+		 */
 		function swapDeltaHappiness(aId: string, bId: string, gA: Group, gB: Group) {
+			// Measure happiness BEFORE swap
 			const before =
 				studentHappiness(aId) +
 				studentHappiness(bId) +
-				// neighbors in same groups affected by swap:
+				// Also count happiness change for their friends in same groups
 				neighborsDeltaContext(gA, aId) +
 				neighborsDeltaContext(gB, bId);
 
-			// simulate swap
+			// === SIMULATE SWAP (temporarily mutate) ===
 			const ai = gA.memberIds.indexOf(aId);
 			const bi = gB.memberIds.indexOf(bId);
 			gA.memberIds[ai] = bId;
 			gB.memberIds[bi] = aId;
 
+			// Measure happiness AFTER swap
 			const after =
 				studentHappiness(aId) +
 				studentHappiness(bId) +
 				neighborsDeltaContext(gA, bId) +
 				neighborsDeltaContext(gB, aId);
 
-			// revert simulation
+			// === REVERT SIMULATION (undo the temporary mutation) ===
 			gA.memberIds[ai] = aId;
 			gB.memberIds[bi] = bId;
 
+			// Return change in happiness (positive = swap is beneficial)
 			return after - before;
 		}
 
+		/**
+		 * Calculate happiness contribution from students who listed movedId as friend.
+		 * Used to account for "neighbor effects" when evaluating swaps.
+		 */
 		function neighborsDeltaContext(g: Group, movedId: string) {
-			// Only students who listed movedId as friend may change happiness.
-			// Quick approximation: recompute happiness for friends of movedId that are in g.
 			let sum = 0;
 			for (const otherId of g.memberIds) {
 				const other = studentsById[otherId];
+				// If this student considers movedId a friend, their happiness matters
 				if (other.friendIds?.includes(movedId)) {
 					sum += studentHappiness(otherId);
 				}
@@ -537,7 +608,6 @@ Tina Taylor	020	002	013	`;
 			return sum;
 		}
 	}
-
 	// ---------- EXPORT ----------
 	function copyTSV() {
 		const rows: string[] = [];
@@ -557,6 +627,30 @@ Tina Taylor	020	002	013	`;
 		const tsv = rows.join('\n');
 		navigator.clipboard.writeText(tsv).catch(() => {});
 	}
+
+	// Keyboard shortcuts for undo/redo
+	onMount(() => {
+		function handleKeyboard(e: KeyboardEvent) {
+			// Ctrl+Z (or Cmd+Z on Mac) = Undo
+			if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+				e.preventDefault(); // Don't trigger browser undo
+				commandStore.undo();
+			}
+
+			// Ctrl+Y (or Cmd+Shift+Z on Mac) = Redo
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+				e.preventDefault(); // Don't trigger browser redo
+				commandStore.redo();
+			}
+		}
+
+		window.addEventListener('keydown', handleKeyboard);
+
+		// Cleanup: remove listener when component is destroyed
+		return () => {
+			window.removeEventListener('keydown', handleKeyboard);
+		};
+	});
 
 	// ---------- DERIVED ----------
 	const totalStudents = $derived(studentOrder.length);
@@ -698,6 +792,70 @@ Tina Taylor	020	002	013	`;
 				>
 					Copy TSV for Sheets
 				</button>
+
+				<!-- Undo/Redo Controls -->
+				<div class="flex flex-wrap items-center gap-2 border-t pt-3">
+					<button
+						class="rounded-md border bg-white px-3 py-2 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+						on:click={() => commandStore.undo()}
+						disabled={!commandStore.canUndo}
+						title="Undo last action (Ctrl+Z)"
+					>
+						⬅️ Undo
+					</button>
+
+					<button
+						class="rounded-md border bg-white px-3 py-2 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+						on:click={() => commandStore.redo()}
+						disabled={!commandStore.canRedo}
+						title="Redo last undone action (Ctrl+Y)"
+					>
+						➡️ Redo
+					</button>
+
+					<div class="text-sm text-gray-600">
+						<span class="font-medium">History:</span>
+						{commandStore.getHistoryState().length} commands
+						{#if commandStore.getHistoryState().index >= 0}
+							(at position {commandStore.getHistoryState().index + 1})
+						{:else}
+							(empty)
+						{/if}
+					</div>
+				</div>
+				<!-- Debug Panel (remove in production) -->
+				<div class="mt-4 rounded border border-gray-300 bg-gray-50 p-3">
+					<h3 class="mb-2 text-sm font-semibold text-gray-700">Debug Info</h3>
+					<div class="space-y-1 font-mono text-xs">
+						<div>
+							<span class="text-gray-600">Store groups:</span>
+							{commandStore.groups.length} groups
+						</div>
+						<div>
+							<span class="text-gray-600">History:</span>
+							{commandStore.getHistoryState().length} commands, index: {commandStore.getHistoryState()
+								.index}
+						</div>
+						<div>
+							<span class="text-gray-600">Can undo:</span>
+							{commandStore.canUndo ? '✅' : '❌'}
+						</div>
+						<div>
+							<span class="text-gray-600">Can redo:</span>
+							{commandStore.canRedo ? '✅' : '❌'}
+						</div>
+
+						<!-- Show groups detail -->
+						<details class="mt-2">
+							<summary class="cursor-pointer text-gray-600 hover:text-gray-900">
+								Groups detail
+							</summary>
+							<pre class="mt-1 max-h-40 overflow-auto text-xs">
+{JSON.stringify(commandStore.groups, null, 2)}
+      </pre>
+						</details>
+					</div>
+				</div>
 			</div>
 		</div>
 	</section>
