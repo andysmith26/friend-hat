@@ -1,4 +1,10 @@
 <script lang="ts">
+	import { setAppDataContext } from '$lib/contexts/appData';
+	import StudentCard from '$lib/components/StudentCard.svelte';
+	import GroupColumn from '$lib/components/GroupColumn.svelte';
+	import UnassignedList from '$lib/components/UnassignedList.svelte';
+	import Inspector from '$lib/components/Inspector/Inspector.svelte';
+	import { getDisplayName } from '$lib/utils/friends';
 	import { draggable, droppable, type DragDropState } from '@thisux/sveltednd';
 	import type { Student, Group, Mode } from '$lib/types';
 	import { commandStore } from '$lib/stores/commands.svelte';
@@ -39,6 +45,14 @@
 
 	// Add after other state declarations (around line 40)
 	let currentlyDragging = $state<string | null>(null); // student ID being dragged
+
+	// Set up context - must be at top level, not in $effect
+	// studentsById is $state, so child components see reactive updates
+	setAppDataContext({ studentsById });
+	console.log(
+		'🟣 Context set in +page.svelte with studentsById count:',
+		Object.keys(studentsById).length
+	);
 
 	// ---------- HELPERS ----------
 	const uid = () => Math.random().toString(36).slice(2, 9);
@@ -89,35 +103,69 @@
 
 	// ---------- TEST DATA ----------
 	function loadTestData() {
-		const testTSV = `display name	id	friend 1 id	friend 2 id	friend 3 id
-Alice Anderson	001	002	003	009
-Bob Brown	002	001	013	020
-Carol Chen	003	001	005	011
-David Davis	004	006	016	019
-Eve Evans	005	003	011	018
-Frank Foster	006	004	012	017
-Grace Garcia	007	014	018	
-Henry Harris	008	010	015	019
-Iris Ivanov	009	001	013	
-Jack Jackson	010	008	015	
-Kate Kim	011	003	005	016
-Leo Lopez	012	006	017	
-Maya Miller	013	002	009	020
-Nina Nguyen	014	007	018	
-Oscar Ortiz	015	008	010	
-Paul Park	016	004	011	
-Quinn Quinn	017	006	012	
-Rose Roberts	018	005	007	014
-Sam Smith	019	004	008	
-Tina Taylor	020	002	013	`;
+		console.log('🧪 loadTestData called');
 
-		rawPaste = testTSV;
-		parsePasted(testTSV);
+		// Test data with non-numeric IDs (avoids leading-zero parsing issues)
+		const testStudents = [
+			{ id: 'and-al-1', firstName: 'Alice', lastName: 'Anderson', gender: 'F' },
+			{ id: 'bro-bo-1', firstName: 'Bob', lastName: 'Brown', gender: 'M' },
+			{ id: 'che-ca-1', firstName: 'Carol', lastName: 'Chen', gender: 'F' },
+			{ id: 'dav-da-1', firstName: 'David', lastName: 'Davis', gender: 'M' },
+			{ id: 'eva-ev-1', firstName: 'Eve', lastName: 'Evans', gender: 'F' },
+			{ id: 'fos-fr-1', firstName: 'Frank', lastName: 'Foster', gender: 'M' },
+			{ id: 'gar-gr-1', firstName: 'Grace', lastName: 'Garcia', gender: 'F' },
+			{ id: 'har-he-1', firstName: 'Henry', lastName: 'Harris', gender: 'M' },
+			{ id: 'iva-ir-1', firstName: 'Iris', lastName: 'Ivanov', gender: 'F' },
+			{ id: 'jac-ja-1', firstName: 'Jack', lastName: 'Jackson', gender: 'M' },
+			{ id: 'kim-ka-1', firstName: 'Kate', lastName: 'Kim', gender: 'F' },
+			{ id: 'lop-le-1', firstName: 'Leo', lastName: 'Lopez', gender: 'M' },
+			{ id: 'mil-ma-1', firstName: 'Maya', lastName: 'Miller', gender: 'F' },
+			{ id: 'ngu-ni-1', firstName: 'Nina', lastName: 'Nguyen', gender: 'F' },
+			{ id: 'ort-os-1', firstName: 'Oscar', lastName: 'Ortiz', gender: 'M' },
+			{ id: 'par-pa-1', firstName: 'Paul', lastName: 'Park', gender: 'M' },
+			{ id: 'qui-qu-1', firstName: 'Quinn', lastName: 'Quinn', gender: 'X' },
+			{ id: 'rob-ro-1', firstName: 'Rose', lastName: 'Roberts', gender: 'F' },
+			{ id: 'smi-sa-1', firstName: 'Sam', lastName: 'Smith', gender: 'M' },
+			{ id: 'tay-ti-1', firstName: 'Tina', lastName: 'Taylor', gender: 'F' }
+		];
+
+		const testConnections: Record<string, string[]> = {
+			'and-al-1': ['bro-bo-1', 'che-ca-1', 'iva-ir-1'],
+			'bro-bo-1': ['and-al-1', 'mil-ma-1', 'tay-ti-1'],
+			'che-ca-1': ['and-al-1', 'eva-ev-1', 'kim-ka-1'],
+			'dav-da-1': ['fos-fr-1', 'par-pa-1', 'smi-sa-1'],
+			'eva-ev-1': ['che-ca-1', 'kim-ka-1', 'rob-ro-1'],
+			'fos-fr-1': ['dav-da-1', 'lop-le-1', 'qui-qu-1'],
+			'gar-gr-1': ['ngu-ni-1', 'rob-ro-1'],
+			'har-he-1': ['jac-ja-1', 'ort-os-1', 'smi-sa-1'],
+			'iva-ir-1': ['and-al-1', 'mil-ma-1'],
+			'jac-ja-1': ['har-he-1', 'ort-os-1'],
+			'kim-ka-1': ['che-ca-1', 'eva-ev-1', 'par-pa-1'],
+			'lop-le-1': ['fos-fr-1', 'qui-qu-1'],
+			'mil-ma-1': ['bro-bo-1', 'iva-ir-1', 'tay-ti-1'],
+			'ngu-ni-1': ['gar-gr-1', 'rob-ro-1'],
+			'ort-os-1': ['har-he-1', 'jac-ja-1'],
+			'par-pa-1': ['dav-da-1', 'kim-ka-1'],
+			'qui-qu-1': ['fos-fr-1', 'lop-le-1'],
+			'rob-ro-1': ['eva-ev-1', 'gar-gr-1', 'ngu-ni-1'],
+			'smi-sa-1': ['dav-da-1', 'har-he-1'],
+			'tay-ti-1': ['bro-bo-1', 'mil-ma-1']
+		};
+
+		// Use the same parsing path as Google Sheets data
+		parseFromSheets(testStudents, testConnections);
 
 		// Auto-create groups
 		numberOfGroups = 5;
 		mode = 'COUNT';
 		initGroups();
+
+		console.log('🎯 loadTestData complete:', {
+			studentsById: Object.keys(studentsById).length,
+			studentOrder: studentOrder.length,
+			groups: groups.length,
+			unassigned: unassigned.length
+		});
 	}
 	// ---------- LOAD FROM SHEETS API ----------
 
@@ -222,7 +270,17 @@ Tina Taylor	020	002	013	`;
 				.map((idx) => (cells[idx] ?? '').trim().toLowerCase())
 				.filter((fid) => fid.length > 0);
 
-			map[id] = { id, name, friendIds };
+			const nameParts = name.trim().split(' ');
+			const firstName = nameParts[0] || '';
+			const lastName = nameParts.slice(1).join(' ') || '';
+
+			map[id] = {
+				id,
+				firstName,
+				lastName,
+				gender: '', // TSV doesn't have gender, leave blank
+				friendIds
+			};
 			order.push(id);
 			// unknown-ness checked after full map is known
 		}
@@ -234,7 +292,12 @@ Tina Taylor	020	002	013	`;
 			}
 		}
 
-		studentsById = map;
+		// Clear existing entries
+		Object.keys(studentsById).forEach((key) => delete studentsById[key]);
+
+		// Add new entries (mutate, don't replace)
+		Object.assign(studentsById, map);
+
 		studentOrder = order;
 		unknownFriendIds = unknownSet;
 
@@ -257,6 +320,11 @@ Tina Taylor	020	002	013	`;
 		students: Array<{ id: string; firstName: string; lastName: string; gender: string }>,
 		connections: Record<string, string[]>
 	) {
+		console.log('🔍 parseFromSheets called with:', {
+			studentCount: students.length,
+			connectionsCount: Object.keys(connections).length
+		});
+
 		resetAll();
 
 		const map: Record<string, Student> = {};
@@ -266,7 +334,6 @@ Tina Taylor	020	002	013	`;
 			if (!student.id) continue;
 
 			const id = student.id.toLowerCase();
-			const displayName = `${student.firstName} ${student.lastName}`.trim();
 
 			if (map[id]) {
 				parseError = `Duplicate student ID: ${student.id}`;
@@ -278,7 +345,9 @@ Tina Taylor	020	002	013	`;
 
 			map[id] = {
 				id,
-				name: displayName,
+				firstName: student.firstName,
+				lastName: student.lastName,
+				gender: student.gender,
 				friendIds: friendIds.map((fid) => fid.toLowerCase())
 			};
 
@@ -300,21 +369,48 @@ Tina Taylor	020	002	013	`;
 		}
 
 		// Update state
-		studentsById = map;
+		// Clear existing entries
+		Object.keys(studentsById).forEach((key) => delete studentsById[key]);
+		// Add new entries (mutate, don't replace)
+		Object.assign(studentsById, map);
+
 		studentOrder = order;
 		unknownFriendIds = unknownSet;
 		parseError = '';
 
 		console.log(`Parsed ${order.length} students with friend connections`);
+
+		console.log('✅ parseFromSheets complete:', {
+			studentsById: Object.keys(studentsById).length,
+			studentOrder: studentOrder.length,
+			parseError
+		});
 	}
 
 	// ---------- DnD with @thisux/sveltednd ----------
+
+	function handleDragStart(state: DragDropState<{ id: string }>) {
+		const studentId = state.draggedItem.id;
+		currentlyDragging = studentId;
+		selectedStudentId = studentId; // Auto-select on drag
+	}
+
 	function handleDrop(state: DragDropState<{ id: string }>) {
+		console.log('🎯 handleDrop called with state:', state);
+		console.log('  draggedItem:', state.draggedItem);
+		console.log('  sourceContainer:', state.sourceContainer);
+		console.log('  targetContainer:', state.targetContainer);
+
 		const { draggedItem, sourceContainer, targetContainer } = state;
 		const studentId = draggedItem.id;
 
+		// NEW: Don't clear selection on drop (Option 2: persist)
+		// Selection was set in handleDragStart, keep it after drop
+		// so teacher can review placement decision in Inspector
+
 		if (!targetContainer || sourceContainer === targetContainer) {
 			currentlyDragging = null;
+			// selectedStudentId stays as-is (don't clear)
 			return;
 		}
 
@@ -616,12 +712,12 @@ Tina Taylor	020	002	013	`;
 		for (const g of groups) {
 			for (const id of g.memberIds) {
 				const s = studentsById[id];
-				rows.push([g.name, s?.name ?? '', s?.id ?? ''].join('\t'));
+				rows.push([g.name, s ? getDisplayName(s) : '', s?.id ?? ''].join('\t'));
 			}
 		}
 		for (const id of unassigned) {
 			const s = studentsById[id];
-			rows.push(['Unassigned', s?.name ?? '', s?.id ?? ''].join('\t'));
+			rows.push(['Unassigned', s ? getDisplayName(s) : '', s?.id ?? ''].join('\t'));
 		}
 
 		const tsv = rows.join('\n');
@@ -880,7 +976,7 @@ Tina Taylor	020	002	013	`;
 			</div>
 
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-				<!-- Unassigned -->
+				<!-- Unassigned (your original code) -->
 				<div class="flex flex-col rounded-lg border p-3">
 					<div class="mb-2 flex items-center justify-between">
 						<div class="font-semibold">Unassigned</div>
@@ -899,15 +995,16 @@ Tina Taylor	020	002	013	`;
 							{@const s = studentsById[sid]}
 							<li
 								class="flex cursor-move items-center justify-between gap-2 rounded border
-		bg-white px-2 py-1 hover:bg-gray-50
-		{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}
-		{sid === currentlyDragging ? 'opacity-30' : ''}"
+          bg-white px-2 py-1 hover:bg-gray-50
+          {isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}
+          {sid === currentlyDragging ? 'opacity-30' : ''}"
 								use:draggable={{
 									container: 'unassigned',
 									dragData: { id: sid },
 									callbacks: {
 										onDragStart: () => {
 											currentlyDragging = sid;
+											selectedStudentId = sid; // ADD THIS LINE
 										},
 										onDragEnd: () => {
 											currentlyDragging = null;
@@ -916,14 +1013,14 @@ Tina Taylor	020	002	013	`;
 								}}
 								on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
 							>
-								<span class="truncate">{s.name || s.id}</span>
+								<span class="truncate">{getDisplayName(s)}</span>
 								<span class="text-xs text-gray-500">{s.id}</span>
 							</li>
 						{/each}
 					</ul>
 				</div>
 
-				<!-- Groups -->
+				<!-- Groups (your original code) -->
 				{#each groups as g (g.id)}
 					<div class="flex flex-col rounded-lg border p-3">
 						<div class="mb-2 flex items-center justify-between gap-2">
@@ -956,15 +1053,16 @@ Tina Taylor	020	002	013	`;
 								{@const s = studentsById[sid]}
 								<li
 									class="flex cursor-move items-center justify-between gap-2 rounded border
-		bg-white px-2 py-1 hover:bg-gray-50
-		{isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}
-		{sid === currentlyDragging ? 'opacity-30' : ''}"
+            bg-white px-2 py-1 hover:bg-gray-50
+            {isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}
+            {sid === currentlyDragging ? 'opacity-30' : ''}"
 									use:draggable={{
 										container: g.id,
 										dragData: { id: sid },
 										callbacks: {
 											onDragStart: () => {
 												currentlyDragging = sid;
+												selectedStudentId = sid; // ADD THIS LINE
 											},
 											onDragEnd: () => {
 												currentlyDragging = null;
@@ -973,7 +1071,7 @@ Tina Taylor	020	002	013	`;
 									}}
 									on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
 								>
-									<span class="truncate">{s.name || s.id}</span>
+									<span class="truncate">{getDisplayName(s)}</span>
 									<span class="text-xs text-gray-500">{s.id}</span>
 								</li>
 							{/each}
@@ -983,4 +1081,5 @@ Tina Taylor	020	002	013	`;
 			</div>
 		</section>
 	{/if}
+	<Inspector {selectedStudentId} />
 </div>

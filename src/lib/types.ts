@@ -9,9 +9,11 @@
  * A student in the class.
  */
 export type Student = {
-  id: string;        // Unique identifier (email address)
-  name: string;      // Display name for UI
-  friendIds: string[]; // IDs of students they want to work with
+  id: string;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  friendIds: string[];
 };
 
 /**

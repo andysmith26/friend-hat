@@ -12,8 +12,8 @@ Keeps focus on current priorities. Captures ideas for future work.
 
 _What am I actively working on right now?_
 
-- [ ] set up command pattern
-- [ ] capture plans from claude project knowledge (11/3 -- claude was confused. restart.)
+- [x] set up command pattern
+- [ ] user can see all info for a student
 - [ ] Statistics panel (happiness metrics, balance visualization)
 
 ---
@@ -23,6 +23,7 @@ _What am I actively working on right now?_
 _What's queued up after current work completes?_
 
 - full testing
+- [ ] capture plans from claude project knowledge (11/3 -- claude was confused. restart.) do we even need something beefier than roadmap? maybe not. --- **need a place for user stories/epics. rd.**
 - document existing algorithms
 - plan new algorithms
 - Group preferences mode (toggle between friends/preferences)
