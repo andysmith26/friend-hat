@@ -1,26 +1,6 @@
 <script lang="ts">
-	/**
-	 * Inspector: Right-side panel for displaying selected student details.
-	 *
-	 * Phase 1 scope:
-	 * - Show/hide based on selectedStudentId prop
-	 * - Collapse/expand toggle (state managed internally)
-	 * - Only renders Overview tab (tabs deferred to phase 2)
-	 *
-	 * Future expansion:
-	 * - Multiple tabs (Preferences, History, Notes, Flags)
-	 * - Pin toggle (prevents auto-switch during multi-select)
-	 * - Keyboard shortcut (I key) for collapse toggle
-	 */
-
+	import { tick } from 'svelte';
 	import InspectorOverview from './InspectorOverview.svelte';
-
-	console.log('🟣 Inspector component mounted');
-
-	$effect(() => {
-		console.log('🟣 Inspector selectedStudentId changed to:', selectedStudentId);
-		console.log('🟣 Inspector isVisible:', isVisible);
-	});
 
 	interface Props {
 		selectedStudentId: string | null;
@@ -28,75 +8,106 @@
 
 	let { selectedStudentId }: Props = $props();
 
-	// Collapse state is internal—parent doesn't need to know about it
-	let isCollapsed = $state(false);
+	const contentId = 'inspector-panel-content';
 
-	function toggleCollapse() {
-		isCollapsed = !isCollapsed;
+	let isOpen = $state(selectedStudentId !== null);
+	let previousSelectedId: string | null = null;
+
+	let hideButton: HTMLButtonElement | null = null;
+	let reopenButton: HTMLButtonElement | null = null;
+	let titleEl: HTMLHeadingElement | null = null;
+
+	const hasSelection = $derived(Boolean(selectedStudentId));
+
+	async function hideInspector() {
+		if (!isOpen) return;
+		isOpen = false;
+		await tick();
+		reopenButton?.focus();
 	}
 
-	// Derive whether to show the panel at all
-	const isVisible = $derived(selectedStudentId !== null);
+	async function showInspector() {
+		if (isOpen) return;
+		isOpen = true;
+		await tick();
+		(titleEl ?? hideButton)?.focus();
+	}
+
+	$effect(() => {
+		if (selectedStudentId && selectedStudentId !== previousSelectedId) {
+			isOpen = true;
+		}
+
+		previousSelectedId = selectedStudentId;
+	});
 </script>
 
-{#if isVisible}
-	<aside class="inspector" class:collapsed={isCollapsed} aria-label="Student inspector panel">
+<aside
+	class="inspector"
+	data-open={isOpen}
+	aria-label="Student inspector panel"
+	aria-hidden={!isOpen}
+>
+	{#if isOpen}
 		<div class="inspector-header">
-			<h2 class="inspector-title">Student Info</h2>
+			<h2 class="inspector-title" id="inspector-title" tabindex="-1" bind:this={titleEl}>
+				Student Info
+			</h2>
+
 			<div class="inspector-actions">
 				<button
 					type="button"
-					class="btn-icon"
-					onclick={toggleCollapse}
-					aria-label={isCollapsed ? 'Expand panel' : 'Collapse panel'}
-					title={isCollapsed ? 'Expand' : 'Collapse'}
+					class="inspector-toggle"
+					aria-controls={contentId}
+					aria-expanded={isOpen}
+					on:click={hideInspector}
+					title="Hide inspector"
+					bind:this={hideButton}
 				>
-					{#if isCollapsed}
-						<!-- Icon: chevron-left (expand) -->
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<polyline points="15 18 9 12 15 6"></polyline>
-						</svg>
-					{:else}
-						<!-- Icon: chevron-right (collapse) -->
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<polyline points="9 18 15 12 9 6"></polyline>
-						</svg>
-					{/if}
+					<span aria-hidden="true">✕</span>
+					<span class="sr-only">Hide inspector</span>
 				</button>
 			</div>
 		</div>
 
-		{#if !isCollapsed}
-			<div class="inspector-content">
-				{#if selectedStudentId}
-					<InspectorOverview studentId={selectedStudentId} />
-				{:else}
-					<!-- Shouldn't reach here (isVisible guards it) but defensive -->
-					<div class="empty-state">No student selected</div>
-				{/if}
-			</div>
-		{/if}
-	</aside>
+		<div class="inspector-content" id={contentId} role="region" aria-labelledby="inspector-title">
+			{#if hasSelection && selectedStudentId}
+				<InspectorOverview studentId={selectedStudentId} />
+			{:else}
+				<div class="empty-state" role="status">
+					<p class="empty-primary">No student selected</p>
+					<p class="empty-secondary">Select a student from the roster to see their details.</p>
+				</div>
+			{/if}
+		</div>
+	{/if}
+</aside>
+
+{#if !isOpen}
+	<button
+		type="button"
+		class="inspector-handle"
+		on:click={showInspector}
+		aria-label="Show inspector"
+		bind:this={reopenButton}
+	>
+		<svg
+			aria-hidden="true"
+			xmlns="http://www.w3.org/2000/svg"
+			width="18"
+			height="18"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		>
+			<polyline points="15 18 9 12 15 6"></polyline>
+			<line x1="9" y1="12" x2="21" y2="12"></line>
+		</svg>
+		<span class="handle-text">Show inspector</span>
+	</button>
 {/if}
 
 <style>
@@ -112,15 +123,15 @@
 		display: flex;
 		flex-direction: column;
 		z-index: 40;
-		transition: transform 0.2s ease;
+		transition:
+			transform 0.25s ease,
+			box-shadow 0.25s ease;
 	}
 
-	.inspector.collapsed {
-		transform: translateX(calc(100% - 48px));
-	}
-
-	.inspector.collapsed .inspector-header {
-		border-bottom: none;
+	.inspector[data-open='false'] {
+		transform: translateX(100%);
+		box-shadow: none;
+		pointer-events: none;
 	}
 
 	.inspector-header {
@@ -144,22 +155,29 @@
 		gap: 8px;
 	}
 
-	.btn-icon {
-		background: transparent;
-		border: none;
-		padding: 4px;
-		cursor: pointer;
-		color: #6b7280;
-		border-radius: 4px;
-		display: flex;
+	.inspector-toggle {
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		transition: all 0.15s ease;
+		gap: 6px;
+		background: transparent;
+		border: 1px solid transparent;
+		color: #6b7280;
+		border-radius: 6px;
+		padding: 6px;
+		cursor: pointer;
+		transition:
+			background 0.15s ease,
+			color 0.15s ease,
+			border-color 0.15s ease;
 	}
 
-	.btn-icon:hover {
+	.inspector-toggle:hover,
+	.inspector-toggle:focus-visible {
 		background: #e5e7eb;
 		color: #111827;
+		border-color: #d1d5db;
+		outline: none;
 	}
 
 	.inspector-content {
@@ -170,11 +188,66 @@
 
 	.empty-state {
 		display: flex;
-		align-items: center;
+		flex-direction: column;
+		align-items: flex-start;
 		justify-content: center;
-		height: 200px;
-		color: #9ca3af;
+		gap: 4px;
+		height: 100%;
+		color: #374151;
+	}
+
+	.empty-primary {
+		margin: 0;
+		font-size: 16px;
+		font-weight: 600;
+	}
+
+	.empty-secondary {
+		margin: 0;
 		font-size: 14px;
-		font-style: italic;
+		color: #6b7280;
+	}
+
+	.inspector-handle {
+		position: fixed;
+		top: 50%;
+		right: 0;
+		transform: translateY(-50%);
+		background: #111827;
+		color: white;
+		border: none;
+		border-top-left-radius: 999px;
+		border-bottom-left-radius: 999px;
+		padding: 12px 16px;
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		cursor: pointer;
+		box-shadow: -4px 0 6px -1px rgba(0, 0, 0, 0.2);
+		z-index: 45;
+		font-size: 14px;
+		font-weight: 600;
+	}
+
+	.inspector-handle:hover,
+	.inspector-handle:focus-visible {
+		background: #1f2937;
+		outline: none;
+	}
+
+	.handle-text {
+		white-space: nowrap;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 </style>
