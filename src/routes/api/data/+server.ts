@@ -4,40 +4,41 @@ import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
-        try {
-                const clientEmail = env.GOOGLE_SA_EMAIL;
-                const privateKey = env.GOOGLE_SA_KEY;
-                const sheetId = env.SHEET_ID;
+	try {
+		const clientEmail = env.GOOGLE_SA_EMAIL;
+		const privateKey = env.GOOGLE_SA_KEY;
+		const sheetId = env.SHEET_ID;
 
-                if (!clientEmail || !privateKey || !sheetId) {
-                        console.error('Missing Google Sheets configuration env vars');
-                        return json(
-                                {
-                                        error: 'Server is not configured to access Google Sheets. Please set GOOGLE_SA_EMAIL, GOOGLE_SA_KEY and SHEET_ID.'
-                                },
-                                { status: 500 }
-                        );
-                }
+		if (!clientEmail || !privateKey || !sheetId) {
+			console.error('Missing Google Sheets configuration env vars');
+			return json(
+				{
+					error:
+						'Server is not configured to access Google Sheets. Please set GOOGLE_SA_EMAIL, GOOGLE_SA_KEY and SHEET_ID.'
+				},
+				{ status: 500 }
+			);
+		}
 
-                // Authenticate
-                const auth = new google.auth.GoogleAuth({
-                        credentials: {
-                                client_email: clientEmail,
-                                private_key: privateKey.replace(/\\n/g, '\n')
-                        },
-                        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
-                });
+		// Authenticate
+		const auth = new google.auth.GoogleAuth({
+			credentials: {
+				client_email: clientEmail,
+				private_key: privateKey.replace(/\\n/g, '\n')
+			},
+			scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
+		});
 
-                const sheets = google.sheets({ version: 'v4', auth });
+		const sheets = google.sheets({ version: 'v4', auth });
 
-                // Fetch both tabs in parallel
-                const [studentsResponse, connectionsResponse] = await Promise.all([
-                        sheets.spreadsheets.values.get({
-                                spreadsheetId: sheetId,
+		// Fetch both tabs in parallel
+		const [studentsResponse, connectionsResponse] = await Promise.all([
+			sheets.spreadsheets.values.get({
+				spreadsheetId: sheetId,
 				range: 'Students!A:D' // ID, FirstName, LastName, Gender
 			}),
-                        sheets.spreadsheets.values.get({
-                                spreadsheetId: sheetId,
+			sheets.spreadsheets.values.get({
+				spreadsheetId: sheetId,
 				range: 'Connections!A:Z' // display name, id, friend ids...
 			})
 		]);
@@ -50,7 +51,7 @@ export const GET: RequestHandler = async () => {
 		}
 
 		// Parse Students tab (skip header row)
-		const students = studentsRows.slice(1).map(row => ({
+		const students = studentsRows.slice(1).map((row) => ({
 			id: row[0]?.trim() || '',
 			firstName: row[1]?.trim() || '',
 			lastName: row[2]?.trim() || '',
@@ -60,14 +61,14 @@ export const GET: RequestHandler = async () => {
 		// Parse Connections tab
 		// Expected format: id, friendids comma separated
 		const connections: Record<string, string[]> = {};
-		
+
 		if (connectionsRows && connectionsRows.length > 1) {
 			for (let i = 1; i < connectionsRows.length; i++) {
 				const row = connectionsRows[i];
 				const studentId = row[0]?.trim(); // Column B is id
-				
+
 				if (!studentId) continue;
-				
+
 				const friendIds: string[] = [];
 				for (let j = 1; j < row.length; j++) {
 					const friendId = row[j]?.trim();
@@ -75,7 +76,7 @@ export const GET: RequestHandler = async () => {
 						friendIds.push(friendId);
 					}
 				}
-				
+
 				connections[studentId] = friendIds;
 			}
 		}
@@ -87,7 +88,6 @@ export const GET: RequestHandler = async () => {
 			studentCount: students.length,
 			timestamp: new Date().toISOString()
 		});
-
 	} catch (error) {
 		console.error('Google Sheets API Error:', error);
 		return json(

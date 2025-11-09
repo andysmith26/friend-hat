@@ -8,7 +8,7 @@
 	 * - Header says "Unassigned" not a group name
 	 */
 
-	import { droppable, type DragDropState } from '@thisux/sveltednd';
+	import { droppable, type DropState } from '$lib/utils/pragmatic-dnd';
 	import { getAppDataContext } from '$lib/contexts/appData';
 	import StudentCard from './StudentCard.svelte';
 
@@ -30,7 +30,7 @@
 		studentIds: string[];
 		selectedStudentId: string | null;
 		currentlyDragging: string | null;
-		onDrop: (state: DragDropState) => void;
+		onDrop: (state: DropState) => void;
 	}
 
 	let { studentIds, selectedStudentId, currentlyDragging, onDrop }: Props = $props();
@@ -42,7 +42,10 @@
 		<span class="count">{studentIds.length}</span>
 	</div>
 
-	<div class="unassigned-members" use:droppable={{ id: 'unassigned', onDrop }}>
+	<div
+		class="unassigned-members"
+		use:droppable={{ container: 'unassigned', callbacks: { onDrop } }}
+	>
 		{#each studentIds as studentId (studentId)}
 			{@const student = studentsById[studentId]}
 			{#if student}

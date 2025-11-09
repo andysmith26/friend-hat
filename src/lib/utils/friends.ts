@@ -1,6 +1,6 @@
 /**
  * Pure utility functions for working with student friendship data.
- * 
+ *
  * These are extracted from components for three reasons:
  * 1. Unit testable without mounting components
  * 2. Reusable across multiple components (Inspector, future "Move to..." menu, etc.)
@@ -19,11 +19,11 @@ export function getDisplayName(student: Student): string {
 
 /**
  * Convert an array of friend IDs into displayable name objects.
- * 
+ *
  * Defensive: If a friendId doesn't exist in studentsById (shouldn't happen
  * after validation, but could if data is corrupted), we return a fallback
  * instead of throwing. This keeps the UI functional even with bad data.
- * 
+ *
  * The console.warn helps debug data integrity issues without crashing.
  */
 export function resolveFriendNames(
@@ -32,12 +32,12 @@ export function resolveFriendNames(
 ): Array<{ id: string; name: string }> {
 	return friendIds.map((id) => {
 		const student = studentsById[id];
-		
+
 		if (!student) {
 			console.warn(`Friend ID "${id}" not found in studentsById. Data may be corrupted.`);
 			return { id, name: `Unknown (${id})` };
 		}
-		
+
 		return {
 			id,
 			name: getDisplayName(student)
@@ -48,7 +48,7 @@ export function resolveFriendNames(
 /**
  * For each friend ID, determine which group they're in (or if unassigned).
  * Returns an array of location info for rendering badges like "Group 2" or "Unassigned".
- * 
+ *
  * This is O(n * m) where n = friendIds.length and m = average group size.
  * For 30 students and 5 groups, that's ~150 checks worst case.
  * Acceptable for this use case. If performance becomes an issue, you could
@@ -69,7 +69,7 @@ export function getFriendLocations(
 				};
 			}
 		}
-		
+
 		// Not found in any group = unassigned
 		return {
 			friendId,

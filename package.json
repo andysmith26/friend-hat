@@ -49,7 +49,7 @@
 		]
 	},
 	"dependencies": {
-		"@thisux/sveltednd": "^0.0.20",
+		"@atlaskit/pragmatic-drag-and-drop": "^1.7.7",
 		"googleapis": "^164.1.0"
 	}
 }
