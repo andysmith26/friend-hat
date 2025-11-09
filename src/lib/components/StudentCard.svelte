@@ -7,16 +7,26 @@
 	 * This makes it easy to test, reuse, and reason about.
 	 */
 
-	import { draggable } from '@thisux/sveltednd';
+	import { draggable } from '$lib/utils/pragmatic-dnd';
 	import type { Student } from '$lib/types';
 
 	interface Props {
 		student: Student;
 		isSelected: boolean;
 		isDragging: boolean;
+		container?: string;
+		onDragStart?: () => void;
+		onDragEnd?: () => void;
 	}
 
-	let { student, isSelected = false, isDragging = false }: Props = $props();
+	let {
+		student,
+		isSelected = false,
+		isDragging = false,
+		container,
+		onDragStart,
+		onDragEnd
+	}: Props = $props();
 
 	// Derive display values
 	const displayName = $derived(`${student.firstName} ${student.lastName}`.trim());
@@ -38,7 +48,14 @@
 	class="student-card"
 	class:selected={isSelected}
 	class:dragging={isDragging}
-	use:draggable={{ id: student.id, data: { id: student.id } }}
+	use:draggable={{
+		dragData: { id: student.id },
+		container,
+		callbacks: {
+			onDragStart,
+			onDragEnd
+		}
+	}}
 	role="button"
 	tabindex="0"
 	aria-label={`${displayName}, ${friendCount} friends`}

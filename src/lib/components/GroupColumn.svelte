@@ -12,7 +12,7 @@
 	 * - Receives group and UI state via props (explicit flow for reactive data)
 	 */
 
-	import { droppable, type DragDropState } from '@thisux/sveltednd';
+	import { droppable, type DropState } from '$lib/utils/pragmatic-dnd';
 	import type { Group } from '$lib/types';
 	import { getAppDataContext } from '$lib/contexts/appData';
 	import StudentCard from './StudentCard.svelte';
@@ -21,7 +21,7 @@
 		group: Group;
 		selectedStudentId: string | null;
 		currentlyDragging: string | null;
-		onDrop: (state: DragDropState) => void;
+		onDrop: (state: DropState) => void;
 	}
 
 	let { group, selectedStudentId, currentlyDragging, onDrop }: Props = $props();
@@ -57,7 +57,7 @@
 		</span>
 	</div>
 
-	<div class="group-members" use:droppable={{ id: group.id, onDrop }}>
+	<div class="group-members" use:droppable={{ container: group.id, callbacks: { onDrop } }}>
 		{#each group.memberIds as studentId (studentId)}
 			{@const student = studentsById[studentId]}
 			{#if student}

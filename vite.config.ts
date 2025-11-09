@@ -4,6 +4,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	ssr: {
+		noExternal: ['@atlaskit/pragmatic-drag-and-drop']
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [

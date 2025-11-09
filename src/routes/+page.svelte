@@ -5,7 +5,12 @@
 	import UnassignedList from '$lib/components/UnassignedList.svelte';
 	import Inspector from '$lib/components/Inspector/Inspector.svelte';
 	import { getDisplayName } from '$lib/utils/friends';
-	import { draggable, droppable, type DragDropState } from '@thisux/sveltednd';
+	import {
+		draggable,
+		droppable,
+		initializeDragMonitor,
+		type DropState
+	} from '$lib/utils/pragmatic-dnd';
 	import type { Student, Group, Mode } from '$lib/types';
 	import { commandStore } from '$lib/stores/commands.svelte';
 	import { onMount } from 'svelte';
@@ -387,15 +392,23 @@
 		});
 	}
 
-	// ---------- DnD with @thisux/sveltednd ----------
+	// ---------- DnD with Pragmatic Drag and Drop ----------
 
-	function handleDragStart(state: DragDropState<{ id: string }>) {
-		const studentId = state.draggedItem.id;
+	// Initialize monitor on mount
+	let monitorCleanup: (() => void) | null = null;
+	onMount(() => {
+		monitorCleanup = initializeDragMonitor();
+		return () => {
+			monitorCleanup?.();
+		};
+	});
+
+	function handleDragStart(studentId: string) {
 		currentlyDragging = studentId;
 		selectedStudentId = studentId; // Auto-select on drag
 	}
 
-	function handleDrop(state: DragDropState<{ id: string }>) {
+	function handleDrop(state: DropState) {
 		console.log('🎯 handleDrop called with state:', state);
 		console.log('  draggedItem:', state.draggedItem);
 		console.log('  sourceContainer:', state.sourceContainer);
