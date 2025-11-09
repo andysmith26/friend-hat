@@ -4,6 +4,12 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	resolve: {
+		alias: {
+			'@atlaskit/pragmatic-drag-and-drop/element/adapter':
+				'@atlaskit/pragmatic-drag-and-drop/dist/esm/entry-point/element/adapter.js'
+		}
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [

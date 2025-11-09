@@ -8,8 +8,7 @@
 import {
 	draggable as makeDraggable,
 	dropTargetForElements,
-	monitorForElements,
-	type ElementEventPayloadMap
+	monitorForElements
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 
 // Type for drag data - matches the structure used in the original app
