@@ -14,7 +14,6 @@
 
 	interface Props {
 		student: Student;
-		happiness: number; // Count of friends in same group
 		showGender?: boolean;
 		isSelected: boolean;
 		isDragging: boolean;
@@ -26,7 +25,6 @@
 
 	let {
 		student,
-		happiness,
 		showGender = true,
 		isSelected = false,
 		isDragging = false,
@@ -43,6 +41,25 @@
 	const displayName = $derived(`${student.firstName} ${student.lastName}`.trim());
 	const totalFriends = $derived(student.friendIds.length);
 	const hasData = $derived(totalFriends > 0);
+
+	// Calculate happiness: count of friends in same group/container
+	const happiness = $derived.by(() => {
+		if (!container || !student.friendIds.length) return 0;
+
+		// Find which group this student is in
+		const currentGroup = groups.find((g) => g.id === container);
+		if (!currentGroup) return 0;
+
+		// Count how many friends are in the same group
+		const groupMemberSet = new Set(currentGroup.memberIds);
+		let count = 0;
+		for (const friendId of student.friendIds) {
+			if (studentsById[friendId] && groupMemberSet.has(friendId)) {
+				count++;
+			}
+		}
+		return count;
+	});
 
 	// Happiness ratio (0.0 to 1.0)
 	const happinessRatio = $derived(hasData ? happiness / totalFriends : 0);
@@ -111,12 +128,16 @@
 
 		return parts.join('\n');
 	});
+
+	// Determine if student needs assistance (happiness < 2)
+	const needsAssistance = $derived(hasData && happiness < 2);
 </script>
 
 <div
 	class="student-card"
 	class:selected={isSelected}
 	class:dragging={isDragging}
+	class:needs-assistance={needsAssistance}
 	use:draggable={{
 		dragData: { id: student.id },
 		container,
@@ -192,6 +213,16 @@
 		transform: rotate(2deg);
 	}
 
+	.student-card.needs-assistance {
+		background: #fef3c7;
+		border-color: #fbbf24;
+	}
+
+	.student-card.needs-assistance:hover {
+		background: #fde68a;
+		border-color: #f59e0b;
+	}
+
 	.card-content {
 		display: flex;
 		align-items: center;
@@ -244,6 +275,7 @@
 		white-space: nowrap;
 		flex-shrink: 0;
 		cursor: help;
+		margin-left: auto;
 	}
 
 	.happiness-badge:hover {
