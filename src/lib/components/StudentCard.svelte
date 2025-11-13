@@ -72,14 +72,10 @@
 	tabindex="0"
 	aria-label={`${displayName}, ${friendCount} friends`}
 >
-	<!-- Line 1: Name and ID -->
-	<div class="card-header">
+	<!-- Single line: Name, ID, Gender, and Friend count -->
+	<div class="card-content">
 		<span class="student-name">{displayName}</span>
 		<span class="student-id">· {student.id}</span>
-	</div>
-
-	<!-- Line 2: Gender badge and friend count chip -->
-	<div class="card-chips">
 		{#if genderBadge}
 			<span class="chip {genderBadge.class}" title="Gender: {student.gender}">
 				{genderBadge.label}
@@ -87,7 +83,6 @@
 		{/if}
 		<span class="chip" title="{friendCount} friends">
 			👥 {friendCount}
-			{friendCount === 1 ? 'friend' : 'friends'}
 		</span>
 	</div>
 </div>
@@ -125,28 +120,30 @@
 		transform: rotate(2deg);
 	}
 
-	.card-header {
+	.card-content {
 		display: flex;
-		align-items: baseline;
-		gap: 4px;
-		margin-bottom: 4px;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: nowrap;
+		overflow: hidden;
 	}
 
 	.student-name {
 		font-weight: 500;
 		font-size: 14px;
 		color: #111827;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		flex-shrink: 1;
+		min-width: 0;
 	}
 
 	.student-id {
-		font-size: 12px;
+		font-size: 11px;
 		color: #9ca3af;
-	}
-
-	.card-chips {
-		display: flex;
-		gap: 6px;
-		flex-wrap: wrap;
+		white-space: nowrap;
+		flex-shrink: 0;
 	}
 
 	.chip {
