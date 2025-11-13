@@ -97,7 +97,7 @@
 		background: white;
 		border: 2px solid transparent;
 		border-radius: 6px;
-		padding: 8px 12px;
+		padding: 6px 10px;
 		cursor: grab;
 		user-select: none;
 		transition: all 0.15s ease;

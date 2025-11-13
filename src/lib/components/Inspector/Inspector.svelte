@@ -10,7 +10,7 @@
 
 	const contentId = 'inspector-panel-content';
 
-	let isOpen = $state(selectedStudentId !== null);
+	let isOpen = $state(false);
 	let previousSelectedId: string | null = null;
 
 	let hideButton: HTMLButtonElement | null = null;
@@ -116,7 +116,7 @@
 		top: 0;
 		right: 0;
 		height: 100vh;
-		width: 360px;
+		width: 320px;
 		background: white;
 		border-left: 1px solid #e5e7eb;
 		box-shadow: -4px 0 6px -1px rgba(0, 0, 0, 0.1);

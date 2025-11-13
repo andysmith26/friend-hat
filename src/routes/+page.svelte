@@ -1,17 +1,11 @@
 <script lang="ts">
 	import { setAppDataContext } from '$lib/contexts/appData';
-	import StudentCard from '$lib/components/StudentCard.svelte';
-	import GroupColumn from '$lib/components/GroupColumn.svelte';
-	import UnassignedList from '$lib/components/UnassignedList.svelte';
+	import HorizontalGroupLayout from '$lib/components/HorizontalGroupLayout.svelte';
+	import VerticalGroupLayout from '$lib/components/VerticalGroupLayout.svelte';
 	import Inspector from '$lib/components/Inspector/Inspector.svelte';
 	import StatisticsBanner from '$lib/components/StatisticsBanner.svelte';
 	import { getDisplayName } from '$lib/utils/friends';
-	import {
-		draggable,
-		droppable,
-		initializeDragMonitor,
-		type DropState
-	} from '$lib/utils/pragmatic-dnd';
+	import { initializeDragMonitor, type DropState } from '$lib/utils/pragmatic-dnd';
 	import type { Student, Group, Mode } from '$lib/types';
 	import { commandStore } from '$lib/stores/commands.svelte';
 	import { onMount } from 'svelte';
@@ -52,6 +46,12 @@
 	// Add after other state declarations (around line 40)
 	let currentlyDragging = $state<string | null>(null); // student ID being dragged
 
+	// Collapse state for vertical layout
+	let collapsedGroups = $state<Set<string>>(new Set());
+
+	// Layout mode determination
+	const useVerticalLayout = $derived(groups.length > 5);
+
 	// Set up context - must be at top level, not in $effect
 	// studentsById is $state, so child components see reactive updates
 	setAppDataContext({ studentsById });
@@ -62,6 +62,18 @@
 
 	// ---------- HELPERS ----------
 	const uid = () => Math.random().toString(36).slice(2, 9);
+
+	// Collapse state management
+	function toggleCollapse(groupId: string) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const newSet = new Set(collapsedGroups);
+		if (newSet.has(groupId)) {
+			newSet.delete(groupId);
+		} else {
+			newSet.add(groupId);
+		}
+		collapsedGroups = newSet;
+	}
 
 	function resetAll() {
 		groups = [];
@@ -78,6 +90,9 @@
 		commandStore.initializeGroups(clearedGroups);
 
 		selectedStudentId = null;
+
+		// Clear collapsed state on destructive operation
+		collapsedGroups = new Set();
 	}
 
 	function initGroups() {
@@ -253,6 +268,7 @@
 
 		const map: Record<string, Student> = {};
 		const order: string[] = [];
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const unknownSet = new Set<string>();
 
 		for (let r = 1; r < lines.length; r++) {
@@ -361,6 +377,7 @@
 		}
 
 		// Validate friend IDs (same logic as parsePasted)
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const unknownSet = new Set<string>();
 		for (const s of Object.values(map)) {
 			const validFriends: string[] = [];
@@ -450,6 +467,14 @@
 			}
 		}
 
+		// Auto-expand on drop if target is collapsed
+		if (collapsedGroups.has(targetContainer)) {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const newSet = new Set(collapsedGroups);
+			newSet.delete(targetContainer);
+			collapsedGroups = newSet;
+		}
+
 		commandStore.dispatch({
 			type: 'ASSIGN_STUDENT',
 			studentId,
@@ -499,14 +524,6 @@
 			.sort((a, b) => a.happiness - b.happiness);
 	});
 
-	// highlight: selected student's friends
-	function isHighlighted(studentId: string): boolean {
-		if (!selectedStudentId) return false;
-		if (studentId === selectedStudentId) return true;
-		const sel = studentsById[selectedStudentId];
-		return sel?.friendIds?.includes(studentId) ?? false;
-	}
-
 	// ---------- ASSIGNMENT ----------
 	function clearAndRandomAssign() {
 		// Read current groups from store
@@ -525,13 +542,11 @@
 
 		let gi = 0;
 		for (const id of shuffled) {
-			let placed = false;
 			for (let k = 0; k < emptyGroups.length * 2; k++) {
 				const g = emptyGroups[gi % emptyGroups.length];
 				gi++;
 				if (g.capacity != null && newMemberIds[g.id].length >= g.capacity) continue;
 				newMemberIds[g.id].push(id);
-				placed = true;
 				break;
 			}
 		}
@@ -539,10 +554,14 @@
 		// Apply all updates at once
 		const finalGroups = emptyGroups.map((g) => ({ ...g, memberIds: newMemberIds[g.id] }));
 		commandStore.initializeGroups(finalGroups);
+
+		// Clear collapsed state on destructive operation
+		collapsedGroups = new Set();
 	}
 
 	// Build (undirected) adjacency from friendIds that exist
 	function buildAdjacency(): Map<string, Set<string>> {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const adj = new Map<string, Set<string>>();
 		for (const id of studentOrder) adj.set(id, new Set());
 		for (const s of Object.values(studentsById)) {
@@ -666,6 +685,9 @@
 		// Initialize store with our final groups
 		// This clears command history (intentional - auto-assign is a fresh start)
 		commandStore.initializeGroups(workingGroups);
+
+		// Clear collapsed state on destructive operation
+		collapsedGroups = new Set();
 
 		// ============================================================================
 		// HELPER FUNCTIONS (closures over workingGroups)
@@ -1015,27 +1037,31 @@
 				</button>
 			</div>
 
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-				<UnassignedList
-					studentIds={unassigned}
+			{#if useVerticalLayout}
+				<VerticalGroupLayout
+					{groups}
+					unassignedIds={unassigned}
+					{selectedStudentId}
+					{currentlyDragging}
+					{collapsedGroups}
+					onDrop={handleDrop}
+					onDragStart={handleDragStart}
+					onClick={handleStudentClick}
+					onUpdateGroup={handleUpdateGroup}
+					onToggleCollapse={toggleCollapse}
+				/>
+			{:else}
+				<HorizontalGroupLayout
+					{groups}
+					unassignedIds={unassigned}
 					{selectedStudentId}
 					{currentlyDragging}
 					onDrop={handleDrop}
 					onDragStart={handleDragStart}
 					onClick={handleStudentClick}
+					onUpdateGroup={handleUpdateGroup}
 				/>
-				{#each groups as group (group.id)}
-					<GroupColumn
-						{group}
-						{selectedStudentId}
-						{currentlyDragging}
-						onDrop={handleDrop}
-						onDragStart={handleDragStart}
-						onClick={handleStudentClick}
-						onUpdateGroup={handleUpdateGroup}
-					/>
-				{/each}
-			</div>
+			{/if}
 		</section>
 	{/if}
 	<Inspector {selectedStudentId} />
