@@ -54,9 +54,6 @@
 
 	// Compute capacity display
 	const currentCount = $derived(group.memberIds.length);
-	const capacityText = $derived(
-		group.capacity === null ? `${currentCount} students` : `${currentCount} / ${group.capacity}`
-	);
 	const isFull = $derived(group.capacity !== null && currentCount >= group.capacity);
 </script>
 
@@ -120,8 +117,7 @@
 		background: #f9fafb;
 		border: 1px solid #e5e7eb;
 		border-radius: 8px;
-		padding: 12px;
-		min-height: 200px;
+		padding: 10px;
 		display: flex;
 		flex-direction: column;
 	}
@@ -233,15 +229,15 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-		min-height: 100px;
+		gap: 6px;
+		min-height: 60px;
 	}
 
 	.empty-state {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: 100px;
+		height: 60px;
 		color: #9ca3af;
 		font-size: 14px;
 		font-style: italic;

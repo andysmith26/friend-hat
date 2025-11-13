@@ -315,7 +315,7 @@ export const commandStore = {
 	redo,
 	clearHistory,
 	initializeGroups,
-    updateGroup,
+	updateGroup,
 	getHistoryState,
 
 	// Derived state (reactive booleans)

@@ -78,8 +78,7 @@
 		background: white;
 		border: 2px dashed #d1d5db;
 		border-radius: 8px;
-		padding: 12px;
-		min-height: 200px;
+		padding: 10px;
 	}
 
 	.unassigned-header {
@@ -111,15 +110,15 @@
 	.unassigned-members {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-		min-height: 100px;
+		gap: 6px;
+		min-height: 60px;
 	}
 
 	.empty-state {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: 100px;
+		height: 60px;
 		color: #10b981;
 		font-size: 14px;
 		font-weight: 500;
