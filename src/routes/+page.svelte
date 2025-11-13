@@ -413,6 +413,10 @@
 		selectedStudentId = selectedStudentId === studentId ? null : studentId;
 	}
 
+	function handleUpdateGroup(groupId: string, changes: Partial<Group>) {
+		commandStore.updateGroup(groupId, changes);
+	}
+
 	function handleDrop(state: DropState) {
 		console.log('🎯 handleDrop called with state:', state);
 		console.log('  draggedItem:', state.draggedItem);
@@ -1010,6 +1014,7 @@
 						onDrop={handleDrop}
 						onDragStart={handleDragStart}
 						onClick={handleStudentClick}
+						onUpdateGroup={handleUpdateGroup}
 					/>
 				{/each}
 			</div>

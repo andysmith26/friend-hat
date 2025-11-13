@@ -266,6 +266,15 @@ function initializeGroups(newGroups: Group[]): void {
 }
 
 /**
+ * Update a group's properties (name, capacity) without using commands.
+ * This is for configuration changes that don't need undo/redo.
+ * Uses immutable update pattern to trigger Svelte reactivity.
+ */
+function updateGroup(groupId: string, changes: Partial<Group>): void {
+	groups = groups.map((g) => (g.id === groupId ? { ...g, ...changes } : g));
+	console.log(`[Command Store] Updated group ${groupId}:`, changes);
+}
+/**
  * Get current history state (for debugging/UI).
  */
 function getHistoryState(): {
@@ -306,6 +315,7 @@ export const commandStore = {
 	redo,
 	clearHistory,
 	initializeGroups,
+    updateGroup,
 	getHistoryState,
 
 	// Derived state (reactive booleans)

@@ -89,6 +89,8 @@
 		margin-bottom: 12px;
 		padding-bottom: 8px;
 		border-bottom: 2px dashed #e5e7eb;
+		min-height: 40px;
+		gap: 8px;
 	}
 
 	.unassigned-title {
@@ -96,6 +98,8 @@
 		font-weight: 600;
 		color: #6b7280;
 		margin: 0;
+		padding: 4px 6px;
+		line-height: 1.5;
 	}
 
 	.count {
