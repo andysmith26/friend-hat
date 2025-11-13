@@ -8,12 +8,10 @@
 
 	import type { Group } from '$lib/types';
 	import type { DropState } from '$lib/utils/pragmatic-dnd';
-	import UnassignedList from './UnassignedList.svelte';
 	import GroupColumn from './GroupColumn.svelte';
 
 	interface Props {
 		groups: Group[];
-		unassignedIds: string[];
 		selectedStudentId: string | null;
 		currentlyDragging: string | null;
 		onDrop: (state: DropState) => void;
@@ -24,7 +22,6 @@
 
 	let {
 		groups,
-		unassignedIds,
 		selectedStudentId,
 		currentlyDragging,
 		onDrop,
@@ -35,14 +32,6 @@
 </script>
 
 <div class="horizontal-layout">
-	<UnassignedList
-		studentIds={unassignedIds}
-		{selectedStudentId}
-		{currentlyDragging}
-		{onDrop}
-		{onDragStart}
-		{onClick}
-	/>
 	{#each groups as group (group.id)}
 		<GroupColumn
 			{group}

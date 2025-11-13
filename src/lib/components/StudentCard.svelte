@@ -2,16 +2,20 @@
 	/**
 	 * StudentCard: Draggable card representing a single student.
 	 *
-	 * This component is "dumb"—it doesn't fetch data or manage state.
-	 * It receives all data via props and emits events for parent to handle.
-	 * This makes it easy to test, reuse, and reason about.
+	 * Displays: name, ID, optional gender badge, happiness indicator
+	 * Happiness shows ratio of friends in same group (e.g., [2/3])
 	 */
 
 	import { draggable } from '$lib/utils/pragmatic-dnd';
+	import { getAppDataContext } from '$lib/contexts/appData';
+	import { commandStore } from '$lib/stores/commands.svelte';
+	import { getFriendLocations, resolveFriendNames } from '$lib/utils/friends';
 	import type { Student } from '$lib/types';
 
 	interface Props {
 		student: Student;
+		happiness: number; // Count of friends in same group
+		showGender?: boolean;
 		isSelected: boolean;
 		isDragging: boolean;
 		container?: string;
@@ -22,6 +26,8 @@
 
 	let {
 		student,
+		happiness,
+		showGender = true,
 		isSelected = false,
 		isDragging = false,
 		container,
@@ -30,30 +36,82 @@
 		onClick
 	}: Props = $props();
 
+	const { studentsById } = getAppDataContext();
+	const groups = $derived(commandStore.groups);
+
 	// Derive display values
 	const displayName = $derived(`${student.firstName} ${student.lastName}`.trim());
-	const friendCount = $derived(student.friendIds.length);
+	const totalFriends = $derived(student.friendIds.length);
+	const hasData = $derived(totalFriends > 0);
+
+	// Happiness ratio (0.0 to 1.0)
+	const happinessRatio = $derived(hasData ? happiness / totalFriends : 0);
+
+	// Color and style based on ratio
+	const happinessStyle = $derived.by(() => {
+		if (!hasData) return null;
+
+		if (happinessRatio === 0) {
+			return { bg: '#fee2e2', text: '#991b1b', label: 'unhappy' }; // Red
+		} else if (happinessRatio < 0.5) {
+			return { bg: '#fef3c7', text: '#92400e', label: 'somewhat happy' }; // Yellow
+		} else if (happinessRatio < 1.0) {
+			return { bg: '#d1fae5', text: '#065f46', label: 'happy' }; // Light green
+		} else {
+			return { bg: '#bbf7d0', text: '#14532d', label: 'very happy' }; // Green
+		}
+	});
 
 	// Gender badge configuration
 	const genderBadge = $derived.by(() => {
+		if (!showGender || !student.gender) return null;
+
 		const g = student.gender.toUpperCase();
-		if (g === 'F') return { label: 'F', class: 'gender-badge-f' };
-		if (g === 'M') return { label: 'M', class: 'gender-badge-m' };
-		if (g === 'N') return { label: 'N', class: 'gender-badge-x' };
-		return null; // Empty/unknown = no badge
+		if (g === 'F') return { label: 'F', color: '#a855f7' }; // Purple
+		if (g === 'M') return { label: 'M', color: '#14b8a6' }; // Teal
+		if (g === 'N' || g === 'X') return { label: 'N', color: '#f59e0b' }; // Amber
+		return null;
+	});
+
+	// Tooltip data: friend locations
+	const friendDetails = $derived.by(() => {
+		if (!hasData) return null;
+
+		const friendsWithNames = resolveFriendNames(student.friendIds, studentsById);
+		const friendLocations = getFriendLocations(student.friendIds, groups);
+
+		return friendsWithNames.map((friend) => {
+			const location = friendLocations.find((loc) => loc.friendId === friend.id);
+			return {
+				name: friend.name,
+				groupName: location?.groupName ?? 'Unknown',
+				isInSameGroup: location?.groupId === container
+			};
+		});
+	});
+
+	// Tooltip text
+	const tooltipText = $derived.by(() => {
+		if (!friendDetails) return '';
+
+		const inGroup = friendDetails.filter((f) => f.isInSameGroup);
+		const elsewhere = friendDetails.filter((f) => !f.isInSameGroup);
+
+		const parts: string[] = [];
+
+		if (inGroup.length > 0) {
+			parts.push(`With: ${inGroup.map((f) => f.name).join(', ')}`);
+		}
+
+		if (elsewhere.length > 0) {
+			parts.push(
+				`Separated from: ${elsewhere.map((f) => `${f.name} (${f.groupName})`).join(', ')}`
+			);
+		}
+
+		return parts.join('\n');
 	});
 </script>
-
-<!--
-	Note on interaction:
-	We're NOT adding onclick here because @thisux/sveltednd captures mousedown
-	for dragging. Adding onclick would conflict (we'd need to distinguish between
-	click and drag-start, which the library doesn't expose).
-	
-	The parent component will set isSelected based on drag state
-	(selectedStudentId = currentlyDragging), so selection happens automatically
-	when you start dragging. No separate click handler needed for phase 1.
--->
 
 <div
 	class="student-card"
@@ -67,23 +125,39 @@
 			onDragEnd
 		}
 	}}
-	on:click={() => onClick?.()}
+	onclick={() => onClick?.()}
 	role="button"
 	tabindex="0"
-	aria-label={`${displayName}, ${friendCount} friends`}
+	aria-label={`${displayName}, happiness ${happiness} of ${totalFriends} friends`}
 >
-	<!-- Single line: Name, ID, Gender, and Friend count -->
 	<div class="card-content">
-		<span class="student-name">{displayName}</span>
-		<span class="student-id">· {student.id}</span>
+		<!-- Gender badge (subtle circle) -->
 		{#if genderBadge}
-			<span class="chip {genderBadge.class}" title="Gender: {student.gender}">
+			<span
+				class="gender-dot"
+				style="background-color: {genderBadge.color};"
+				title="Gender: {student.gender}"
+				aria-label="Gender: {student.gender}"
+			>
 				{genderBadge.label}
 			</span>
 		{/if}
-		<span class="chip" title="{friendCount} friends">
-			👥 {friendCount}
-		</span>
+
+		<!-- Name + ID -->
+		<span class="student-name">{displayName}</span>
+		<span class="student-id">· {student.id}</span>
+
+		<!-- Happiness badge -->
+		{#if hasData && happinessStyle}
+			<span
+				class="happiness-badge"
+				style="background-color: {happinessStyle.bg}; color: {happinessStyle.text};"
+				title={tooltipText}
+				aria-label="{happinessStyle.label}: {happiness} of {totalFriends} friends in group"
+			>
+				{happiness}/{totalFriends}
+			</span>
+		{/if}
 	</div>
 </div>
 
@@ -107,13 +181,11 @@
 		cursor: grabbing;
 	}
 
-	/* Selected state: outline indicates this student's info is in Inspector */
 	.student-card.selected {
 		border-color: #3b82f6;
 		background: #eff6ff;
 	}
 
-	/* Dragging state: elevated shadow, slightly transparent */
 	.student-card.dragging {
 		opacity: 0.6;
 		box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -126,6 +198,21 @@
 		gap: 6px;
 		flex-wrap: nowrap;
 		overflow: hidden;
+	}
+
+	.gender-dot {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		font-size: 9px;
+		font-weight: 700;
+		color: white;
+		flex-shrink: 0;
+		opacity: 0.6;
+		text-transform: uppercase;
 	}
 
 	.student-name {
@@ -146,32 +233,20 @@
 		flex-shrink: 0;
 	}
 
-	.chip {
-		display: inline-block;
-		background: #f3f4f6;
-		color: #4b5563;
-		font-size: 12px;
-		padding: 2px 8px;
+	.happiness-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 11px;
+		font-weight: 600;
+		padding: 2px 6px;
 		border-radius: 4px;
 		white-space: nowrap;
+		flex-shrink: 0;
+		cursor: help;
 	}
 
-	/* Gender badge variants */
-	.gender-badge-f {
-		background: #f3e8ff;
-		color: #7c3aed;
-		border: 1px solid #d8b4fe;
-	}
-
-	.gender-badge-m {
-		background: #ccfbf1;
-		color: #0f766e;
-		border: 1px solid #5eead4;
-	}
-
-	.gender-badge-x {
-		background: #fef3c7;
-		color: #b45309;
-		border: 1px solid #fcd34d;
+	.happiness-badge:hover {
+		filter: brightness(0.95);
 	}
 </style>

@@ -16,7 +16,6 @@
 
 	interface Props {
 		groups: Group[];
-		unassignedIds: string[];
 		selectedStudentId: string | null;
 		currentlyDragging: string | null;
 		collapsedGroups: Set<string>;
@@ -29,7 +28,6 @@
 
 	let {
 		groups,
-		unassignedIds,
 		selectedStudentId,
 		currentlyDragging,
 		collapsedGroups,
@@ -48,49 +46,6 @@
 </script>
 
 <div class="vertical-layout">
-	<!-- Unassigned section -->
-	<div class="group-row" class:collapsed={isCollapsed('unassigned')}>
-		<div class="group-row-header">
-			<button
-				class="collapse-button"
-				on:click={() => onToggleCollapse('unassigned')}
-				aria-label={isCollapsed('unassigned') ? 'Expand unassigned' : 'Collapse unassigned'}
-				title={isCollapsed('unassigned') ? 'Expand' : 'Collapse'}
-			>
-				<span class="collapse-icon" class:collapsed={isCollapsed('unassigned')}>▼</span>
-			</button>
-			<h3 class="group-row-title">Unassigned</h3>
-			<span class="group-row-count">{unassignedIds.length}</span>
-		</div>
-
-		{#if !isCollapsed('unassigned')}
-			<div
-				class="group-row-members"
-				use:droppable={{ container: 'unassigned', callbacks: { onDrop } }}
-			>
-				{#each unassignedIds as studentId (studentId)}
-					{@const student = studentsById[studentId]}
-					{#if student}
-						<StudentCard
-							{student}
-							isSelected={selectedStudentId === studentId}
-							isDragging={currentlyDragging === studentId}
-							container="unassigned"
-							onDragStart={() => onDragStart?.(studentId)}
-							onClick={() => onClick?.(studentId)}
-						/>
-					{:else}
-						<div class="error-card">Unknown student: {studentId}</div>
-					{/if}
-				{/each}
-
-				{#if unassignedIds.length === 0}
-					<div class="empty-state">All students assigned ✓</div>
-				{/if}
-			</div>
-		{/if}
-	</div>
-
 	<!-- Group rows -->
 	{#each groups as group (group.id)}
 		<div class="group-row" class:collapsed={isCollapsed(group.id)}>
