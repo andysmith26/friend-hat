@@ -4,6 +4,7 @@
 	import GroupColumn from '$lib/components/GroupColumn.svelte';
 	import UnassignedList from '$lib/components/UnassignedList.svelte';
 	import Inspector from '$lib/components/Inspector/Inspector.svelte';
+	import StatisticsBanner from '$lib/components/StatisticsBanner.svelte';
 	import { getDisplayName } from '$lib/utils/friends';
 	import {
 		draggable,
@@ -484,6 +485,18 @@
 		let sum = 0;
 		for (const id of studentOrder) sum += studentHappiness(id);
 		return sum;
+	});
+
+	const unhappyStudents = $derived.by(() => {
+		return studentOrder
+			.map((id) => ({
+				id,
+				student: studentsById[id],
+				happiness: studentHappiness(id),
+				groupName: groupOf(id)?.name || 'Unassigned'
+			}))
+			.filter((s) => s.happiness < 2)
+			.sort((a, b) => a.happiness - b.happiness);
 	});
 
 	// highlight: selected student's friends
@@ -977,6 +990,11 @@
 			</div>
 		</div>
 	</section>
+
+	<!-- STATISTICS BANNER -->
+	{#if groups.length > 0}
+		<StatisticsBanner {unhappyStudents} onStudentClick={(id) => (selectedStudentId = id)} />
+	{/if}
 
 	<!-- GROUP EDITOR -->
 	{#if groups.length > 0}
