@@ -4,7 +4,7 @@
 
 Keeps focus on current priorities. Captures ideas for future work.
 
-**Last Updated:** 2025-10-31
+**Last Updated:** 2025-11-12
 
 ---
 
@@ -13,7 +13,7 @@ Keeps focus on current priorities. Captures ideas for future work.
 _What am I actively working on right now?_
 
 - [x] set up command pattern
-- [ ] user can see all info for a student
+- [x] user can see all info for a student
 - [ ] Statistics panel (happiness metrics, balance visualization)
 
 ---
