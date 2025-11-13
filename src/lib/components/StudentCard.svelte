@@ -17,6 +17,7 @@
 		container?: string;
 		onDragStart?: () => void;
 		onDragEnd?: () => void;
+		onClick?: () => void;
 	}
 
 	let {
@@ -25,12 +26,22 @@
 		isDragging = false,
 		container,
 		onDragStart,
-		onDragEnd
+		onDragEnd,
+		onClick
 	}: Props = $props();
 
 	// Derive display values
 	const displayName = $derived(`${student.firstName} ${student.lastName}`.trim());
 	const friendCount = $derived(student.friendIds.length);
+
+	// Gender badge configuration
+	const genderBadge = $derived.by(() => {
+		const g = student.gender.toUpperCase();
+		if (g === 'F') return { label: 'F', class: 'gender-badge-f' };
+		if (g === 'M') return { label: 'M', class: 'gender-badge-m' };
+		if (g === 'N') return { label: 'N', class: 'gender-badge-x' };
+		return null; // Empty/unknown = no badge
+	});
 </script>
 
 <!--
@@ -56,6 +67,7 @@
 			onDragEnd
 		}
 	}}
+	on:click={() => onClick?.()}
 	role="button"
 	tabindex="0"
 	aria-label={`${displayName}, ${friendCount} friends`}
@@ -66,8 +78,13 @@
 		<span class="student-id">· {student.id}</span>
 	</div>
 
-	<!-- Line 2: Friend count chip -->
+	<!-- Line 2: Gender badge and friend count chip -->
 	<div class="card-chips">
+		{#if genderBadge}
+			<span class="chip {genderBadge.class}" title="Gender: {student.gender}">
+				{genderBadge.label}
+			</span>
+		{/if}
 		<span class="chip" title="{friendCount} friends">
 			👥 {friendCount}
 			{friendCount === 1 ? 'friend' : 'friends'}
@@ -140,5 +157,24 @@
 		padding: 2px 8px;
 		border-radius: 4px;
 		white-space: nowrap;
+	}
+
+	/* Gender badge variants */
+	.gender-badge-f {
+		background: #f3e8ff;
+		color: #7c3aed;
+		border: 1px solid #d8b4fe;
+	}
+
+	.gender-badge-m {
+		background: #ccfbf1;
+		color: #0f766e;
+		border: 1px solid #5eead4;
+	}
+
+	.gender-badge-x {
+		background: #fef3c7;
+		color: #b45309;
+		border: 1px solid #fcd34d;
 	}
 </style>

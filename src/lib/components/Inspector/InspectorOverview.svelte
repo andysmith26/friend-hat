@@ -23,7 +23,7 @@
 	let { studentId }: Props = $props();
 
 	const { studentsById } = getAppDataContext();
-	const groups = commandStore.groups;
+	const groups = $derived(commandStore.groups);
 
 	// Resolve student from context
 	const student = $derived(studentsById[studentId]);

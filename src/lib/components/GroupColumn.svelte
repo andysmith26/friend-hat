@@ -22,9 +22,12 @@
 		selectedStudentId: string | null;
 		currentlyDragging: string | null;
 		onDrop: (state: DropState) => void;
+		onDragStart?: (studentId: string) => void;
+		onClick?: (studentId: string) => void;
 	}
 
-	let { group, selectedStudentId, currentlyDragging, onDrop }: Props = $props();
+	let { group, selectedStudentId, currentlyDragging, onDrop, onDragStart, onClick }: Props =
+		$props();
 
 	console.log('🔴 GroupColumn mounting');
 
@@ -65,6 +68,9 @@
 					{student}
 					isSelected={selectedStudentId === studentId}
 					isDragging={currentlyDragging === studentId}
+					container={group.id}
+					onDragStart={() => onDragStart?.(studentId)}
+					onClick={() => onClick?.(studentId)}
 				/>
 			{:else}
 				<!-- Defensive: If student ID in group doesn't exist, show error card -->

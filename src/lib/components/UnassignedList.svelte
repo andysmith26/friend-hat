@@ -31,9 +31,12 @@
 		selectedStudentId: string | null;
 		currentlyDragging: string | null;
 		onDrop: (state: DropState) => void;
+		onDragStart?: (studentId: string) => void;
+		onClick?: (studentId: string) => void;
 	}
 
-	let { studentIds, selectedStudentId, currentlyDragging, onDrop }: Props = $props();
+	let { studentIds, selectedStudentId, currentlyDragging, onDrop, onDragStart, onClick }: Props =
+		$props();
 </script>
 
 <div class="unassigned-list">
@@ -53,6 +56,9 @@
 					{student}
 					isSelected={selectedStudentId === studentId}
 					isDragging={currentlyDragging === studentId}
+					container="unassigned"
+					onDragStart={() => onDragStart?.(studentId)}
+					onClick={() => onClick?.(studentId)}
 				/>
 			{:else}
 				<div class="error-card">

@@ -408,6 +408,11 @@
 		selectedStudentId = studentId; // Auto-select on drag
 	}
 
+	function handleStudentClick(studentId: string) {
+		// Toggle selection: click same student = deselect, click different = select
+		selectedStudentId = selectedStudentId === studentId ? null : studentId;
+	}
+
 	function handleDrop(state: DropState) {
 		console.log('🎯 handleDrop called with state:', state);
 		console.log('  draggedItem:', state.draggedItem);
@@ -989,107 +994,23 @@
 			</div>
 
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-				<!-- Unassigned (your original code) -->
-				<div class="flex flex-col rounded-lg border p-3">
-					<div class="mb-2 flex items-center justify-between">
-						<div class="font-semibold">Unassigned</div>
-						<div class="text-xs text-gray-500">{unassigned.length}</div>
-					</div>
-
-					<ul
-						class="min-h-24 flex-1 space-y-1"
-						draggable={false}
-						use:droppable={{
-							container: 'unassigned',
-							callbacks: { onDrop: handleDrop }
-						}}
-					>
-						{#each unassigned as sid (sid)}
-							{@const s = studentsById[sid]}
-							<li
-								class="flex cursor-move items-center justify-between gap-2 rounded border
-          bg-white px-2 py-1 hover:bg-gray-50
-          {isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}
-          {sid === currentlyDragging ? 'opacity-30' : ''}"
-								use:draggable={{
-									container: 'unassigned',
-									dragData: { id: sid },
-									callbacks: {
-										onDragStart: () => {
-											currentlyDragging = sid;
-											selectedStudentId = sid; // ADD THIS LINE
-										},
-										onDragEnd: () => {
-											currentlyDragging = null;
-										}
-									}
-								}}
-								on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
-							>
-								<span class="truncate">{getDisplayName(s)}</span>
-								<span class="text-xs text-gray-500">{s.id}</span>
-							</li>
-						{/each}
-					</ul>
-				</div>
-
-				<!-- Groups (your original code) -->
-				{#each groups as g (g.id)}
-					<div class="flex flex-col rounded-lg border p-3">
-						<div class="mb-2 flex items-center justify-between gap-2">
-							<input class="flex-1 bg-transparent font-semibold outline-none" bind:value={g.name} />
-							<div class="flex items-center gap-1 text-xs text-gray-500">
-								<span>{g.memberIds.length}</span>
-								<span>/</span>
-								<input
-									class="w-12 rounded border px-1 py-0.5"
-									type="number"
-									min="0"
-									placeholder="∞"
-									bind:value={g.capacity}
-									on:change={(e) => {
-										const v = Number((e.target as HTMLInputElement).value);
-										if (Number.isNaN(v) || v <= 0) g.capacity = null;
-									}}
-								/>
-							</div>
-						</div>
-						<ul
-							class="min-h-24 flex-1 space-y-1"
-							draggable={false}
-							use:droppable={{
-								container: g.id,
-								callbacks: { onDrop: handleDrop }
-							}}
-						>
-							{#each g.memberIds as sid (sid)}
-								{@const s = studentsById[sid]}
-								<li
-									class="flex cursor-move items-center justify-between gap-2 rounded border
-            bg-white px-2 py-1 hover:bg-gray-50
-            {isHighlighted(s.id) ? 'ring-2 ring-amber-400' : ''}
-            {sid === currentlyDragging ? 'opacity-30' : ''}"
-									use:draggable={{
-										container: g.id,
-										dragData: { id: sid },
-										callbacks: {
-											onDragStart: () => {
-												currentlyDragging = sid;
-												selectedStudentId = sid; // ADD THIS LINE
-											},
-											onDragEnd: () => {
-												currentlyDragging = null;
-											}
-										}
-									}}
-									on:click={() => (selectedStudentId = selectedStudentId === s.id ? null : s.id)}
-								>
-									<span class="truncate">{getDisplayName(s)}</span>
-									<span class="text-xs text-gray-500">{s.id}</span>
-								</li>
-							{/each}
-						</ul>
-					</div>
+				<UnassignedList
+					studentIds={unassigned}
+					{selectedStudentId}
+					{currentlyDragging}
+					onDrop={handleDrop}
+					onDragStart={handleDragStart}
+					onClick={handleStudentClick}
+				/>
+				{#each groups as group (group.id)}
+					<GroupColumn
+						{group}
+						{selectedStudentId}
+						{currentlyDragging}
+						onDrop={handleDrop}
+						onDragStart={handleDragStart}
+						onClick={handleStudentClick}
+					/>
 				{/each}
 			</div>
 		</section>
