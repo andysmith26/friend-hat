@@ -21,6 +21,7 @@
 		group: Group;
 		selectedStudentId: string | null;
 		currentlyDragging: string | null;
+		showGender: boolean;
 		onDrop: (state: DropState) => void;
 		onDragStart?: (studentId: string) => void;
 		onClick?: (studentId: string) => void;
@@ -31,6 +32,7 @@
 		group,
 		selectedStudentId,
 		currentlyDragging,
+		showGender,
 		onDrop,
 		onDragStart,
 		onClick,
@@ -92,6 +94,7 @@
 			{#if student}
 				<StudentCard
 					{student}
+					{showGender}
 					isSelected={selectedStudentId === studentId}
 					isDragging={currentlyDragging === studentId}
 					container={group.id}

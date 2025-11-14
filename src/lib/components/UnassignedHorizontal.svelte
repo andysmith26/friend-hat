@@ -14,13 +14,21 @@
 		studentIds: string[];
 		selectedStudentId: string | null;
 		currentlyDragging: string | null;
+		showGender: boolean;
 		onDrop: (state: DropState) => void;
 		onDragStart?: (studentId: string) => void;
 		onClick?: (studentId: string) => void;
 	}
 
-	let { studentIds, selectedStudentId, currentlyDragging, onDrop, onDragStart, onClick }: Props =
-		$props();
+	let {
+		studentIds,
+		selectedStudentId,
+		currentlyDragging,
+		showGender,
+		onDrop,
+		onDragStart,
+		onClick
+	}: Props = $props();
 
 	const { studentsById } = getAppDataContext();
 </script>
@@ -37,6 +45,7 @@
 			{#if student}
 				<StudentCard
 					{student}
+					{showGender}
 					isSelected={selectedStudentId === studentId}
 					isDragging={currentlyDragging === studentId}
 					container="unassigned"

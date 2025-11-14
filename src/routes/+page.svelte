@@ -27,6 +27,7 @@
 	// controls
 	let numberOfGroups = $state(4);
 	let targetGroupSize = $state(10);
+	let showGender = $state(true);
 
 	// groups
 	// Read groups from store (reactive)
@@ -864,6 +865,11 @@
 				</select>
 			</div>
 
+			<label class="flex items-center gap-2 text-sm">
+				<input type="checkbox" bind:checked={showGender} />
+				Show gender badges
+			</label>
+
 			{#if mode === 'COUNT'}
 				<div class="space-y-1">
 					<label class="block text-sm">Number of groups</label>
@@ -1005,16 +1011,15 @@
 	{#if groups.length > 0}
 		<section class="space-y-3">
 			<!-- Unassigned students horizontal list -->
-			{#if unassigned.length > 0}
-				<UnassignedHorizontal
-					studentIds={unassigned}
-					{selectedStudentId}
-					{currentlyDragging}
-					onDrop={handleDrop}
-					onDragStart={handleDragStart}
-					onClick={handleStudentClick}
-				/>
-			{/if}
+			<UnassignedHorizontal
+				studentIds={unassigned}
+				{selectedStudentId}
+				{currentlyDragging}
+				{showGender}
+				onDrop={handleDrop}
+				onDragStart={handleDragStart}
+				onClick={handleStudentClick}
+			/>
 
 			<div class="flex items-center justify-between">
 				<h2 class="text-lg font-medium">Groups</h2>
@@ -1035,10 +1040,10 @@
 			{#if useVerticalLayout}
 				<VerticalGroupLayout
 					{groups}
-					unassignedIds={unassigned}
 					{selectedStudentId}
 					{currentlyDragging}
 					{collapsedGroups}
+					{showGender}
 					onDrop={handleDrop}
 					onDragStart={handleDragStart}
 					onClick={handleStudentClick}
@@ -1048,9 +1053,9 @@
 			{:else}
 				<HorizontalGroupLayout
 					{groups}
-					unassignedIds={unassigned}
 					{selectedStudentId}
 					{currentlyDragging}
+					{showGender}
 					onDrop={handleDrop}
 					onDragStart={handleDragStart}
 					onClick={handleStudentClick}
