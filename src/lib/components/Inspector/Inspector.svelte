@@ -46,10 +46,10 @@
 		// Note: Don't clear selectedStudentId here - parent manages that
 	}
 
-	// When selection changes, open drawer
+	// When selection changes, open drawer in minimized state
 	$effect(() => {
 		if (selectedStudentId && selectedStudentId !== previousSelectedId) {
-			drawerState = 'open';
+			drawerState = 'minimized';
 		} else if (!selectedStudentId) {
 			drawerState = 'closed';
 		}

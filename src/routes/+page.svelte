@@ -3,7 +3,7 @@
 	import HorizontalGroupLayout from '$lib/components/HorizontalGroupLayout.svelte';
 	import VerticalGroupLayout from '$lib/components/VerticalGroupLayout.svelte';
 	import Inspector from '$lib/components/Inspector/Inspector.svelte';
-	import StatisticsBanner from '$lib/components/StatisticsBanner.svelte';
+	import UnassignedHorizontal from '$lib/components/UnassignedHorizontal.svelte';
 	import { getDisplayName } from '$lib/utils/friends';
 	import { initializeDragMonitor, type DropState } from '$lib/utils/pragmatic-dnd';
 	import type { Student, Group, Mode } from '$lib/types';
@@ -512,18 +512,6 @@
 		return sum;
 	});
 
-	const unhappyStudents = $derived.by(() => {
-		return studentOrder
-			.map((id) => ({
-				id,
-				student: studentsById[id],
-				happiness: studentHappiness(id),
-				groupName: groupOf(id)?.name || 'Unassigned'
-			}))
-			.filter((s) => s.happiness < 2)
-			.sort((a, b) => a.happiness - b.happiness);
-	});
-
 	// ---------- ASSIGNMENT ----------
 	function clearAndRandomAssign() {
 		// Read current groups from store
@@ -1013,14 +1001,21 @@
 		</div>
 	</section>
 
-	<!-- STATISTICS BANNER -->
-	{#if groups.length > 0}
-		<StatisticsBanner {unhappyStudents} onStudentClick={(id) => (selectedStudentId = id)} />
-	{/if}
-
 	<!-- GROUP EDITOR -->
 	{#if groups.length > 0}
 		<section class="space-y-3">
+			<!-- Unassigned students horizontal list -->
+			{#if unassigned.length > 0}
+				<UnassignedHorizontal
+					studentIds={unassigned}
+					{selectedStudentId}
+					{currentlyDragging}
+					onDrop={handleDrop}
+					onDragStart={handleDragStart}
+					onClick={handleStudentClick}
+				/>
+			{/if}
+
 			<div class="flex items-center justify-between">
 				<h2 class="text-lg font-medium">Groups</h2>
 				<button
