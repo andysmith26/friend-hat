@@ -17,6 +17,7 @@
 		showGender?: boolean;
 		isSelected: boolean;
 		isDragging: boolean;
+		isFriendOfSelected?: boolean;
 		container?: string;
 		onDragStart?: () => void;
 		onDragEnd?: () => void;
@@ -28,6 +29,7 @@
 		showGender = true,
 		isSelected = false,
 		isDragging = false,
+		isFriendOfSelected = false,
 		container,
 		onDragStart,
 		onDragEnd,
@@ -137,6 +139,7 @@
 	class="student-card"
 	class:selected={isSelected}
 	class:dragging={isDragging}
+	class:friend-highlight={isFriendOfSelected}
 	class:needs-assistance={needsAssistance}
 	use:draggable={{
 		dragData: { id: student.id },
@@ -207,6 +210,18 @@
 		background: #eff6ff;
 	}
 
+	.student-card.friend-highlight {
+		border-color: #10b981;
+		border-width: 3px;
+		background: #d1fae5;
+		box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+	}
+
+	.student-card.friend-highlight:hover {
+		background: #a7f3d0;
+		border-color: #059669;
+	}
+
 	.student-card.dragging {
 		opacity: 0.6;
 		box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -214,13 +229,13 @@
 	}
 
 	.student-card.needs-assistance {
-		background: #fef3c7;
-		border-color: #fbbf24;
+		background: #fef9e7;
+		border-color: #fde68a;
 	}
 
 	.student-card.needs-assistance:hover {
-		background: #fde68a;
-		border-color: #f59e0b;
+		background: #fef3c7;
+		border-color: #fcd34d;
 	}
 
 	.card-content {

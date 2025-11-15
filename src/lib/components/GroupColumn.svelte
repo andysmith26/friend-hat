@@ -57,6 +57,14 @@
 	// Compute capacity display
 	const currentCount = $derived(group.memberIds.length);
 	const isFull = $derived(group.capacity !== null && currentCount >= group.capacity);
+
+	// Determine which students are friends of the selected student
+	const selectedStudentFriendIds = $derived.by(() => {
+		if (!selectedStudentId) return new Set<string>();
+		const selectedStudent = studentsById[selectedStudentId];
+		if (!selectedStudent) return new Set<string>();
+		return new Set(selectedStudent.friendIds);
+	});
 </script>
 
 <div class="group-column">
@@ -97,6 +105,7 @@
 					{showGender}
 					isSelected={selectedStudentId === studentId}
 					isDragging={currentlyDragging === studentId}
+					isFriendOfSelected={selectedStudentFriendIds.has(studentId)}
 					container={group.id}
 					onDragStart={() => onDragStart?.(studentId)}
 					onClick={() => onClick?.(studentId)}

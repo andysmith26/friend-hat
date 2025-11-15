@@ -31,6 +31,14 @@
 	}: Props = $props();
 
 	const { studentsById } = getAppDataContext();
+
+	// Determine which students are friends of the selected student
+	const selectedStudentFriendIds = $derived.by(() => {
+		if (!selectedStudentId) return new Set<string>();
+		const selectedStudent = studentsById[selectedStudentId];
+		if (!selectedStudent) return new Set<string>();
+		return new Set(selectedStudent.friendIds);
+	});
 </script>
 
 <div class="unassigned-horizontal">
@@ -48,6 +56,7 @@
 					{showGender}
 					isSelected={selectedStudentId === studentId}
 					isDragging={currentlyDragging === studentId}
+					isFriendOfSelected={selectedStudentFriendIds.has(studentId)}
 					container="unassigned"
 					onDragStart={() => onDragStart?.(studentId)}
 					onClick={() => onClick?.(studentId)}
