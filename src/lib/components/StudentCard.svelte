@@ -212,12 +212,13 @@
 
 	.student-card.friend-highlight {
 		border-color: #10b981;
-		background: #ecfdf5;
-		box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+		border-width: 3px;
+		background: #d1fae5;
+		box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
 	}
 
 	.student-card.friend-highlight:hover {
-		background: #d1fae5;
+		background: #a7f3d0;
 		border-color: #059669;
 	}
 
@@ -228,13 +229,13 @@
 	}
 
 	.student-card.needs-assistance {
-		background: #fef3c7;
-		border-color: #fbbf24;
+		background: #fef9e7;
+		border-color: #fde68a;
 	}
 
 	.student-card.needs-assistance:hover {
-		background: #fde68a;
-		border-color: #f59e0b;
+		background: #fef3c7;
+		border-color: #fcd34d;
 	}
 
 	.card-content {
