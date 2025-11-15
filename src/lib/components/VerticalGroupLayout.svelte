@@ -42,6 +42,14 @@
 
 	const { studentsById } = getAppDataContext();
 
+	// Determine which students are friends of the selected student
+	const selectedStudentFriendIds = $derived.by(() => {
+		if (!selectedStudentId) return new Set<string>();
+		const selectedStudent = studentsById[selectedStudentId];
+		if (!selectedStudent) return new Set<string>();
+		return new Set(selectedStudent.friendIds);
+	});
+
 	function isCollapsed(groupId: string): boolean {
 		return collapsedGroups.has(groupId);
 	}
@@ -101,6 +109,7 @@
 								{showGender}
 								isSelected={selectedStudentId === studentId}
 								isDragging={currentlyDragging === studentId}
+								isFriendOfSelected={selectedStudentFriendIds.has(studentId)}
 								container={group.id}
 								onDragStart={() => onDragStart?.(studentId)}
 								onClick={() => onClick?.(studentId)}
