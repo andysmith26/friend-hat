@@ -11,8 +11,8 @@
         import StudentCard from './StudentCard.svelte';
         import type { StudentPreference } from '$lib/types/preferences';
 
-        interface Props {
-                studentIds: string[];
+interface Props {
+                studentIds?: string[];
                 selectedStudentId: string | null;
                 currentlyDragging: string | null;
                 showGender: boolean;
@@ -21,8 +21,8 @@
                 onClick?: (studentId: string) => void;
         }
 
-        let {
-                studentIds,
+let {
+                studentIds = [],
                 selectedStudentId,
                 currentlyDragging,
                 showGender,
@@ -33,6 +33,10 @@
 
         // Access students and preferences from context
         const { studentsById, preferencesById } = getAppDataContext();
+
+        // Defensive: ensure we always work with an array even if the parent
+        // temporarily passes `undefined` (can happen while async data loads).
+        const safeStudentIds = $derived(studentIds ?? []);
 
         // Determine which students are preferred by the selected student
         const selectedStudentFriendIds = $derived.by(() => {
@@ -46,11 +50,11 @@
 <div class="unassigned-horizontal">
         <div class="unassigned-header">
                 <h3 class="unassigned-title">Unassigned</h3>
-                <span class="count">{studentIds.length}</span>
+                <span class="count">{safeStudentIds.length}</span>
         </div>
 
         <div class="unassigned-roster" use:droppable={{ container: 'unassigned', callbacks: { onDrop } }}>
-                {#each studentIds as studentId (studentId)}
+                {#each safeStudentIds as studentId (studentId)}
                         {@const student = studentsById[studentId]}
                         {#if student}
                                 <StudentCard
@@ -68,7 +72,7 @@
                         {/if}
                 {/each}
 
-                {#if studentIds.length === 0}
+                {#if safeStudentIds.length === 0}
                         <div class="empty-state">All students assigned ✓</div>
                 {/if}
         </div>
