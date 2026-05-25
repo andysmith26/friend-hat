@@ -118,6 +118,8 @@
   let studentsById = $derived(vm.state.studentsById);
   let view = $derived(vm.state.view);
   let pool = $derived(vm.state.pool);
+  let peerRequestSummaryByStudentId = $derived(vm.state.peerRequestSummaryByStudentId);
+  let selectedStudentRequestedPeerIds = $derived(vm.state.selectedStudentRequestedPeerIds);
   let unplacedStudentCount = $derived(vm.state.unplacedStudentCount);
   let unassignedStudentIds = $derived(vm.state.unassignedStudentIds);
 
@@ -276,6 +278,7 @@
 
   function handleDragStart(id: string) {
     groupClickStudentId = null; // clear sticky highlight during drag
+    vm.actions.selectStudentPeerRequests(null);
     vm.state.draggingId = id;
   }
 
@@ -472,14 +475,23 @@
     studentSidebarMode = 'view';
   }
 
-
   /** Group card click: toggle preference highlighting only (no sidebar) */
   function handleGroupStudentClick(studentId: string) {
     if (groupClickStudentId === studentId) {
       groupClickStudentId = null;
+      vm.actions.selectStudentPeerRequests(null);
       return;
     }
     groupClickStudentId = studentId;
+    vm.actions.selectStudentPeerRequests(studentId);
+  }
+
+  async function handleQuickEditPeerRequest(payload: { requestId: string; studentId: string }) {
+    await vm.actions.setPeerRequestMatch(payload);
+  }
+
+  async function handleClearPeerRequest(requestId: string) {
+    await vm.actions.clearPeerRequestMatch(requestId);
   }
 
   function handleCloseStudentDetail() {
@@ -815,6 +827,10 @@
           {studentHasPreferences}
           onStudentClick={hasGroups && !isViewingHistory ? handleGroupStudentClick : undefined}
           selectedStudentPreferences={activeStudentLikeGroupIds}
+          studentPeerRequestSummaryById={peerRequestSummaryByStudentId}
+          {selectedStudentRequestedPeerIds}
+          onQuickEditPeerRequest={handleQuickEditPeerRequest}
+          onClearPeerRequest={handleClearPeerRequest}
           clickedStudentId={groupClickStudentId}
         />
 
@@ -933,9 +949,9 @@
         {selectedStudentId}
         inactiveStudentIds={vm.state.inactiveStudentIds}
         onToggleActive={(studentId) => vm.actions.toggleStudentActive(studentId)}
-        selectedStudentPreferences={selectedStudentPreferences}
+        {selectedStudentPreferences}
         {groupNameMap}
-        selectedStudentRecentGroupmates={selectedStudentRecentGroupmates}
+        {selectedStudentRecentGroupmates}
         onEditStudent={handleEditStudent}
       />
     </OverlaySheet>

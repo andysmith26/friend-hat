@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Student } from '$lib/domain';
+  import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
   import { sortableItem, type Edge, type SortableDropState } from '$lib/utils/pragmatic-dnd';
 
   export type KeyboardMoveDirection = 'up' | 'down' | 'left' | 'right';
@@ -27,7 +28,10 @@
     onKeyboardMove,
     onStudentClick,
     readonly = false,
-    allowedEdges
+    allowedEdges,
+    peerRequestSummary = null,
+    isPeerRequested = false,
+    onOpenPeerRequestDetails
   } = $props<{
     student: Student;
     container: string;
@@ -55,6 +59,9 @@
     readonly?: boolean;
     /** Which edges to use for closest-edge detection. */
     allowedEdges?: Edge[];
+    peerRequestSummary?: StudentPeerRequestWorkspaceSummary | null;
+    isPeerRequested?: boolean;
+    onOpenPeerRequestDetails?: (studentId: string) => void;
   }>();
 
   const fullName = `${student.firstName} ${student.lastName ?? ''}`.trim() || student.id;
@@ -95,6 +102,21 @@
       : hasPreferences
         ? 'Not a preferred group'
         : 'No preferences'
+  );
+  const peerRequestCount = $derived(peerRequestSummary?.requestCount ?? 0);
+  const peerRequestToneClass = $derived.by(() => {
+    if (!peerRequestSummary || peerRequestSummary.requestCount === 0)
+      return 'bg-gray-200 text-gray-500';
+    if (peerRequestSummary.staleCount > 0) return 'bg-rose-100 text-rose-700';
+    if (peerRequestSummary.unresolvedCount > 0) return 'bg-amber-100 text-amber-800';
+    if (peerRequestSummary.unsatisfiedCount > 0) return 'bg-orange-100 text-orange-700';
+    if (peerRequestSummary.satisfiedCount > 0) return 'bg-emerald-100 text-emerald-700';
+    return 'bg-sky-100 text-sky-700';
+  });
+  const peerRequestHighlightClass = $derived(
+    isPeerRequested && !isSelected && !isPickedUp
+      ? 'border-sky-300 bg-sky-50/60 ring-2 ring-sky-200 ring-offset-1'
+      : ''
   );
 
   // Hover delay handling (100ms)
@@ -142,6 +164,11 @@
     }
     if (isPickedUp) return;
     onStudentClick?.(student.id);
+  }
+
+  function handleOpenPeerRequests(event: MouseEvent) {
+    event.stopPropagation();
+    onOpenPeerRequestDetails?.(student.id);
   }
 
   function handleEdgeChange(edge: Edge | null) {
@@ -223,7 +250,7 @@
     !readonly && (isPickedUp || isSelected)
       ? 'border-blue-500 shadow-md ring-2 ring-blue-500 ring-offset-1'
       : 'border-gray-200'
-  } ${!readonly && isDragging ? 'cursor-grabbing opacity-60' : ''} ${flash ? 'flash-move' : ''} ${!readonly || onStudentClick ? 'focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:outline-none' : ''}`}
+  } ${peerRequestHighlightClass} ${!readonly && isDragging ? 'cursor-grabbing opacity-60' : ''} ${flash ? 'flash-move' : ''} ${!readonly || onStudentClick ? 'focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:outline-none' : ''}`}
   onmouseenter={readonly ? undefined : handleMouseEnter}
   onmouseleave={readonly ? undefined : handleMouseLeave}
   onkeydown={readonly ? undefined : handleKeydown}
@@ -252,6 +279,14 @@
     style="font-size: var(--card-font-size, 15px);"
     class={`relative flex min-w-0 flex-1 items-center justify-center overflow-visible rounded-md bg-white px-0.5 py-0.5 font-semibold ${textTone}`}
   >
+    {#if peerRequestCount > 0}
+      <span
+        class={`absolute -top-1 -left-0.5 z-10 inline-flex min-w-[1rem] items-center justify-center rounded px-0.5 text-[9px] leading-tight font-bold ${peerRequestToneClass}`}
+        aria-label={`${peerRequestCount} peer requests`}
+      >
+        {peerRequestCount}
+      </span>
+    {/if}
     <span class="truncate leading-none" title={fullName}>{compactLabel}</span>
     {#if hasPreferences && badgeText}
       <span
@@ -260,6 +295,16 @@
       >
         {badgeText}
       </span>
+    {/if}
+    {#if isSelected && peerRequestCount > 0 && onOpenPeerRequestDetails}
+      <button
+        type="button"
+        class="absolute -right-0.5 -bottom-1 z-10 rounded bg-white px-1 py-0.5 text-[9px] font-semibold text-teal-700 shadow-sm ring-1 ring-gray-200 hover:bg-teal-50"
+        aria-label="Open peer request details"
+        onclick={handleOpenPeerRequests}
+      >
+        Peers
+      </button>
     {/if}
   </div>
 </div>

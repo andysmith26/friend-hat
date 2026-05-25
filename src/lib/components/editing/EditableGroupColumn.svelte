@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import type { Group, Student } from '$lib/domain';
+  import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
   import { droppable, type Edge, type SortableDropState } from '$lib/utils/pragmatic-dnd';
   import DraggableStudentCard, { type KeyboardMoveDirection } from './DraggableStudentCard.svelte';
   import DropIndicator from './DropIndicator.svelte';
@@ -37,7 +38,10 @@
     onSelect,
     renamingGroupId = null,
     onRenameComplete,
-    clickedStudentId = null
+    clickedStudentId = null,
+    studentPeerRequestSummaryById = new Map<string, StudentPeerRequestWorkspaceSummary>(),
+    selectedRequestedPeerIdSet = new Set<string>(),
+    onOpenPeerRequestDetails
   } = $props<{
     group: Group;
     studentsById: Record<string, Student>;
@@ -81,6 +85,9 @@
     onRenameComplete?: () => void;
     /** ID of the click-selected student (for blue border in card). */
     clickedStudentId?: string | null;
+    studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
+    selectedRequestedPeerIdSet?: Set<string>;
+    onOpenPeerRequestDetails?: (studentId: string) => void;
   }>();
 
   const capacityStatus = $derived(getCapacityStatus(group));
@@ -410,6 +417,9 @@
                 onItemDrop={handleItemDrop}
                 isPickedUp={pickedUpStudentId === memberId}
                 isSelected={clickedStudentId === memberId}
+                peerRequestSummary={studentPeerRequestSummaryById.get(memberId) ?? null}
+                isPeerRequested={selectedRequestedPeerIdSet.has(memberId)}
+                {onOpenPeerRequestDetails}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}
                 {onKeyboardCancel}

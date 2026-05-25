@@ -71,6 +71,7 @@ export * from './findMatchingStudents';
 export * from './createOrLinkStudent';
 export * from './matchPeerRequests';
 export * from './confirmPeerRequestMatches';
+export * from './getPeerRequestWorkspaceSummary';
 export * from './getStudentProfile';
 
 // Quick grouping operations

@@ -1,6 +1,7 @@
 import type { AppEnvContext } from '$lib/contexts/appEnv';
 import type {
   Group,
+  PeerRequestEntry,
   Placement,
   Pool,
   Preference,
@@ -33,6 +34,10 @@ import {
   type SaveStatus,
   type ScenarioEditingView
 } from '$lib/stores/scenarioEditingStore';
+import {
+  getPeerRequestWorkspaceSummary,
+  type StudentPeerRequestWorkspaceSummary
+} from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
 import { getGenerationErrorMessage } from '$lib/utils/generationErrorMessages';
 import { buildPreferenceMap } from '$lib/utils/preferenceAdapter';
 import { getGenerationSettings, saveGenerationSettings } from '$lib/utils/generationSettings';
@@ -124,6 +129,11 @@ export interface ClassViewVmState {
   studentPreferenceRanks: Map<string, number | null>;
   /** Per-student flag: does this student have any preferences at all? */
   studentHasPreferences: Map<string, boolean>;
+
+  // Peer requests
+  peerRequestSummaryByStudentId: Map<string, StudentPeerRequestWorkspaceSummary>;
+  selectedPeerRequestSourceStudentId: string | null;
+  selectedStudentRequestedPeerIds: string[] | null;
 
   // Generation history (WP9)
   generationHistory: GenerationHistoryEntry[];
@@ -238,6 +248,10 @@ export interface ClassViewVm {
       gradeLevel?: string;
       gender?: string;
     }) => Promise<{ success: boolean; studentId?: string }>;
+    refreshPeerRequests: () => Promise<void>;
+    setPeerRequestMatch: (payload: { requestId: string; studentId: string }) => Promise<void>;
+    clearPeerRequestMatch: (requestId: string) => Promise<void>;
+    selectStudentPeerRequests: (studentId: string | null) => void;
     updateStudent: (input: {
       studentId: string;
       firstName?: string;
@@ -287,6 +301,9 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     preferenceMap: {},
     studentPreferenceRanks: new Map(),
     studentHasPreferences: new Map(),
+    peerRequestSummaryByStudentId: new Map(),
+    selectedPeerRequestSourceStudentId: null,
+    selectedStudentRequestedPeerIds: null,
     generationHistory: [],
     selectedHistoryIndex: -1,
     comparison: null,
@@ -313,6 +330,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
 
     newGroupId: null
   });
+  let persistedPeerRequests: PeerRequestEntry[] = [];
 
   function rebuildStudentsById() {
     const map: Record<string, Student> = {};
@@ -429,6 +447,82 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     );
   }
 
+  function syncSelectedPeerRequestHighlight(): void {
+    if (!state.selectedPeerRequestSourceStudentId) {
+      state.selectedStudentRequestedPeerIds = null;
+      return;
+    }
+
+    state.selectedStudentRequestedPeerIds =
+      state.peerRequestSummaryByStudentId.get(state.selectedPeerRequestSourceStudentId)
+        ?.requestedStudentIds ?? [];
+  }
+
+  function recomputePeerRequestSummary(): void {
+    state.peerRequestSummaryByStudentId = getPeerRequestWorkspaceSummary({
+      requests: persistedPeerRequests,
+      students: state.students,
+      groups: state.view?.groups ?? []
+    }).byStudentId;
+    syncSelectedPeerRequestHighlight();
+  }
+
+  async function refreshPeerRequests(): Promise<void> {
+    if (!state.program) {
+      persistedPeerRequests = [];
+      state.peerRequestSummaryByStudentId = new Map();
+      syncSelectedPeerRequestHighlight();
+      return;
+    }
+
+    persistedPeerRequests = await state.env.peerRequestRepo.listByProgramId(state.program.id);
+    recomputePeerRequestSummary();
+  }
+
+  function selectStudentPeerRequests(studentId: string | null): void {
+    state.selectedPeerRequestSourceStudentId = studentId;
+    syncSelectedPeerRequestHighlight();
+  }
+
+  async function setPeerRequestMatch(payload: {
+    requestId: string;
+    studentId: string;
+  }): Promise<void> {
+    const request =
+      persistedPeerRequests.find((entry) => entry.id === payload.requestId) ??
+      (await state.env.peerRequestRepo.getById(payload.requestId));
+
+    if (!request || request.requesterStudentId === payload.studentId) {
+      return;
+    }
+
+    await state.env.peerRequestRepo.update({
+      ...request,
+      resolvedStudentId: payload.studentId,
+      status: 'MANUALLY_SET',
+      resolutionSource: 'MANUAL'
+    });
+    await refreshPeerRequests();
+  }
+
+  async function clearPeerRequestMatch(requestId: string): Promise<void> {
+    const request =
+      persistedPeerRequests.find((entry) => entry.id === requestId) ??
+      (await state.env.peerRequestRepo.getById(requestId));
+
+    if (!request) {
+      return;
+    }
+
+    const { resolvedStudentId: _resolvedStudentId, ...requestWithoutResolvedStudentId } = request;
+    await state.env.peerRequestRepo.update({
+      ...requestWithoutResolvedStudentId,
+      status: 'UNRESOLVED',
+      resolutionSource: 'NONE'
+    });
+    await refreshPeerRequests();
+  }
+
   function initializeEditingStore(scenario: Scenario) {
     unsubscribeEditingStore?.();
     unsubscribeEditingStore = null;
@@ -443,6 +537,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
       state.view = value;
       computeUnplacedStudentCount();
       computePreferenceRanks();
+      recomputePeerRequestSummary();
     });
     state.editingStore = store;
   }
@@ -534,6 +629,8 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
         initializeEditingStore(state.scenario);
       }
 
+      await refreshPeerRequests();
+
       state.loading = false;
     } catch (e) {
       state.loadError = e instanceof Error ? e.message : 'Failed to load activity';
@@ -550,6 +647,10 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
 
     state.editingStore?.destroy();
     state.editingStore = null;
+    persistedPeerRequests = [];
+    state.peerRequestSummaryByStudentId = new Map();
+    state.selectedPeerRequestSourceStudentId = null;
+    state.selectedStudentRequestedPeerIds = null;
 
     state.liveSessionStatus = 'IDLE';
   }
@@ -1055,6 +1156,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     state.pool = { ...state.pool, memberIds: newStudents.map((s) => s.id) };
     rebuildStudentsById();
     state.hasPlaceholderStudents = false;
+    await refreshPeerRequests();
 
     if (countsMatch && state.editingStore && state.view) {
       // Remap student IDs in existing groups to preserve structure
@@ -1199,6 +1301,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     state.pool = pool;
     rebuildStudentsById();
     detectPlaceholderStudents();
+    recomputePeerRequestSummary();
     return { success: true, studentId: student.id };
   }
 
@@ -1216,6 +1319,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     const { student } = result.value;
     state.students = state.students.map((s) => (s.id === student.id ? student : s));
     rebuildStudentsById();
+    recomputePeerRequestSummary();
     return true;
   }
 
@@ -1251,6 +1355,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     rebuildStudentsById();
     detectPlaceholderStudents();
     computeUnplacedStudentCount();
+    await refreshPeerRequests();
     return true;
   }
 
@@ -1328,7 +1433,11 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
       addStudent,
       updateStudent: updateStudentAction,
       removeStudent: removeStudentAction,
-      toggleStudentActive
+      toggleStudentActive,
+      refreshPeerRequests,
+      setPeerRequestMatch,
+      clearPeerRequestMatch,
+      selectStudentPeerRequests
     }
   };
 }

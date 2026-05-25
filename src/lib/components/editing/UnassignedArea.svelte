@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Student } from '$lib/domain';
+  import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
   import DraggableStudentCard, { type KeyboardMoveDirection } from './DraggableStudentCard.svelte';
   import DropIndicator from './DropIndicator.svelte';
   import {
@@ -27,6 +28,10 @@
     onKeyboardCancel,
     onKeyboardMove,
     onStudentClick,
+    clickedStudentId = null,
+    studentPeerRequestSummaryById = new Map<string, StudentPeerRequestWorkspaceSummary>(),
+    selectedStudentRequestedPeerIds = null,
+    onOpenPeerRequestDetails,
     onAlphabetize,
     vertical = false,
     compact = false
@@ -53,11 +58,17 @@
     onKeyboardCancel?: () => void;
     onKeyboardMove?: (direction: KeyboardMoveDirection) => void;
     onStudentClick?: (studentId: string) => void;
+    clickedStudentId?: string | null;
+    studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
+    selectedStudentRequestedPeerIds?: string[] | null;
+    onOpenPeerRequestDetails?: (studentId: string) => void;
     onAlphabetize?: () => void;
     vertical?: boolean;
     /** When true, hides the header and outer wrapper (for embedding in a parent bench zone) */
     compact?: boolean;
   }>();
+
+  const selectedRequestedPeerIdSet = $derived(new Set(selectedStudentRequestedPeerIds ?? []));
 
   // Track which item has edge hover and which edge
   let hoveredItemId = $state<string | null>(null);
@@ -317,6 +328,10 @@
                 onEdgeChange={(edge) => handleEdgeChange(studentId, edge)}
                 onItemDrop={handleItemDrop}
                 isPickedUp={pickedUpStudentId === studentId}
+                isSelected={clickedStudentId === studentId}
+                peerRequestSummary={studentPeerRequestSummaryById.get(studentId) ?? null}
+                isPeerRequested={selectedRequestedPeerIdSet.has(studentId)}
+                {onOpenPeerRequestDetails}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}
                 {onKeyboardCancel}
@@ -356,6 +371,10 @@
                 onEdgeChange={(edge) => handleEdgeChange(studentId, edge)}
                 onItemDrop={handleItemDrop}
                 isPickedUp={pickedUpStudentId === studentId}
+                isSelected={clickedStudentId === studentId}
+                peerRequestSummary={studentPeerRequestSummaryById.get(studentId) ?? null}
+                isPeerRequested={selectedRequestedPeerIdSet.has(studentId)}
+                {onOpenPeerRequestDetails}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}
                 {onKeyboardCancel}

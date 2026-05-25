@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Group, Student } from '$lib/domain';
+  import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
   import { calculateRowSpan } from '$lib/utils/groups';
   import EditableGroupColumn from './EditableGroupColumn.svelte';
   import HorizontalScrollContainer from '$lib/components/ui/HorizontalScrollContainer.svelte';
@@ -34,6 +35,8 @@
     onAddGroup,
     newGroupId = null,
     selectedStudentPreferences = null,
+    studentPeerRequestSummaryById = new Map<string, StudentPeerRequestWorkspaceSummary>(),
+    selectedStudentRequestedPeerIds = null,
     layout = 'masonry',
     readonly = false,
     studentPreferenceRanks = new Map<string, number | null>(),
@@ -53,6 +56,7 @@
     renamingGroupId = null,
     onRenameComplete,
     clickedStudentId = null,
+    onOpenPeerRequestDetails,
     fillHeight = false
   } = $props<{
     groups?: Group[];
@@ -72,6 +76,8 @@
     onAddGroup?: () => void;
     newGroupId?: string | null;
     selectedStudentPreferences?: string[] | null;
+    studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
+    selectedStudentRequestedPeerIds?: string[] | null;
     layout?: LayoutMode;
     /** When true, suppresses drag-drop affordances and empty-group placeholder text. */
     readonly?: boolean;
@@ -97,9 +103,12 @@
     onRenameComplete?: () => void;
     /** ID of the click-selected student (for blue border highlight). */
     clickedStudentId?: string | null;
+    onOpenPeerRequestDetails?: (studentId: string) => void;
     /** When true, stretch the scroll container to fill parent height. */
     fillHeight?: boolean;
   }>();
+
+  const selectedRequestedPeerIdSet = $derived(new Set(selectedStudentRequestedPeerIds ?? []));
 
   // Helper to get sibling group names for duplicate validation
   function getSiblingNames(groupId: string): string[] {
@@ -187,6 +196,9 @@
           {renamingGroupId}
           {onRenameComplete}
           {clickedStudentId}
+          {studentPeerRequestSummaryById}
+          {selectedRequestedPeerIdSet}
+          {onOpenPeerRequestDetails}
         />
       {/each}
     </div>
@@ -225,6 +237,9 @@
         {renamingGroupId}
         {onRenameComplete}
         {clickedStudentId}
+        {studentPeerRequestSummaryById}
+        {selectedRequestedPeerIdSet}
+        {onOpenPeerRequestDetails}
       />
     {/each}
   </div>
