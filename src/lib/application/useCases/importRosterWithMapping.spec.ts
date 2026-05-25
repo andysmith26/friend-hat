@@ -48,6 +48,8 @@ describe('importRosterWithMapping', () => {
       expect(result.value.pool.name).toBe('Test Roster');
       expect(result.value.pool.memberIds).toHaveLength(2);
       expect(result.value.students).toHaveLength(2);
+      expect(result.value.rowStudentLinks).toHaveLength(2);
+      expect(result.value.rowStudentLinks.map((link) => link.rowIndex)).toEqual([2, 3]);
     }
   });
 
@@ -166,6 +168,35 @@ describe('importRosterWithMapping', () => {
       for (const id of studentIds) {
         const student = await env.studentRepo.getById(id);
         expect(student).not.toBeNull();
+      }
+    }
+  });
+
+  it('returns row-to-student linkage created during student creation', async () => {
+    const result = await importRosterWithMapping(
+      {
+        poolRepo: env.poolRepo,
+        studentRepo: env.studentRepo,
+        preferenceRepo: env.preferenceRepo,
+        idGenerator: env.idGenerator
+      },
+      {
+        rawData: sampleData,
+        columnMappings: validMappings,
+        poolName: 'Test Roster',
+        poolType: 'CLASS',
+        ownerStaffId: 'owner-1'
+      }
+    );
+
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      expect(result.value.rowStudentLinks).toHaveLength(2);
+
+      for (const link of result.value.rowStudentLinks) {
+        const student = await env.studentRepo.getById(link.studentId);
+        expect(student).not.toBeNull();
+        expect(student?.meta?.importRowIndex).toBe(link.rowIndex);
       }
     }
   });

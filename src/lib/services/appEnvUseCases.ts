@@ -59,6 +59,24 @@ import type {
 } from '$lib/application/useCases/importRosterWithMapping';
 import { importRosterWithMapping as importRosterWithMappingUseCase } from '$lib/application/useCases/importRosterWithMapping';
 import type {
+  ImportPeerRequestsFromMappingInput,
+  ImportPeerRequestsFromMappingOutput,
+  ImportPeerRequestsFromMappingError
+} from '$lib/application/useCases/importPeerRequestsFromMapping';
+import { importPeerRequestsFromMapping as importPeerRequestsFromMappingUseCase } from '$lib/application/useCases/importPeerRequestsFromMapping';
+import type {
+  MatchPeerRequestsInput,
+  MatchPeerRequestsOutput
+} from '$lib/application/useCases/matchPeerRequests';
+import { matchPeerRequests as matchPeerRequestsUseCase } from '$lib/application/useCases/matchPeerRequests';
+import type {
+  ConfirmPeerRequestMatchesInput,
+  ConfirmPeerRequestMatchesOutput,
+  ConfirmPeerRequestMatchesError
+} from '$lib/application/useCases/confirmPeerRequestMatches';
+import { confirmPeerRequestMatches as confirmPeerRequestMatchesUseCase } from '$lib/application/useCases/confirmPeerRequestMatches';
+import type { PeerRequestEntry } from '$lib/domain/peerRequest';
+import type {
   ListProgramsError,
   ProgramWithPrimaryPool
 } from '$lib/application/useCases/listPrograms';
@@ -515,6 +533,90 @@ export type {
   ImportRosterWithMappingInput,
   ImportRosterWithMappingResult,
   ImportRosterWithMappingError
+};
+
+export async function importPeerRequestsFromMapping(
+  env: InMemoryEnvironment,
+  input: ImportPeerRequestsFromMappingInput
+): Promise<Result<ImportPeerRequestsFromMappingOutput, ImportPeerRequestsFromMappingError>> {
+  const result = importPeerRequestsFromMappingUseCase(
+    {
+      idGenerator: env.idGenerator
+    },
+    input
+  );
+
+  return 'entries' in result ? ok(result) : err(result);
+}
+
+export async function matchPeerRequests(
+  _env: InMemoryEnvironment,
+  input: MatchPeerRequestsInput
+): Promise<Result<MatchPeerRequestsOutput, never>> {
+  return ok(matchPeerRequestsUseCase(input));
+}
+
+export async function confirmPeerRequestMatches(
+  _env: InMemoryEnvironment,
+  input: ConfirmPeerRequestMatchesInput
+): Promise<Result<ConfirmPeerRequestMatchesOutput, ConfirmPeerRequestMatchesError>> {
+  const result = confirmPeerRequestMatchesUseCase(input);
+  return 'updatedRequests' in result ? ok(result) : err(result);
+}
+
+export interface SavePeerRequestsInput {
+  programId: string;
+  entries: PeerRequestEntry[];
+}
+
+export interface SavePeerRequestsOutput {
+  savedCount: number;
+}
+
+export type SavePeerRequestsError = { type: 'SAVE_FAILED'; message: string };
+
+export async function savePeerRequests(
+  env: InMemoryEnvironment,
+  input: SavePeerRequestsInput
+): Promise<Result<SavePeerRequestsOutput, SavePeerRequestsError>> {
+  try {
+    if (typeof env.peerRequestRepo.deleteByProgramId === 'function') {
+      await env.peerRequestRepo.deleteByProgramId(input.programId);
+    } else {
+      const existing = await env.peerRequestRepo.listByProgramId(input.programId);
+      for (const entry of existing) {
+        await env.peerRequestRepo.delete(entry.id);
+      }
+    }
+
+    if (input.entries.length > 0) {
+      if (typeof env.peerRequestRepo.saveMany === 'function') {
+        await env.peerRequestRepo.saveMany(input.entries);
+      } else {
+        for (const entry of input.entries) {
+          await env.peerRequestRepo.save(entry);
+        }
+      }
+    }
+
+    return ok({ savedCount: input.entries.length });
+  } catch (error) {
+    return err({
+      type: 'SAVE_FAILED',
+      message: error instanceof Error ? error.message : 'Failed to save peer requests'
+    });
+  }
+}
+
+export type {
+  ImportPeerRequestsFromMappingInput,
+  ImportPeerRequestsFromMappingOutput,
+  ImportPeerRequestsFromMappingError,
+  MatchPeerRequestsInput,
+  MatchPeerRequestsOutput,
+  ConfirmPeerRequestMatchesInput,
+  ConfirmPeerRequestMatchesOutput,
+  ConfirmPeerRequestMatchesError
 };
 
 // =============================================================================

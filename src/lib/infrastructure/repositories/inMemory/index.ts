@@ -7,4 +7,5 @@ export * from './InMemoryScenarioRepository';
 export * from './InMemorySessionRepository';
 export * from './InMemoryPlacementRepository';
 export * from './InMemoryPreferenceRepository';
+export * from './InMemoryPeerRequestRepository';
 export * from './InMemoryObservationRepository';

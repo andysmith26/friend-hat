@@ -18,6 +18,7 @@ export * from './importPoolFromCsv';
 export * from './importRoster';
 export * from './createPoolFromRosterData';
 export * from './importRosterWithMapping';
+export * from './importPeerRequestsFromMapping';
 export * from './listPools';
 
 // Program operations
@@ -68,6 +69,8 @@ export * from './listStudentStats';
 // Student identity operations
 export * from './findMatchingStudents';
 export * from './createOrLinkStudent';
+export * from './matchPeerRequests';
+export * from './confirmPeerRequestMatches';
 export * from './getStudentProfile';
 
 // Quick grouping operations

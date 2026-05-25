@@ -8,6 +8,8 @@
  * @module domain/import
  */
 
+import type { PeerRequestRank } from './peerRequest';
+
 // =============================================================================
 // Raw Sheet Data Types
 // =============================================================================
@@ -54,6 +56,11 @@ export type MappedField =
   | 'choice3'
   | 'choice4'
   | 'choice5'
+  | 'peerRequest1'
+  | 'peerRequest2'
+  | 'peerRequest3'
+  | 'peerRequest4'
+  | 'peerRequest5'
   | 'ignore';
 
 /**
@@ -85,6 +92,18 @@ export function getChoiceRank(field: MappedField): number | null {
   return isNaN(rank) ? null : rank;
 }
 
+export function isPeerRequestField(
+  field: string
+): field is 'peerRequest1' | 'peerRequest2' | 'peerRequest3' | 'peerRequest4' | 'peerRequest5' {
+  return /^peerRequest[1-5]$/i.test(field);
+}
+
+export function getPeerRequestRank(field: MappedField): PeerRequestRank | null {
+  if (!isPeerRequestField(field)) return null;
+  const rank = parseInt(field.replace('peerRequest', ''), 10);
+  return rank >= 1 && rank <= 5 ? (rank as PeerRequestRank) : null;
+}
+
 /**
  * All required fields that must be mapped for a valid import.
  */
@@ -99,7 +118,12 @@ export const OPTIONAL_FIELDS: MappedField[] = [
   'choice2',
   'choice3',
   'choice4',
-  'choice5'
+  'choice5',
+  'peerRequest1',
+  'peerRequest2',
+  'peerRequest3',
+  'peerRequest4',
+  'peerRequest5'
 ];
 
 // =============================================================================

@@ -32,6 +32,11 @@
     { value: 'choice3', label: 'Choice 3', required: false },
     { value: 'choice4', label: 'Choice 4', required: false },
     { value: 'choice5', label: 'Choice 5', required: false },
+    { value: 'peerRequest1', label: 'Peer Request 1', required: false },
+    { value: 'peerRequest2', label: 'Peer Request 2', required: false },
+    { value: 'peerRequest3', label: 'Peer Request 3', required: false },
+    { value: 'peerRequest4', label: 'Peer Request 4', required: false },
+    { value: 'peerRequest5', label: 'Peer Request 5', required: false },
     { value: 'ignore', label: 'Ignore', required: false }
   ];
 

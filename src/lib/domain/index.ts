@@ -20,6 +20,7 @@ export * from './scenario';
 export * from './session';
 export * from './placement';
 export * from './preference';
+export * from './peerRequest';
 export * from './observation';
 export * from './analytics';
 export * from './import';
@@ -33,6 +34,15 @@ export type { StudentIdentity, NameVariant } from './studentIdentity';
 export type { Group, GroupCreationMode } from './group';
 
 export type { StudentPreference, Preference, StudentId, GroupId } from './preference';
+
+export type {
+  PeerRequestEntry,
+  PeerRequestRank,
+  PeerRequestCandidate,
+  PeerRequestResolutionStatus,
+  PeerRequestResolutionSource,
+  PeerRequestSatisfactionStatus
+} from './peerRequest';
 
 export type { Scenario, ScenarioStatus } from './scenario';
 

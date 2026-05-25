@@ -6,6 +6,8 @@ import {
   validateMappedData,
   isChoiceField,
   getChoiceRank,
+  isPeerRequestField,
+  getPeerRequestRank,
   generateStudentId,
   type ColumnMapping,
   type RawSheetData
@@ -34,6 +36,31 @@ describe('getChoiceRank', () => {
   it('returns null for non-choice fields', () => {
     expect(getChoiceRank('firstName')).toBeNull();
     expect(getChoiceRank('ignore')).toBeNull();
+  });
+});
+
+describe('isPeerRequestField', () => {
+  it('returns true for peer request fields', () => {
+    expect(isPeerRequestField('peerRequest1')).toBe(true);
+    expect(isPeerRequestField('peerRequest5')).toBe(true);
+  });
+
+  it('returns false for non-peer request fields', () => {
+    expect(isPeerRequestField('choice1')).toBe(false);
+    expect(isPeerRequestField('firstName')).toBe(false);
+  });
+});
+
+describe('getPeerRequestRank', () => {
+  it('returns rank for peer request fields', () => {
+    expect(getPeerRequestRank('peerRequest1')).toBe(1);
+    expect(getPeerRequestRank('peerRequest4')).toBe(4);
+    expect(getPeerRequestRank('peerRequest5')).toBe(5);
+  });
+
+  it('returns null for non-peer request fields', () => {
+    expect(getPeerRequestRank('choice1')).toBeNull();
+    expect(getPeerRequestRank('ignore')).toBeNull();
   });
 });
 

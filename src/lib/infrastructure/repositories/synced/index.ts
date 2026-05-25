@@ -15,4 +15,5 @@ export { SyncedScenarioRepository } from './SyncedScenarioRepository';
 export { SyncedSessionRepository } from './SyncedSessionRepository';
 export { SyncedPlacementRepository } from './SyncedPlacementRepository';
 export { SyncedPreferenceRepository } from './SyncedPreferenceRepository';
+export { SyncedPeerRequestRepository } from './SyncedPeerRequestRepository';
 export { SyncedGroupTemplateRepository } from './SyncedGroupTemplateRepository';

@@ -17,6 +17,7 @@ export * from './ScenarioRepository';
 export * from './SessionRepository';
 export * from './PlacementRepository';
 export * from './PreferenceRepository';
+export * from './PeerRequestRepository';
 export * from './GroupTemplateRepository';
 export * from './ObservationRepository';
 

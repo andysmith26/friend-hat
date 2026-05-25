@@ -77,6 +77,8 @@ export interface ImportRosterWithMappingResult {
   warnings: string[];
   /** The created students (for reference) */
   students: Student[];
+  /** Stable row-to-student linkage created during import */
+  rowStudentLinks: Array<{ rowIndex: number; studentId: string }>;
 }
 
 // =============================================================================
@@ -167,6 +169,7 @@ export async function importRosterWithMapping(
 
   const students: Student[] = [];
   const studentIdMap = new Map<number, string>(); // rowIndex -> studentId
+  const rowStudentLinks: Array<{ rowIndex: number; studentId: string }> = [];
 
   // Check if we have any choice columns mapped
   const hasChoiceMappings = input.columnMappings.some(
@@ -187,6 +190,7 @@ export async function importRosterWithMapping(
     // Generate a unique student ID
     const studentId = deps.idGenerator.generateId();
     studentIdMap.set(row.rowIndex, studentId);
+    rowStudentLinks.push({ rowIndex: row.rowIndex, studentId });
 
     try {
       const student = createStudent({
@@ -326,6 +330,7 @@ export async function importRosterWithMapping(
     studentsImported: students.length,
     preferencesImported,
     warnings,
-    students
+    students,
+    rowStudentLinks
   });
 }

@@ -19,6 +19,7 @@ export type SyncEntityType =
   | 'sessions'
   | 'placements'
   | 'preferences'
+  | 'peerRequests'
   | 'groupTemplates';
 
 /**

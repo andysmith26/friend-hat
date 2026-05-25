@@ -15,4 +15,5 @@ export { IndexedDbStudentRepository } from './IndexedDbStudentRepository';
 export { IndexedDbStudentIdentityRepository } from './IndexedDbStudentIdentityRepository';
 export { IndexedDbStaffRepository } from './IndexedDbStaffRepository';
 export { IndexedDbPreferenceRepository } from './IndexedDbPreferenceRepository';
+export { IndexedDbPeerRequestRepository } from './IndexedDbPeerRequestRepository';
 export { IndexedDbObservationRepository } from './IndexedDbObservationRepository';

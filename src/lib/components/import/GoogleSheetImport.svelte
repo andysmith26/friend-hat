@@ -9,29 +9,63 @@
    * 3. Validate and import
    */
 
+  import { getAppEnvContext } from '$lib/contexts/appEnv';
   import type { RawSheetData, ColumnMapping, MappedField } from '$lib/domain/import';
-  import { hasRequiredMappings, validateMappedData } from '$lib/domain/import';
+  import { hasRequiredMappings, isPeerRequestField, validateMappedData } from '$lib/domain/import';
+  import type { PoolType } from '$lib/domain';
   import { fetchGoogleSheet, isGoogleSheetsUrl, getPreviewRows } from '$lib/services/googleSheets';
+  import {
+    confirmPeerRequestMatches,
+    importPeerRequestsFromMapping,
+    importRosterWithMapping,
+    matchPeerRequests,
+    savePeerRequests,
+    type ConfirmPeerRequestMatchesOutput,
+    type ImportRosterWithMappingResult,
+    type MatchPeerRequestsOutput
+  } from '$lib/services/appEnvUseCases';
+  import { isErr } from '$lib/types/result';
   import { InlineError } from '$lib/components/ui';
   import SheetPreview from './SheetPreview.svelte';
+  import PeerRequestMatchingReview from './PeerRequestMatchingReview.svelte';
 
   interface Props {
     /** Callback when import is complete */
     onImportComplete: (data: {
-      sheetData: RawSheetData;
-      mappings: ColumnMapping[];
-      poolName: string;
-    }) => void;
+      importResult: ImportRosterWithMappingResult;
+      peerRequestsImported: number;
+      warnings: string[];
+    }) => void | Promise<void>;
     /** Callback to cancel the import */
     onCancel: () => void;
     /** Suggested pool name (optional) */
     suggestedPoolName?: string;
+    /** Staff owner used for roster import */
+    ownerStaffId: string;
+    /** Optional program to attach preferences and peer requests to */
+    programId?: string;
+    poolType?: PoolType;
+    schoolId?: string;
+    userId?: string;
+    validGroupNames?: string[];
   }
 
-  let { onImportComplete, onCancel, suggestedPoolName = '' }: Props = $props();
+  let {
+    onImportComplete,
+    onCancel,
+    suggestedPoolName = '',
+    ownerStaffId,
+    programId,
+    poolType = 'CLASS',
+    schoolId,
+    userId,
+    validGroupNames
+  }: Props = $props();
+
+  const env = getAppEnvContext();
 
   // State
-  type Step = 'url' | 'mapping' | 'confirm';
+  type Step = 'url' | 'mapping' | 'review';
   let currentStep = $state<Step>('url');
 
   // URL step state
@@ -45,11 +79,17 @@
 
   // Import config state
   let poolName = $state(suggestedPoolName || 'Imported Roster');
+  let importError = $state('');
+  let isImporting = $state(false);
+  let importWarnings = $state<string[]>([]);
+  let pendingImportResult = $state<ImportRosterWithMappingResult | null>(null);
+  let pendingPeerReview = $state<MatchPeerRequestsOutput | null>(null);
 
   // Derived state
-  let isValidUrl = $derived(isGoogleSheetsUrl(sheetUrl.trim()));
-  let canProceedToMapping = $derived(sheetData !== null && sheetData.rows.length > 0);
   let canImport = $derived(hasRequiredMappings(columnMappings));
+  let hasPeerRequestMappings = $derived(
+    columnMappings.some((mapping) => mapping.mappedTo !== null && isPeerRequestField(mapping.mappedTo))
+  );
 
   // Validation preview
   let validationPreview = $derived.by(() => {
@@ -93,6 +133,17 @@
       if (h.includes('1') || h === 'choice' || h === 'preference') {
         return 'choice1';
       }
+    }
+
+    if (
+      h.includes('peer request') ||
+      h.includes('partner request') ||
+      h.includes('work with') ||
+      h.includes('want to work with')
+    ) {
+      const num = h.match(/[1-5]/);
+      const rank = num ? parseInt(num[0], 10) : 1;
+      return `peerRequest${Math.min(Math.max(rank, 1), 5)}` as MappedField;
     }
 
     return null;
@@ -142,14 +193,74 @@
   }
 
   // Handle import
-  function handleImport() {
+  async function handleImport() {
     if (!sheetData || !canImport) return;
 
-    onImportComplete({
-      sheetData,
-      mappings: columnMappings,
-      poolName
+    importError = '';
+    isImporting = true;
+
+    const rosterResult = await importRosterWithMapping(env, {
+      rawData: sheetData,
+      columnMappings,
+      poolName,
+      poolType,
+      ownerStaffId,
+      schoolId,
+      programId,
+      userId,
+      validGroupNames
     });
+
+    if (isErr(rosterResult)) {
+      importError = rosterResult.error.type === 'INTERNAL_ERROR'
+        ? rosterResult.error.message
+        : `Import failed: ${rosterResult.error.type}`;
+      isImporting = false;
+      return;
+    }
+
+    pendingImportResult = rosterResult.value;
+    importWarnings = [...rosterResult.value.warnings];
+
+    if (!programId || !hasPeerRequestMappings) {
+      await finalizeImport(rosterResult.value, [], importWarnings);
+      return;
+    }
+
+    const extractionResult = await importPeerRequestsFromMapping(env, {
+      programId,
+      rawData: sheetData,
+      columnMappings,
+      rowStudentLinks: rosterResult.value.rowStudentLinks
+    });
+
+    if (isErr(extractionResult)) {
+      importError = extractionResult.error.message;
+      isImporting = false;
+      return;
+    }
+
+    importWarnings = [...rosterResult.value.warnings, ...extractionResult.value.warnings];
+
+    if (extractionResult.value.entries.length === 0) {
+      await finalizeImport(rosterResult.value, [], importWarnings);
+      return;
+    }
+
+    const matchResult = await matchPeerRequests(env, {
+      requests: extractionResult.value.entries,
+      students: rosterResult.value.students
+    });
+
+    if (isErr(matchResult)) {
+      importError = 'Unable to match peer requests.';
+      isImporting = false;
+      return;
+    }
+
+    pendingPeerReview = matchResult.value;
+    currentStep = 'review';
+    isImporting = false;
   }
 
   // Go back to URL step
@@ -157,6 +268,52 @@
     if (currentStep === 'mapping') {
       currentStep = 'url';
     }
+  }
+
+  async function finalizeImport(
+    importResult: ImportRosterWithMappingResult,
+    reviewedRequests: ConfirmPeerRequestMatchesOutput['updatedRequests'],
+    warnings: string[]
+  ) {
+    await onImportComplete({
+      importResult,
+      peerRequestsImported: reviewedRequests.length,
+      warnings
+    });
+    isImporting = false;
+  }
+
+  async function handlePeerRequestConfirm(decisions: import('$lib/application/useCases/confirmPeerRequestMatches').PeerRequestReviewDecision[]) {
+    if (!pendingImportResult || !pendingPeerReview || !programId) {
+      return;
+    }
+
+    importError = '';
+    isImporting = true;
+
+    const confirmationResult = await confirmPeerRequestMatches(env, {
+      requests: pendingPeerReview.updatedRequests,
+      decisions
+    });
+
+    if (isErr(confirmationResult)) {
+      importError = confirmationResult.error.type;
+      isImporting = false;
+      return;
+    }
+
+    const saveResult = await savePeerRequests(env, {
+      programId,
+      entries: confirmationResult.value.updatedRequests
+    });
+
+    if (isErr(saveResult)) {
+      importError = saveResult.error.message;
+      isImporting = false;
+      return;
+    }
+
+    await finalizeImport(pendingImportResult, confirmationResult.value.updatedRequests, importWarnings);
   }
 </script>
 
@@ -245,9 +402,13 @@
       <div class="rounded-lg bg-gray-50 p-3">
         <p class="text-sm text-gray-700">
           <strong>Map your columns:</strong> Use the dropdowns above each column to indicate what data
-          it contains. "First Name" is required. Choice columns are optional (for group preferences).
+          it contains. "First Name" is required. Choice columns and peer request columns are optional.
         </p>
       </div>
+
+      {#if importError}
+        <InlineError message={importError} dismissible onDismiss={() => (importError = '')} />
+      {/if}
 
       <!-- Preview with mapping -->
       <SheetPreview
@@ -320,13 +481,35 @@
           <button
             type="button"
             class="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-white hover:bg-teal-dark disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!canImport || !poolName.trim()}
+            disabled={!canImport || !poolName.trim() || isImporting}
             onclick={handleImport}
           >
-            Import {validationPreview?.summary.validCount ?? 0} Students
+            {isImporting
+              ? 'Importing...'
+              : `Import ${validationPreview?.summary.validCount ?? 0} Students`}
           </button>
         </div>
       </div>
+    </div>
+  {/if}
+
+  {#if currentStep === 'review' && pendingPeerReview && pendingImportResult}
+    <div class="space-y-4">
+      {#if importError}
+        <InlineError message={importError} dismissible onDismiss={() => (importError = '')} />
+      {/if}
+
+      <PeerRequestMatchingReview
+        readyToConfirm={pendingPeerReview.readyToConfirm}
+        needsReview={pendingPeerReview.needsReview}
+        noMatch={pendingPeerReview.noMatch}
+        invalid={pendingPeerReview.invalid}
+        students={pendingImportResult.students}
+        warnings={importWarnings}
+        busy={isImporting}
+        confirmLabel="Save requests & finish import"
+        onConfirm={handlePeerRequestConfirm}
+      />
     </div>
   {/if}
 </div>

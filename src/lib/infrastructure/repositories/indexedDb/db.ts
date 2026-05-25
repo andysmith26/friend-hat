@@ -8,7 +8,7 @@
  */
 
 export const DB_NAME = 'groupwheel';
-export const DB_VERSION = 7; // Bumped to 7 to add studentIdentities store
+export const DB_VERSION = 8; // Bumped to 8 to add peerRequests store
 
 /**
  * Open the IndexedDB database, creating object stores if needed.
@@ -105,6 +105,15 @@ export function openDb(): Promise<IDBDatabase> {
         if (studentStore && !studentStore.indexNames.contains('canonicalId')) {
           studentStore.createIndex('canonicalId', 'canonicalId', { unique: false });
         }
+      }
+
+      // 13. Peer Requests (v8)
+      if (!db.objectStoreNames.contains('peerRequests')) {
+        const peerRequestStore = db.createObjectStore('peerRequests', { keyPath: 'id' });
+        peerRequestStore.createIndex('programId', 'programId', { unique: false });
+        peerRequestStore.createIndex('requesterStudentId', 'requesterStudentId', {
+          unique: false
+        });
       }
     };
   });

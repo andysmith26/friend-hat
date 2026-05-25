@@ -14,11 +14,24 @@
   import { goto } from '$app/navigation';
   import { getAppEnvContext } from '$lib/contexts/appEnv';
   import { InlineError } from '$lib/components/ui';
-  import { createGroupingActivity, importActivity } from '$lib/services/appEnvUseCases';
+  import {
+    confirmPeerRequestMatches,
+    createGroupingActivity,
+    importActivity,
+    importPeerRequestsFromMapping,
+    matchPeerRequests,
+    savePeerRequests
+  } from '$lib/services/appEnvUseCases';
   import type { SeedingStrategy } from '$lib/services/appEnvUseCases';
+  import type { ColumnMapping, MappedField, RawSheetData } from '$lib/domain/import';
+  import { generateStudentId, hasRequiredMappings, isPeerRequestField, validateMappedData } from '$lib/domain/import';
+  import type { Student } from '$lib/domain';
   import { parseActivityFile, readFileAsText } from '$lib/utils/activityFile';
-  import { parseCsvRoster, looksLikeCsv } from '$lib/utils/csvRosterParser';
+  import { looksLikeCsv } from '$lib/utils/csvRosterParser';
+  import { parseCsvToSheetData } from '$lib/services/googleSheets';
   import { isErr } from '$lib/types/result';
+  import SheetPreview from '$lib/components/import/SheetPreview.svelte';
+  import PeerRequestMatchingReview from '$lib/components/import/PeerRequestMatchingReview.svelte';
 
   let {
     onCreated,
@@ -49,41 +62,131 @@
       }
     | {
         type: 'csv';
-        studentCount: number;
-        groupNames: string[];
-        choiceColumns: number;
-        warnings: string[];
-        /** Raw parse result for submission */
-        parsed: import('$lib/utils/csvRosterParser').CsvRosterParseResult;
+        rawData: RawSheetData;
+        columnMappings: ColumnMapping[];
       }
     | null
   >(null);
 
   let activityName = $state('');
   let seedingStrategy = $state<SeedingStrategy>('top-choice');
+  let importWarnings = $state<string[]>([]);
+  let isReviewingPeerRequests = $state(false);
+  let pendingPeerReview = $state<import('$lib/application/useCases/matchPeerRequests').MatchPeerRequestsOutput | null>(null);
+  let pendingProgramId = $state<string | null>(null);
+  let pendingReviewStudents = $state<Student[]>([]);
 
   // Derived preview summaries for the confirmation screen
   let previewStudentNames = $derived(
     preview?.type === 'json'
       ? preview.studentNames
       : preview?.type === 'csv'
-        ? preview.parsed.students.map((s) => [s.firstName, s.lastName].filter(Boolean).join(' '))
+        ? (validateMappedData(preview.rawData, preview.columnMappings).validRows
+            .map((row) => [row.student?.firstName, row.student?.lastName].filter(Boolean).join(' '))
+            .filter(Boolean) as string[])
         : []
   );
   let previewGroupNames = $derived(
     preview?.type === 'json'
       ? preview.groupNames
       : preview?.type === 'csv'
-        ? preview.groupNames
+        ? Array.from(
+            new Set(
+              validateMappedData(preview.rawData, preview.columnMappings).validRows.flatMap(
+                (row) => row.choices ?? []
+              )
+            )
+          ).sort()
         : []
   );
   let previewGroupCount = $derived(
     preview?.type === 'json'
       ? preview.groupCount
       : preview?.type === 'csv'
-        ? preview.groupNames.length
+        ? previewGroupNames.length
         : 0
   );
+  let previewStudentCount = $derived(
+    preview?.type === 'json'
+      ? preview.studentCount
+      : preview?.type === 'csv'
+        ? validateMappedData(preview.rawData, preview.columnMappings).summary.validCount
+        : 0
+  );
+
+  let csvValidationPreview = $derived(
+    preview?.type === 'csv' ? validateMappedData(preview.rawData, preview.columnMappings) : null
+  );
+
+  let csvChoiceColumns = $derived(
+    preview?.type === 'csv'
+      ? preview.columnMappings.filter((mapping) => mapping.mappedTo?.startsWith('choice')).length
+      : 0
+  );
+
+  let csvHasPeerRequestMappings = $derived(
+    preview?.type === 'csv'
+      ? preview.columnMappings.some(
+          (mapping) => mapping.mappedTo !== null && isPeerRequestField(mapping.mappedTo)
+        )
+      : false
+  );
+
+  function guessMapping(header: string): MappedField | null {
+    const h = header.toLowerCase().trim();
+
+    if (h === 'first name' || h === 'firstname' || h === 'first' || h === 'fname') {
+      return 'firstName';
+    }
+
+    if (
+      h === 'last name' ||
+      h === 'lastname' ||
+      h === 'last' ||
+      h === 'lname' ||
+      h === 'surname'
+    ) {
+      return 'lastName';
+    }
+
+    if (h.includes('choice') || h.includes('preference') || h.includes('rank') || h.includes('pick')) {
+      const num = h.match(/[1-5]/);
+      const rank = num ? parseInt(num[0], 10) : 1;
+      return `choice${Math.min(Math.max(rank, 1), 5)}` as MappedField;
+    }
+
+    if (
+      h.includes('peer request') ||
+      h.includes('partner request') ||
+      h.includes('work with') ||
+      h.includes('want to work with')
+    ) {
+      const num = h.match(/[1-5]/);
+      const rank = num ? parseInt(num[0], 10) : 1;
+      return `peerRequest${Math.min(Math.max(rank, 1), 5)}` as MappedField;
+    }
+
+    return null;
+  }
+
+  function initializeMappings(data: RawSheetData): ColumnMapping[] {
+    return data.headers.map((header, index) => ({
+      columnIndex: index,
+      headerName: header,
+      mappedTo: guessMapping(header)
+    }));
+  }
+
+  function handleCsvMappingChange(columnIndex: number, field: MappedField | null) {
+    if (!preview || preview.type !== 'csv') return;
+
+    preview = {
+      ...preview,
+      columnMappings: preview.columnMappings.map((mapping) =>
+        mapping.columnIndex === columnIndex ? { ...mapping, mappedTo: field } : mapping
+      )
+    };
+  }
 
   function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -94,6 +197,11 @@
     error = null;
     preview = null;
     activityName = '';
+    importWarnings = [];
+    pendingPeerReview = null;
+    pendingProgramId = null;
+    pendingReviewStudents = [];
+    isReviewingPeerRequests = false;
     parseFile(file);
   }
 
@@ -130,10 +238,10 @@
       }
 
       // Try CSV/TSV
-      const parsed = parseCsvRoster(text);
-      const choiceColumns = parsed.columnMatches.filter((m) =>
-        m.matchedTo.startsWith('choice')
-      ).length;
+      const rawData = parseCsvToSheetData(text);
+      if (rawData.headers.length === 0 || rawData.rows.length === 0) {
+        throw new Error('File must have a header row and at least one data row.');
+      }
 
       // Default activity name from filename without extension
       const baseName = file.name.replace(/\.(csv|tsv|txt)$/i, '').replace(/[-_]/g, ' ');
@@ -141,11 +249,8 @@
 
       preview = {
         type: 'csv',
-        studentCount: parsed.students.length,
-        groupNames: parsed.groupNames,
-        choiceColumns,
-        warnings: parsed.warnings,
-        parsed
+        rawData,
+        columnMappings: initializeMappings(rawData)
       };
     } catch (e) {
       error = e instanceof Error ? e.message : 'Could not read file.';
@@ -162,7 +267,7 @@
       if (preview.type === 'json') {
         await handleJsonImport();
       } else {
-        await handleCsvImport(preview.parsed);
+        await handleCsvImport(preview.rawData, preview.columnMappings);
       }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Import failed.';
@@ -191,62 +296,58 @@
     goto(`/activity/${result.value.program.id}`);
   }
 
-  async function handleCsvImport(
-    parsed: import('$lib/utils/csvRosterParser').CsvRosterParseResult
-  ) {
-    const name = activityName.trim() || `Imported Class (${parsed.students.length})`;
+  async function handleCsvImport(rawData: RawSheetData, columnMappings: ColumnMapping[]) {
+    if (!hasRequiredMappings(columnMappings)) {
+      throw new Error('Map at least a First Name column before importing.');
+    }
 
-    // Build students with generated IDs
-    const students = parsed.students.map((s, i) => {
-      const namePart = `${s.firstName}${s.lastName}`.toLowerCase().replace(/\s+/g, '-');
-      return {
-        id: `${namePart}-${i + 1}`,
-        firstName: s.firstName,
-        lastName: s.lastName,
-        displayName: `${s.firstName} ${s.lastName}`.trim()
-      };
-    });
+    const validation = validateMappedData(rawData, columnMappings);
+    if (validation.validRows.length === 0) {
+      throw new Error('No valid student rows found in the file.');
+    }
 
-    // Build preferences: likeGroupIds are the raw group name strings
-    // (the system uses group names as IDs for preference-based grouping)
-    const preferences = parsed.students
-      .filter((s) => s.choices.length > 0)
-      .map((s, i) => {
-        const namePart = `${s.firstName}${s.lastName}`.toLowerCase().replace(/\s+/g, '-');
+    const name = activityName.trim() || `Imported Class (${validation.validRows.length})`;
+    const builtStudents = validation.validRows
+      .filter((row) => row.student)
+      .map((row) => {
+        const student = row.student!;
+        const id = generateStudentId(student.firstName, student.lastName, row.rowIndex);
         return {
-          studentId: `${namePart}-${i + 1}`,
-          likeGroupIds: s.choices
+          id,
+          firstName: student.firstName,
+          lastName: student.lastName ?? '',
+          displayName: `${student.firstName} ${student.lastName ?? ''}`.trim()
         };
       });
 
-    // Fix: preferences studentIds need to match the actual student IDs
-    // Rebuild with consistent indexing
-    const studentIdMap = new Map<number, string>();
-    const builtStudents = parsed.students.map((s, i) => {
-      const namePart = `${s.firstName}${s.lastName}`.toLowerCase().replace(/\s+/g, '-');
-      const id = `${namePart}-${i + 1}`;
-      studentIdMap.set(i, id);
-      return {
-        id,
-        firstName: s.firstName,
-        lastName: s.lastName,
-        displayName: `${s.firstName} ${s.lastName}`.trim()
-      };
-    });
+    const rowStudentLinks = validation.validRows
+      .filter((row) => row.student)
+      .map((row) => ({
+        rowIndex: row.rowIndex,
+        studentId: generateStudentId(row.student!.firstName, row.student!.lastName, row.rowIndex)
+      }));
 
-    const builtPreferences = parsed.students
-      .map((s, i) => ({
-        studentId: studentIdMap.get(i)!,
-        likeGroupIds: s.choices
-      }))
-      .filter((p) => p.likeGroupIds.length > 0);
+    const builtPreferences = validation.validRows
+      .filter((row) => row.student && row.choices && row.choices.length > 0)
+      .map((row) => ({
+        studentId: generateStudentId(row.student!.firstName, row.student!.lastName, row.rowIndex),
+        likeGroupIds: row.choices ?? []
+      }));
+
+    const groupNames = Array.from(
+      new Set(validation.validRows.flatMap((row) => row.choices ?? []))
+    ).sort();
+
+    importWarnings = validation.invalidRows.map(
+      (row) => `Row ${row.rowIndex}: ${row.errors.join(', ')}`
+    );
 
     const result = await createGroupingActivity(env, {
       activityName: name,
       students: builtStudents,
       preferences: builtPreferences,
-      groupNames: parsed.groupNames.length > 0 ? parsed.groupNames : undefined,
-      seedingStrategy: parsed.groupNames.length > 0 ? seedingStrategy : undefined,
+      groupNames: groupNames.length > 0 ? groupNames : undefined,
+      seedingStrategy: groupNames.length > 0 ? seedingStrategy : undefined,
       ownerStaffId: 'owner-1'
     });
 
@@ -255,8 +356,95 @@
       return;
     }
 
-    onCreated?.(result.value.program.id);
-    goto(`/activity/${result.value.program.id}`);
+    importWarnings = [...importWarnings, ...result.value.warnings];
+
+    const builtStudentEntities: Student[] = builtStudents.map((student) => ({
+      id: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName || undefined
+    }));
+
+    if (!columnMappings.some((mapping) => mapping.mappedTo && isPeerRequestField(mapping.mappedTo))) {
+      onCreated?.(result.value.program.id);
+      goto(`/activity/${result.value.program.id}`);
+      return;
+    }
+
+    const extractionResult = await importPeerRequestsFromMapping(env, {
+      programId: result.value.program.id,
+      rawData,
+      columnMappings,
+      rowStudentLinks
+    });
+
+    if (isErr(extractionResult)) {
+      error = extractionResult.error.message;
+      return;
+    }
+
+    importWarnings = [...importWarnings, ...extractionResult.value.warnings];
+
+    if (extractionResult.value.entries.length === 0) {
+      onCreated?.(result.value.program.id);
+      goto(`/activity/${result.value.program.id}`);
+      return;
+    }
+
+    const matchResult = await matchPeerRequests(env, {
+      requests: extractionResult.value.entries,
+      students: builtStudentEntities
+    });
+
+    if (isErr(matchResult)) {
+      error = 'Unable to match peer requests.';
+      return;
+    }
+
+    pendingPeerReview = matchResult.value;
+    pendingProgramId = result.value.program.id;
+    pendingReviewStudents = builtStudentEntities;
+    isReviewingPeerRequests = true;
+
+    return;
+  }
+
+  async function handlePeerRequestConfirm(
+    decisions: import('$lib/application/useCases/confirmPeerRequestMatches').PeerRequestReviewDecision[]
+  ) {
+    if (!pendingPeerReview || !pendingProgramId) return;
+
+    isImporting = true;
+    error = null;
+
+    const confirmationResult = await confirmPeerRequestMatches(env, {
+      requests: pendingPeerReview.updatedRequests,
+      decisions
+    });
+
+    if (isErr(confirmationResult)) {
+      error = confirmationResult.error.type;
+      isImporting = false;
+      return;
+    }
+
+    const saveResult = await savePeerRequests(env, {
+      programId: pendingProgramId,
+      entries: confirmationResult.value.updatedRequests
+    });
+
+    if (isErr(saveResult)) {
+      error = saveResult.error.message;
+      isImporting = false;
+      return;
+    }
+
+    const programId = pendingProgramId;
+    pendingPeerReview = null;
+    pendingProgramId = null;
+    pendingReviewStudents = [];
+    isReviewingPeerRequests = false;
+    onCreated?.(programId);
+    goto(`/activity/${programId}`);
   }
 
   function clearFile() {
@@ -265,6 +453,11 @@
     error = null;
     activityName = '';
     seedingStrategy = 'top-choice';
+    importWarnings = [];
+    pendingPeerReview = null;
+    pendingProgramId = null;
+    pendingReviewStudents = [];
+    isReviewingPeerRequests = false;
     if (fileInput) fileInput.value = '';
   }
 </script>
@@ -312,6 +505,41 @@
       Choose file
     </button>
     <p class="{compact ? 'mt-1' : 'mt-2'} text-center text-xs text-gray-400">Accepts .csv, .tsv, or .json</p>
+  {:else if isReviewingPeerRequests && pendingPeerReview}
+    <div class="{compact ? '' : 'mt-5'}">
+      <div class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2">
+        <div class="flex min-w-0 items-center gap-2 text-xs text-gray-500">
+          <svg
+            class="h-3.5 w-3.5 shrink-0 text-teal"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+            />
+          </svg>
+          <span class="truncate">{selectedFile?.name}</span>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <PeerRequestMatchingReview
+          readyToConfirm={pendingPeerReview.readyToConfirm}
+          needsReview={pendingPeerReview.needsReview}
+          noMatch={pendingPeerReview.noMatch}
+          invalid={pendingPeerReview.invalid}
+          students={pendingReviewStudents}
+          warnings={importWarnings}
+          busy={isImporting}
+          confirmLabel="Save requests & open activity"
+          onConfirm={handlePeerRequestConfirm}
+        />
+      </div>
+    </div>
   {:else}
     <!-- Preview / Confirmation -->
     <div class="{compact ? '' : 'mt-5'}">
@@ -361,7 +589,7 @@
       <div class="mt-5 space-y-1.5">
         <div class="rounded-md border border-gray-100 bg-gray-50/60 px-3.5 py-2.5">
           <span class="text-sm font-medium text-gray-700">
-            {preview.studentCount} {preview.studentCount === 1 ? 'student' : 'students'}
+            {previewStudentCount} {previewStudentCount === 1 ? 'student' : 'students'}
           </span>
           {#if previewStudentNames.length > 0}
             <p class="mt-0.5 text-xs leading-relaxed text-gray-400">
@@ -387,19 +615,49 @@
           </div>
         {/if}
 
-        {#if preview.type === 'csv' && preview.choiceColumns === 0}
+        {#if preview.type === 'csv' && csvChoiceColumns === 0}
           <p class="px-1 pt-0.5 text-xs text-gray-400">Roster only — no group preferences detected.</p>
         {/if}
 
-        {#if preview.type === 'csv' && preview.warnings.length > 0}
+        {#if preview.type === 'csv' && csvValidationPreview && csvValidationPreview.summary.invalidCount > 0}
           <p class="px-1 pt-0.5 text-xs text-amber-600">
-            {preview.warnings.length} warning{preview.warnings.length !== 1 ? 's' : ''} (rows skipped or incomplete)
+            {csvValidationPreview.summary.invalidCount} warning{csvValidationPreview.summary.invalidCount !== 1 ? 's' : ''} (rows skipped or incomplete)
           </p>
         {/if}
       </div>
 
       <!-- 4. Seeding strategy (CSV with groups only) -->
-      {#if preview.type === 'csv' && preview.choiceColumns > 0 && preview.groupNames.length > 0}
+      {#if preview.type === 'csv'}
+        <div class="mt-5 space-y-3">
+          <div class="rounded-md border border-gray-100 bg-gray-50/60 px-3.5 py-2.5">
+            <p class="text-xs font-medium text-gray-700">Column mapping</p>
+            <p class="mt-0.5 text-xs text-gray-500">
+              Review the detected columns before importing. Peer request columns are optional.
+            </p>
+            <div class="mt-3">
+              <SheetPreview
+                data={preview.rawData}
+                mappings={preview.columnMappings}
+                maxPreviewRows={6}
+                onMappingChange={handleCsvMappingChange}
+              />
+            </div>
+          </div>
+
+          {#if csvValidationPreview}
+            <div class="rounded-md border border-gray-100 bg-gray-50/60 px-3.5 py-2.5 text-xs text-gray-600">
+              <p>
+                {csvValidationPreview.summary.validCount} valid row{csvValidationPreview.summary.validCount === 1 ? '' : 's'}
+                {#if csvHasPeerRequestMappings}
+                  • peer requests will be reviewed before opening the activity
+                {/if}
+              </p>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if preview.type === 'csv' && csvChoiceColumns > 0 && previewGroupNames.length > 0}
         <fieldset class="mt-5 space-y-1.5" disabled={isImporting}>
           <legend class="block text-xs font-medium text-gray-700">Initial group assignments</legend>
           <label
@@ -441,7 +699,7 @@
           type="button"
           class="w-full rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-teal-dark focus:ring-2 focus:ring-teal focus:ring-offset-2 focus:outline-none disabled:opacity-50"
           onclick={handleImport}
-          disabled={isImporting}
+          disabled={isImporting || (preview.type === 'csv' && !hasRequiredMappings(preview.columnMappings))}
         >
           {isImporting ? 'Importing...' : 'Import Activity'}
         </button>

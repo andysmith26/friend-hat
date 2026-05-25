@@ -8,6 +8,7 @@ import type {
   SessionRepository,
   PlacementRepository,
   PreferenceRepository,
+  PeerRequestRepository,
   GroupTemplateRepository,
   ObservationRepository,
   IdGenerator,
@@ -28,6 +29,7 @@ import {
   InMemorySessionRepository,
   InMemoryPlacementRepository,
   InMemoryPreferenceRepository,
+  InMemoryPeerRequestRepository,
   InMemoryObservationRepository
 } from '$lib/infrastructure/repositories/inMemory';
 import { InMemoryGroupTemplateRepository } from '$lib/infrastructure/repositories/inMemory/InMemoryGroupTemplateRepository';
@@ -42,6 +44,7 @@ import {
   IndexedDbStudentIdentityRepository,
   IndexedDbStaffRepository,
   IndexedDbPreferenceRepository,
+  IndexedDbPeerRequestRepository,
   IndexedDbObservationRepository
 } from '$lib/infrastructure/repositories/indexedDb';
 import {
@@ -53,6 +56,7 @@ import {
   SyncedSessionRepository,
   SyncedPlacementRepository,
   SyncedPreferenceRepository,
+  SyncedPeerRequestRepository,
   SyncedGroupTemplateRepository
 } from '$lib/infrastructure/repositories/synced';
 import { UuidIdGenerator, SystemClock } from '$lib/infrastructure/services';
@@ -73,6 +77,7 @@ import type {
   Student,
   Staff,
   Preference,
+  PeerRequestEntry,
   GroupTemplate,
   Observation
 } from '$lib/domain';
@@ -93,6 +98,7 @@ export interface InMemoryEnvironment {
   sessionRepo: SessionRepository;
   placementRepo: PlacementRepository;
   preferenceRepo: PreferenceRepository;
+  peerRequestRepo: PeerRequestRepository;
   groupTemplateRepo: GroupTemplateRepository;
   observationRepo: ObservationRepository;
   idGenerator: IdGenerator;
@@ -162,6 +168,7 @@ export function createInMemoryEnvironment(
     sessions?: Session[];
     placements?: Placement[];
     preferences?: Preference[];
+    peerRequests?: PeerRequestEntry[];
     groupTemplates?: GroupTemplate[];
     observations?: Observation[];
   },
@@ -197,6 +204,9 @@ export function createInMemoryEnvironment(
   const basePreferenceRepo = useIndexedDb
     ? new IndexedDbPreferenceRepository()
     : new InMemoryPreferenceRepository(seed?.preferences ?? []);
+  const basePeerRequestRepo: PeerRequestRepository = useIndexedDb
+    ? new IndexedDbPeerRequestRepository()
+    : new InMemoryPeerRequestRepository(seed?.peerRequests ?? []);
   const baseScenarioRepo: ScenarioRepository = useIndexedDb
     ? new IndexedDbScenarioRepository()
     : new InMemoryScenarioRepository(seed?.scenarios ?? []);
@@ -232,6 +242,9 @@ export function createInMemoryEnvironment(
   const preferenceRepo: PreferenceRepository = syncService
     ? new SyncedPreferenceRepository(basePreferenceRepo, syncService)
     : basePreferenceRepo;
+  const peerRequestRepo: PeerRequestRepository = syncService
+    ? new SyncedPeerRequestRepository(basePeerRequestRepo, syncService)
+    : basePeerRequestRepo;
   const scenarioRepo: ScenarioRepository = syncService
     ? new SyncedScenarioRepository(baseScenarioRepo, syncService)
     : baseScenarioRepo;
@@ -309,6 +322,7 @@ export function createInMemoryEnvironment(
     sessionRepo,
     placementRepo,
     preferenceRepo,
+    peerRequestRepo,
     groupTemplateRepo,
     observationRepo,
     idGenerator,

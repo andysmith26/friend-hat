@@ -45,6 +45,7 @@ const ENTITY_TAB_NAMES: Record<SyncEntityType, string> = {
   sessions: '_gw_sessions',
   placements: '_gw_placements',
   preferences: '_gw_preferences',
+  peerRequests: '_gw_peerRequests',
   groupTemplates: '_gw_groupTemplates'
 };
 
