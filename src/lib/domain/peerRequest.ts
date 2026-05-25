@@ -16,6 +16,14 @@ export type PeerRequestResolutionStatus =
 
 export type PeerRequestResolutionSource = 'NONE' | 'AUTO' | 'MANUAL';
 
+export type PeerRequestResolutionAuditAction = 'AUTO_MATCHED' | 'MANUALLY_SET' | 'CLEARED';
+
+export interface PeerRequestResolutionAuditEntry {
+  action: PeerRequestResolutionAuditAction;
+  resolvedStudentId?: string;
+  resolutionSource: PeerRequestResolutionSource;
+}
+
 export type PeerRequestSatisfactionStatus =
   | 'SATISFIED'
   | 'UNSATISFIED'
@@ -39,6 +47,9 @@ export interface PeerRequestEntry {
   status: PeerRequestResolutionStatus;
   resolvedStudentId?: string;
   resolutionSource: PeerRequestResolutionSource;
+  initialResolvedStudentId?: string;
+  initialResolutionSource?: Exclude<PeerRequestResolutionSource, 'NONE'>;
+  resolutionHistory: PeerRequestResolutionAuditEntry[];
   candidates: PeerRequestCandidate[];
 }
 
@@ -66,6 +77,9 @@ export function createPeerRequestEntry(input: {
   status?: PeerRequestResolutionStatus;
   resolvedStudentId?: string;
   resolutionSource?: PeerRequestResolutionSource;
+  initialResolvedStudentId?: string;
+  initialResolutionSource?: Exclude<PeerRequestResolutionSource, 'NONE'>;
+  resolutionHistory?: PeerRequestResolutionAuditEntry[];
   candidates?: PeerRequestCandidate[];
 }): PeerRequestEntry {
   if (!input.id.trim()) {
@@ -91,10 +105,62 @@ export function createPeerRequestEntry(input: {
     status: input.status ?? 'UNRESOLVED',
     resolvedStudentId: input.resolvedStudentId,
     resolutionSource: input.resolutionSource ?? 'NONE',
+    initialResolvedStudentId: input.initialResolvedStudentId,
+    initialResolutionSource: input.initialResolutionSource,
+    resolutionHistory: (input.resolutionHistory ?? []).map((entry) => ({ ...entry })),
     candidates: (input.candidates ?? []).map((candidate) => ({
       ...candidate,
       reasons: [...candidate.reasons]
     }))
+  };
+}
+
+export function appendPeerRequestResolutionHistory(input: {
+  request: PeerRequestEntry;
+  resolvedStudentId?: string;
+  resolutionSource: PeerRequestResolutionSource;
+}): PeerRequestResolutionAuditEntry[] {
+  const { request, resolvedStudentId, resolutionSource } = input;
+  const nextEntry: PeerRequestResolutionAuditEntry = {
+    action: resolvedStudentId
+      ? resolutionSource === 'AUTO'
+        ? 'AUTO_MATCHED'
+        : 'MANUALLY_SET'
+      : 'CLEARED',
+    resolvedStudentId,
+    resolutionSource
+  };
+
+  const previous = request.resolutionHistory[request.resolutionHistory.length - 1];
+  if (
+    previous &&
+    previous.action === nextEntry.action &&
+    previous.resolvedStudentId === nextEntry.resolvedStudentId &&
+    previous.resolutionSource === nextEntry.resolutionSource
+  ) {
+    return request.resolutionHistory.map((entry) => ({ ...entry }));
+  }
+
+  return [...request.resolutionHistory.map((entry) => ({ ...entry })), nextEntry];
+}
+
+export function captureInitialPeerRequestResolution(input: {
+  request: PeerRequestEntry;
+  resolvedStudentId?: string;
+  resolutionSource: PeerRequestResolutionSource;
+}): Pick<PeerRequestEntry, 'initialResolvedStudentId' | 'initialResolutionSource'> {
+  const { request, resolvedStudentId, resolutionSource } = input;
+
+  if (!resolvedStudentId || resolutionSource === 'NONE') {
+    return {
+      initialResolvedStudentId: request.initialResolvedStudentId,
+      initialResolutionSource: request.initialResolutionSource
+    };
+  }
+
+  return {
+    initialResolvedStudentId: request.initialResolvedStudentId ?? resolvedStudentId,
+    initialResolutionSource: request.initialResolutionSource ?? resolutionSource
   };
 }
 

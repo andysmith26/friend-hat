@@ -39,6 +39,10 @@ describe('getPeerRequestWorkspaceSummary', () => {
       requestedStudentIds: ['student-b']
     });
     expect(result.byStudentId.get('student-a')?.items[0]).toMatchObject({
+      auditItems: [{ label: 'Assigned', resolvedStudentDisplayName: 'Blake Benson' }],
+      initialResolvedStudentDisplayName: 'Blake Benson',
+      initialResolutionSource: 'MANUAL',
+      hasChangedSinceInitial: false,
       resolvedStudentDisplayName: 'Blake Benson',
       satisfactionStatus: 'SATISFIED'
     });
@@ -203,5 +207,40 @@ describe('getPeerRequestWorkspaceSummary', () => {
     expect(result.byStudentId.get('student-a')?.items).toHaveLength(2);
     expect(result.byStudentId.get('student-a')?.confirmedRequestCount).toBe(2);
     expect(result.byStudentId.get('student-a')?.requestedStudentIds).toEqual(['student-b']);
+  });
+
+  it('exposes the initial mapping snapshot when a request is reassigned later', () => {
+    const result = getPeerRequestWorkspaceSummary({
+      requests: [
+        createPeerRequestEntry({
+          id: 'request-9',
+          programId: 'program-1',
+          requesterStudentId: 'student-a',
+          rank: 1,
+          rawText: 'Blake Benson',
+          status: 'MANUALLY_SET',
+          resolvedStudentId: 'student-c',
+          resolutionSource: 'MANUAL',
+          initialResolvedStudentId: 'student-b',
+          initialResolutionSource: 'AUTO'
+        })
+      ],
+      students,
+      groups: [
+        createGroup({ id: 'group-1', name: 'Group 1', memberIds: ['student-a'] }),
+        createGroup({ id: 'group-2', name: 'Group 2', memberIds: ['student-c'] })
+      ]
+    });
+
+    expect(result.byStudentId.get('student-a')?.items[0]).toMatchObject({
+      resolvedStudentDisplayName: 'Casey Cole',
+      initialResolvedStudentDisplayName: 'Blake Benson',
+      initialResolutionSource: 'AUTO',
+      hasChangedSinceInitial: true,
+      auditItems: [
+        { label: 'Initially matched', resolvedStudentDisplayName: 'Blake Benson' },
+        { label: 'Assigned', resolvedStudentDisplayName: 'Casey Cole' }
+      ]
+    });
   });
 });

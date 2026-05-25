@@ -1,4 +1,9 @@
-import { createPeerRequestEntry, type PeerRequestEntry } from '$lib/domain/peerRequest';
+import {
+  appendPeerRequestResolutionHistory,
+  captureInitialPeerRequestResolution,
+  createPeerRequestEntry,
+  type PeerRequestEntry
+} from '$lib/domain/peerRequest';
 
 export type PeerRequestReviewDecision =
   | {
@@ -60,7 +65,17 @@ export function confirmPeerRequestMatches(
           ...existing,
           status: 'CONFIRMED',
           resolvedStudentId: suggestedMatch.studentId,
-          resolutionSource: 'AUTO'
+          resolutionSource: 'AUTO',
+          ...captureInitialPeerRequestResolution({
+            request: existing,
+            resolvedStudentId: suggestedMatch.studentId,
+            resolutionSource: 'AUTO'
+          }),
+          resolutionHistory: appendPeerRequestResolutionHistory({
+            request: existing,
+            resolvedStudentId: suggestedMatch.studentId,
+            resolutionSource: 'AUTO'
+          })
         })
       );
       continue;
@@ -90,7 +105,17 @@ export function confirmPeerRequestMatches(
           ...existing,
           status: 'MANUALLY_SET',
           resolvedStudentId: studentId,
-          resolutionSource: 'MANUAL'
+          resolutionSource: 'MANUAL',
+          ...captureInitialPeerRequestResolution({
+            request: existing,
+            resolvedStudentId: studentId,
+            resolutionSource: 'MANUAL'
+          }),
+          resolutionHistory: appendPeerRequestResolutionHistory({
+            request: existing,
+            resolvedStudentId: studentId,
+            resolutionSource: 'MANUAL'
+          })
         })
       );
       continue;
@@ -102,7 +127,17 @@ export function confirmPeerRequestMatches(
         ...existing,
         status: 'UNRESOLVED',
         resolvedStudentId: undefined,
-        resolutionSource: 'NONE'
+        resolutionSource: 'NONE',
+        ...captureInitialPeerRequestResolution({
+          request: existing,
+          resolvedStudentId: existing.resolvedStudentId,
+          resolutionSource: existing.resolutionSource
+        }),
+        resolutionHistory: appendPeerRequestResolutionHistory({
+          request: existing,
+          resolvedStudentId: undefined,
+          resolutionSource: 'NONE'
+        })
       })
     );
   }

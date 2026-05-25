@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appendPeerRequestResolutionHistory,
   createPeerRequestEntry,
   getPeerRequestSatisfactionStatus,
   isIgnoredPeerRequestText,
@@ -41,7 +42,11 @@ describe('createPeerRequestEntry', () => {
       rawText: ' Alex Rivera ',
       normalizedText: 'alex rivera',
       status: 'UNRESOLVED',
+      resolvedStudentId: undefined,
       resolutionSource: 'NONE',
+      initialResolvedStudentId: undefined,
+      initialResolutionSource: undefined,
+      resolutionHistory: [],
       candidates: []
     });
   });
@@ -59,6 +64,32 @@ describe('createPeerRequestEntry', () => {
     entry.candidates[0].reasons.push('mutated');
 
     expect(entry.candidates[0].reasons).toEqual(['exact first name', 'mutated']);
+  });
+
+  it('appends audit history entries without duplicating identical consecutive states', () => {
+    const request = createPeerRequestEntry({
+      id: 'request-3',
+      programId: 'program-1',
+      requesterStudentId: 'student-1',
+      rank: 1,
+      rawText: 'Jamie'
+    });
+
+    const first = appendPeerRequestResolutionHistory({
+      request,
+      resolvedStudentId: 'student-2',
+      resolutionSource: 'MANUAL'
+    });
+    const second = appendPeerRequestResolutionHistory({
+      request: { ...request, resolutionHistory: first },
+      resolvedStudentId: 'student-2',
+      resolutionSource: 'MANUAL'
+    });
+
+    expect(first).toEqual([
+      { action: 'MANUALLY_SET', resolvedStudentId: 'student-2', resolutionSource: 'MANUAL' }
+    ]);
+    expect(second).toEqual(first);
   });
 });
 

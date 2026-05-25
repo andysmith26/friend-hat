@@ -1,10 +1,16 @@
 import { getStudentDisplayName, type Group, type Student } from '$lib/domain';
 import {
   getPeerRequestSatisfactionStatus,
+  type PeerRequestResolutionAuditEntry,
   type PeerRequestEntry,
   type PeerRequestResolutionStatus,
   type PeerRequestSatisfactionStatus
 } from '$lib/domain/peerRequest';
+
+export interface PeerRequestWorkspaceAuditItem {
+  label: string;
+  resolvedStudentDisplayName?: string;
+}
 
 export interface PeerRequestWorkspaceItem {
   requestId: string;
@@ -12,8 +18,48 @@ export interface PeerRequestWorkspaceItem {
   rawText: string;
   resolvedStudentId?: string;
   resolvedStudentDisplayName?: string;
+  initialResolvedStudentId?: string;
+  initialResolvedStudentDisplayName?: string;
+  initialResolutionSource?: 'AUTO' | 'MANUAL';
+  hasChangedSinceInitial: boolean;
+  auditItems: PeerRequestWorkspaceAuditItem[];
   resolutionStatus: PeerRequestResolutionStatus;
   satisfactionStatus: PeerRequestSatisfactionStatus;
+}
+
+function toAuditLabel(entry: PeerRequestResolutionAuditEntry): string {
+  if (entry.action === 'AUTO_MATCHED') return 'Initially matched';
+  if (entry.action === 'MANUALLY_SET') return 'Assigned';
+  return 'Cleared';
+}
+
+function buildLegacyAuditItems(input: {
+  initialResolvedStudentDisplayName?: string;
+  initialResolutionSource?: 'AUTO' | 'MANUAL';
+  resolvedStudentDisplayName?: string;
+  resolvedStudentId?: string;
+  hasChangedSinceInitial: boolean;
+}): PeerRequestWorkspaceAuditItem[] {
+  const items: PeerRequestWorkspaceAuditItem[] = [];
+
+  if (input.initialResolvedStudentDisplayName) {
+    items.push({
+      label: input.initialResolutionSource === 'AUTO' ? 'Initially matched' : 'Assigned',
+      resolvedStudentDisplayName: input.initialResolvedStudentDisplayName
+    });
+  }
+
+  if (
+    input.hasChangedSinceInitial &&
+    (input.resolvedStudentDisplayName || !input.resolvedStudentId)
+  ) {
+    items.push({
+      label: input.resolvedStudentDisplayName ? 'Assigned' : 'Cleared',
+      resolvedStudentDisplayName: input.resolvedStudentDisplayName
+    });
+  }
+
+  return items;
 }
 
 export interface StudentPeerRequestWorkspaceSummary {
@@ -96,6 +142,47 @@ export function getPeerRequestWorkspaceSummary(
         ? studentById.has(request.resolvedStudentId)
         : false
     });
+    const initialResolvedStudentId =
+      request.initialResolvedStudentId ??
+      (request.resolvedStudentId && request.resolutionSource !== 'NONE'
+        ? request.resolvedStudentId
+        : undefined);
+    const initialResolutionSource =
+      request.initialResolutionSource ??
+      (request.resolvedStudentId && request.resolutionSource !== 'NONE'
+        ? request.resolutionSource
+        : undefined);
+    const initialResolvedStudent = initialResolvedStudentId
+      ? (studentById.get(initialResolvedStudentId) ?? null)
+      : null;
+    const hasChangedSinceInitial =
+      Boolean(initialResolvedStudentId) &&
+      (request.resolvedStudentId !== initialResolvedStudentId ||
+        request.resolutionSource !== initialResolutionSource);
+    const auditItems =
+      request.resolutionHistory.length > 0
+        ? request.resolutionHistory.map((entry) => ({
+            label: toAuditLabel(entry),
+            resolvedStudentDisplayName: entry.resolvedStudentId
+              ? getStudentDisplayName(
+                  studentById.get(entry.resolvedStudentId) ?? {
+                    id: entry.resolvedStudentId,
+                    firstName: entry.resolvedStudentId
+                  }
+                )
+              : undefined
+          }))
+        : buildLegacyAuditItems({
+            initialResolvedStudentDisplayName: initialResolvedStudent
+              ? getStudentDisplayName(initialResolvedStudent)
+              : undefined,
+            initialResolutionSource,
+            resolvedStudentDisplayName: resolvedStudent
+              ? getStudentDisplayName(resolvedStudent)
+              : undefined,
+            resolvedStudentId: request.resolvedStudentId,
+            hasChangedSinceInitial
+          });
 
     const item: PeerRequestWorkspaceItem = {
       requestId: request.id,
@@ -105,6 +192,13 @@ export function getPeerRequestWorkspaceSummary(
       resolvedStudentDisplayName: resolvedStudent
         ? getStudentDisplayName(resolvedStudent)
         : undefined,
+      initialResolvedStudentId,
+      initialResolvedStudentDisplayName: initialResolvedStudent
+        ? getStudentDisplayName(initialResolvedStudent)
+        : undefined,
+      initialResolutionSource,
+      hasChangedSinceInitial,
+      auditItems,
       resolutionStatus: request.status,
       satisfactionStatus
     };
@@ -139,6 +233,7 @@ export function getPeerRequestWorkspaceSummary(
   }
 
   for (const [studentId, summary] of byStudentId) {
+    summary.items.sort((left, right) => left.rank - right.rank);
     summary.requestedStudentIds = [...(requestedPeerIdsByStudentId.get(studentId) ?? [])];
   }
 

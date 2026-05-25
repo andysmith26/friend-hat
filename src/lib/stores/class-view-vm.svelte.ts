@@ -30,6 +30,10 @@ import { isErr } from '$lib/types/result';
 import { getActiveMemberIds } from '$lib/domain/pool';
 import type { MemberStatus } from '$lib/domain/pool';
 import {
+  appendPeerRequestResolutionHistory,
+  captureInitialPeerRequestResolution
+} from '$lib/domain/peerRequest';
+import {
   ScenarioEditingStore,
   type SaveStatus,
   type ScenarioEditingView
@@ -500,7 +504,17 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
       ...request,
       resolvedStudentId: payload.studentId,
       status: 'MANUALLY_SET',
-      resolutionSource: 'MANUAL'
+      resolutionSource: 'MANUAL',
+      ...captureInitialPeerRequestResolution({
+        request,
+        resolvedStudentId: payload.studentId,
+        resolutionSource: 'MANUAL'
+      }),
+      resolutionHistory: appendPeerRequestResolutionHistory({
+        request,
+        resolvedStudentId: payload.studentId,
+        resolutionSource: 'MANUAL'
+      })
     });
     await refreshPeerRequests();
   }
@@ -518,7 +532,17 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     await state.env.peerRequestRepo.update({
       ...requestWithoutResolvedStudentId,
       status: 'UNRESOLVED',
-      resolutionSource: 'NONE'
+      resolutionSource: 'NONE',
+      ...captureInitialPeerRequestResolution({
+        request,
+        resolvedStudentId: request.resolvedStudentId,
+        resolutionSource: request.resolutionSource
+      }),
+      resolutionHistory: appendPeerRequestResolutionHistory({
+        request,
+        resolvedStudentId: undefined,
+        resolutionSource: 'NONE'
+      })
     });
     await refreshPeerRequests();
   }

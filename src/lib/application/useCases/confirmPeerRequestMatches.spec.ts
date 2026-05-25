@@ -24,8 +24,13 @@ describe('confirmPeerRequestMatches', () => {
       expect(result.updatedRequests[0]).toMatchObject({
         status: 'CONFIRMED',
         resolutionSource: 'AUTO',
-        resolvedStudentId: 'student-2'
+        resolvedStudentId: 'student-2',
+        initialResolvedStudentId: 'student-2',
+        initialResolutionSource: 'AUTO'
       });
+      expect(result.updatedRequests[0].resolutionHistory).toEqual([
+        { action: 'AUTO_MATCHED', resolvedStudentId: 'student-2', resolutionSource: 'AUTO' }
+      ]);
     }
   });
 
@@ -48,8 +53,13 @@ describe('confirmPeerRequestMatches', () => {
       expect(result.updatedRequests[0]).toMatchObject({
         status: 'MANUALLY_SET',
         resolutionSource: 'MANUAL',
-        resolvedStudentId: 'student-9'
+        resolvedStudentId: 'student-9',
+        initialResolvedStudentId: 'student-9',
+        initialResolutionSource: 'MANUAL'
       });
+      expect(result.updatedRequests[0].resolutionHistory).toEqual([
+        { action: 'MANUALLY_SET', resolvedStudentId: 'student-9', resolutionSource: 'MANUAL' }
+      ]);
     }
   });
 
@@ -75,8 +85,46 @@ describe('confirmPeerRequestMatches', () => {
       expect(result.updatedRequests[0]).toMatchObject({
         status: 'UNRESOLVED',
         resolutionSource: 'NONE',
-        resolvedStudentId: undefined
+        resolvedStudentId: undefined,
+        initialResolvedStudentId: 'student-4',
+        initialResolutionSource: 'MANUAL'
       });
+      expect(result.updatedRequests[0].resolutionHistory).toEqual([
+        { action: 'CLEARED', resolvedStudentId: undefined, resolutionSource: 'NONE' }
+      ]);
+    }
+  });
+
+  it('preserves the original snapshot when a later manual choice changes the target', () => {
+    const request = createPeerRequestEntry({
+      id: 'request-5',
+      programId: 'program-1',
+      requesterStudentId: 'requester-1',
+      rank: 1,
+      rawText: 'First Choice',
+      status: 'CONFIRMED',
+      resolvedStudentId: 'student-2',
+      resolutionSource: 'AUTO',
+      initialResolvedStudentId: 'student-2',
+      initialResolutionSource: 'AUTO'
+    });
+
+    const result = confirmPeerRequestMatches({
+      requests: [request],
+      decisions: [{ requestId: 'request-5', action: 'SET_MANUAL', studentId: 'student-3' }]
+    });
+
+    expect('updatedRequests' in result).toBe(true);
+    if ('updatedRequests' in result) {
+      expect(result.updatedRequests[0]).toMatchObject({
+        resolvedStudentId: 'student-3',
+        resolutionSource: 'MANUAL',
+        initialResolvedStudentId: 'student-2',
+        initialResolutionSource: 'AUTO'
+      });
+      expect(result.updatedRequests[0].resolutionHistory).toEqual([
+        { action: 'MANUALLY_SET', resolvedStudentId: 'student-3', resolutionSource: 'MANUAL' }
+      ]);
     }
   });
 
