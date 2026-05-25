@@ -1135,7 +1135,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
    * When counts differ, clears the scenario so the teacher regenerates.
    */
   async function upgradeRoster(
-    students: Array<{ firstName: string; lastName: string }>
+    students: Array<{ firstName: string; lastName: string; sourceStudentId?: string }>
   ): Promise<void> {
     if (!state.pool) return;
 
@@ -1286,6 +1286,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     lastName?: string;
     gradeLevel?: string;
     gender?: string;
+    sourceStudentId?: string;
   }): Promise<{ success: boolean; studentId?: string }> {
     if (!state.pool) return { success: false };
 
@@ -1311,6 +1312,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     lastName?: string;
     gradeLevel?: string;
     gender?: string;
+    sourceStudentId?: string;
   }): Promise<boolean> {
     const result = await updateStudentUseCase(state.env, input);
 

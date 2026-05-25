@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Student } from '$lib/domain';
   import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
+  import { uiSettings } from '$lib/stores/uiSettings.svelte';
   import { sortableItem, type Edge, type SortableDropState } from '$lib/utils/pragmatic-dnd';
 
   export type KeyboardMoveDirection = 'up' | 'down' | 'left' | 'right';
@@ -104,14 +105,69 @@
         : 'No preferences'
   );
   const peerRequestCount = $derived(peerRequestSummary?.requestCount ?? 0);
+  const confirmedPeerRequestCount = $derived(peerRequestSummary?.confirmedRequestCount ?? 0);
+  const satisfiedPeerRequestCount = $derived(
+    confirmedPeerRequestCount > 0
+      ? Math.min(peerRequestSummary?.satisfiedCount ?? 0, confirmedPeerRequestCount)
+      : 0
+  );
+  const peerRequestBadgeText = $derived(
+    confirmedPeerRequestCount > 0
+      ? `${satisfiedPeerRequestCount}/${confirmedPeerRequestCount}`
+      : 'na'
+  );
+  const peerRequestBadgeAriaLabel = $derived.by(() => {
+    if (!peerRequestSummary || peerRequestSummary.requestCount === 0) {
+      return 'No peer requests';
+    }
+    if (confirmedPeerRequestCount === 0) {
+      return `${peerRequestCount} peer requests, no confirmed requests`;
+    }
+    return `${satisfiedPeerRequestCount} of ${confirmedPeerRequestCount} confirmed peer requests satisfied`;
+  });
   const peerRequestToneClass = $derived.by(() => {
     if (!peerRequestSummary || peerRequestSummary.requestCount === 0)
       return 'bg-gray-200 text-gray-500';
-    if (peerRequestSummary.staleCount > 0) return 'bg-rose-100 text-rose-700';
-    if (peerRequestSummary.unresolvedCount > 0) return 'bg-amber-100 text-amber-800';
-    if (peerRequestSummary.unsatisfiedCount > 0) return 'bg-orange-100 text-orange-700';
-    if (peerRequestSummary.satisfiedCount > 0) return 'bg-emerald-100 text-emerald-700';
-    return 'bg-sky-100 text-sky-700';
+    if (confirmedPeerRequestCount === 0) return 'bg-gray-200 text-gray-500';
+    if (satisfiedPeerRequestCount === confirmedPeerRequestCount) return 'bg-emerald-700 text-white';
+    if (satisfiedPeerRequestCount > 0) return 'bg-emerald-100 text-emerald-800';
+    return 'bg-rose-100 text-rose-700';
+  });
+  const peerRequestDotToneClass = $derived.by(() => {
+    if (!peerRequestSummary || peerRequestSummary.requestCount === 0) return 'bg-slate-300';
+    if (confirmedPeerRequestCount === 0) return 'bg-slate-300';
+    if (satisfiedPeerRequestCount === confirmedPeerRequestCount) return 'bg-emerald-600';
+    if (satisfiedPeerRequestCount > 0) return 'bg-amber-400';
+    return 'bg-rose-500';
+  });
+  const peerRequestIndicatorMode = $derived(uiSettings.peerRequestIndicatorMode);
+  const hasPeerRequestDetails = $derived(Boolean(isSelected && onOpenPeerRequestDetails));
+  const peerRequestInteractiveClass = $derived.by(() => {
+    return hasPeerRequestDetails
+      ? 'cursor-pointer transition-[filter,box-shadow,transform] duration-150 ease-out hover:brightness-95 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 focus-visible:outline-none'
+      : 'pointer-events-none';
+  });
+  const peerRequestBadgeClass = $derived.by(() => {
+    const interactionClass = hasPeerRequestDetails
+      ? peerRequestInteractiveClass
+      : 'pointer-events-none';
+
+    return `absolute top-0 right-0 z-10 inline-flex min-h-5 min-w-[2.6rem] items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none shadow-sm ring-1 ring-black/5 tabular-nums ${peerRequestToneClass} ${interactionClass}`;
+  });
+  const peerRequestDotButtonClass = $derived.by(() => {
+    const interactionClass = hasPeerRequestDetails
+      ? peerRequestInteractiveClass
+      : 'pointer-events-none';
+
+    return `absolute top-0 right-0 z-10 h-6 w-6 rounded-full ${interactionClass}`;
+  });
+  const peerRequestDotClass = $derived.by(() => {
+    const sizeClass = hasPeerRequestDetails ? 'h-3 w-3' : 'h-2 w-2';
+    const ringClass = hasPeerRequestDetails
+      ? 'ring-2 ring-white shadow-[0_1px_2px_rgba(15,23,42,0.18)]'
+      : 'ring-1 ring-white shadow-[0_0.5px_1px_rgba(15,23,42,0.12)]';
+
+    return `absolute top-1 right-1 block rounded-full transition-[width,height,box-shadow] duration-150 ease-out ${sizeClass} ${ringClass}`;
   });
   const peerRequestHighlightClass = $derived(
     isPeerRequested && !isSelected && !isPickedUp
@@ -239,8 +295,8 @@
       : '. Press Enter to pick up.'}"
   aria-pressed={readonly ? undefined : isPickedUp}
   data-student-id={student.id}
-  style="width: var(--card-width, 112px); padding: var(--card-padding, 2px); min-height: 44px;"
-  class={`group mx-auto flex items-center rounded-md border bg-white text-sm shadow-sm transition duration-150 ease-out ${
+  style="width: var(--card-width, 112px); padding: var(--card-padding, 2px); min-height: 40px;"
+  class={`group relative mx-auto flex items-center overflow-visible rounded-md border bg-white text-sm shadow-sm transition duration-150 ease-out ${
     readonly
       ? onStudentClick
         ? 'cursor-pointer border-gray-200 hover:border-gray-300 hover:shadow'
@@ -260,6 +316,66 @@
       : undefined
     : handleClick}
 >
+  {#if peerRequestCount > 0}
+    {#if peerRequestIndicatorMode === 'count'}
+      <span
+        class={peerRequestBadgeClass}
+        aria-label={hasPeerRequestDetails
+          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
+          : peerRequestBadgeAriaLabel}
+        role={hasPeerRequestDetails ? 'button' : undefined}
+        tabindex={hasPeerRequestDetails ? 0 : undefined}
+        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
+        onkeydown={(event) => {
+          if (!hasPeerRequestDetails) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenPeerRequests(event as unknown as MouseEvent);
+          }
+        }}
+      >
+        <span class="inline-flex items-center justify-center gap-1 whitespace-nowrap">
+          <span>{peerRequestBadgeText}</span>
+          <span
+            aria-hidden="true"
+            class={`inline-flex h-3 w-3 items-center justify-center transition-opacity duration-150 ease-out ${hasPeerRequestDetails ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 12 12" fill="none">
+              <path
+                d="M4 2.5 7.5 6 4 9.5"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.75"
+              />
+            </svg>
+          </span>
+        </span>
+      </span>
+    {:else}
+      <span
+        class={peerRequestDotButtonClass}
+        aria-label={hasPeerRequestDetails
+          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
+          : peerRequestBadgeAriaLabel}
+        role={hasPeerRequestDetails ? 'button' : undefined}
+        tabindex={hasPeerRequestDetails ? 0 : undefined}
+        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
+        onkeydown={(event) => {
+          if (!hasPeerRequestDetails) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenPeerRequests(event as unknown as MouseEvent);
+          }
+        }}
+      >
+        <span class={peerRequestDotClass}>
+          <span class={`block h-full w-full rounded-full ${peerRequestDotToneClass}`}></span>
+        </span>
+      </span>
+    {/if}
+  {/if}
+
   <!-- Drag handle grip icon (hidden in readonly mode) -->
   {#if !readonly}
     <svg
@@ -277,34 +393,16 @@
   {/if}
   <div
     style="font-size: var(--card-font-size, 15px);"
-    class={`relative flex min-w-0 flex-1 items-center justify-center overflow-visible rounded-md bg-white px-0.5 py-0.5 font-semibold ${textTone}`}
+    class={`relative flex min-w-0 flex-1 items-center justify-start overflow-visible rounded-md bg-white px-1 py-0 font-semibold ${textTone}`}
   >
-    {#if peerRequestCount > 0}
-      <span
-        class={`absolute -top-1 -left-0.5 z-10 inline-flex min-w-[1rem] items-center justify-center rounded px-0.5 text-[9px] leading-tight font-bold ${peerRequestToneClass}`}
-        aria-label={`${peerRequestCount} peer requests`}
-      >
-        {peerRequestCount}
-      </span>
-    {/if}
-    <span class="truncate leading-none" title={fullName}>{compactLabel}</span>
+    <span class="mt-[2px] truncate text-left leading-none" title={fullName}>{compactLabel}</span>
     {#if hasPreferences && badgeText}
       <span
-        class={`absolute -top-1 -right-0.5 z-10 rounded px-0.5 text-[9px] leading-tight font-bold ${badgeClass}`}
+        class={`absolute -top-1 -left-0.5 z-10 rounded px-0.5 text-[9px] leading-tight font-bold ${badgeClass}`}
         aria-label={badgeAriaLabel}
       >
         {badgeText}
       </span>
-    {/if}
-    {#if isSelected && peerRequestCount > 0 && onOpenPeerRequestDetails}
-      <button
-        type="button"
-        class="absolute -right-0.5 -bottom-1 z-10 rounded bg-white px-1 py-0.5 text-[9px] font-semibold text-teal-700 shadow-sm ring-1 ring-gray-200 hover:bg-teal-50"
-        aria-label="Open peer request details"
-        onclick={handleOpenPeerRequests}
-      >
-        Peers
-      </button>
     {/if}
   </div>
 </div>

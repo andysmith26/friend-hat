@@ -19,6 +19,7 @@ export interface PeerRequestWorkspaceItem {
 export interface StudentPeerRequestWorkspaceSummary {
   studentId: string;
   requestCount: number;
+  confirmedRequestCount: number;
   satisfiedCount: number;
   unsatisfiedCount: number;
   unresolvedCount: number;
@@ -41,6 +42,7 @@ function createEmptySummary(studentId: string): StudentPeerRequestWorkspaceSumma
   return {
     studentId,
     requestCount: 0,
+    confirmedRequestCount: 0,
     satisfiedCount: 0,
     unsatisfiedCount: 0,
     unresolvedCount: 0,
@@ -109,6 +111,10 @@ export function getPeerRequestWorkspaceSummary(
 
     summary.items.push(item);
     summary.requestCount += 1;
+
+    if (resolvedStudent && (request.status === 'CONFIRMED' || request.status === 'MANUALLY_SET')) {
+      summary.confirmedRequestCount += 1;
+    }
 
     if (satisfactionStatus === 'SATISFIED') {
       summary.satisfiedCount += 1;

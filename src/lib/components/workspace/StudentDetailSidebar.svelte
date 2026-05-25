@@ -8,7 +8,7 @@
 
   import type { Student } from '$lib/domain';
   import type { StudentPreference } from '$lib/domain/preference';
-  import { getCanonicalId } from '$lib/domain/student';
+  import { getCanonicalId, getSourceStudentId } from '$lib/domain/student';
   import { getAppEnvContext } from '$lib/contexts/appEnv';
   import { getStudentProfile } from '$lib/services/appEnvUseCases';
   import { isOk } from '$lib/types/result';
@@ -34,6 +34,7 @@
       lastName?: string;
       gradeLevel?: string;
       gender?: string;
+      sourceStudentId?: string;
     }) => Promise<boolean>;
     onDelete: () => void;
     onEditMode: () => void;
@@ -79,6 +80,7 @@
   let formLastName = $state('');
   let formGradeLevel = $state('');
   let formGender = $state('');
+  let formSourceStudentId = $state('');
   let formError = $state<string | null>(null);
   let isSaving = $state(false);
 
@@ -91,6 +93,7 @@
   );
 
   const canonicalId = $derived(student ? getCanonicalId(student) : null);
+  const sourceStudentId = $derived(student ? getSourceStudentId(student) : undefined);
 
   // Populate form when entering edit mode or switching students
   $effect(() => {
@@ -99,12 +102,14 @@
       formLastName = student.lastName ?? '';
       formGradeLevel = student.gradeLevel ?? '';
       formGender = student.gender ?? '';
+      formSourceStudentId = getSourceStudentId(student) ?? '';
       formError = null;
     } else if (mode === 'create') {
       formFirstName = '';
       formLastName = '';
       formGradeLevel = '';
       formGender = '';
+      formSourceStudentId = '';
       formError = null;
     }
   });
@@ -162,7 +167,8 @@
       firstName: trimmedFirst,
       lastName: formLastName.trim() || undefined,
       gradeLevel: formGradeLevel.trim() || undefined,
-      gender: formGender.trim() || undefined
+      gender: formGender.trim() || undefined,
+      sourceStudentId: formSourceStudentId.trim() || undefined
     });
 
     isSaving = false;
@@ -319,6 +325,32 @@
             class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
           />
         </div>
+
+        <div>
+          <label for="student-source-id" class="block text-xs font-medium text-gray-700">
+            Student ID
+          </label>
+          <input
+            id="student-source-id"
+            type="text"
+            bind:value={formSourceStudentId}
+            placeholder="ID from your roster or source data"
+            class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+          />
+          <p class="mt-1 text-[11px] text-gray-500">Editable source-data identifier.</p>
+        </div>
+
+        {#if student}
+          <div>
+            <label class="block text-xs font-medium text-gray-700">Groupwheel ID</label>
+            <div
+              class="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+            >
+              {student.id}
+            </div>
+            <p class="mt-1 text-[11px] text-gray-500">Internal system identifier. Read-only.</p>
+          </div>
+        {/if}
 
         <div>
           <label for="student-grade" class="block text-xs font-medium text-gray-700">
@@ -546,6 +578,21 @@
           {/if}
         {:else}
           <!-- Overview sub-view (default): preferences & recent groupmates -->
+
+          <div class="grid gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+            <div>
+              <p class="text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+                Student ID
+              </p>
+              <p class="mt-1 text-xs break-all text-gray-800">{sourceStudentId ?? 'Not set'}</p>
+            </div>
+            <div>
+              <p class="text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+                Groupwheel ID
+              </p>
+              <p class="mt-1 text-xs break-all text-gray-600">{student.id}</p>
+            </div>
+          </div>
 
           <!-- Current Preferences -->
           {#if preferences}

@@ -21,12 +21,14 @@ describe('UiSettingsStore', () => {
     store.setShowGender(false);
     store.setHighlightUnhappy(true);
     store.setCardSize('lg');
+    store.setPeerRequestIndicatorMode('count');
 
     store.reset();
 
     expect(store.showGender).toBe(true);
     expect(store.highlightUnhappy).toBe(false);
     expect(store.cardSize).toBe('sm');
+    expect(store.peerRequestIndicatorMode).toBe('dot');
   });
 
   it('defaults cardSize to sm', () => {
@@ -49,5 +51,16 @@ describe('UiSettingsStore', () => {
     expect(store.cardSize).toBe('lg');
     store.cycleCardSize();
     expect(store.cardSize).toBe('sm');
+  });
+
+  it('defaults peer request indicator mode to dot', () => {
+    const store = new UiSettingsStore();
+    expect(store.peerRequestIndicatorMode).toBe('dot');
+  });
+
+  it('sets peer request indicator mode', () => {
+    const store = new UiSettingsStore();
+    store.setPeerRequestIndicatorMode('count');
+    expect(store.peerRequestIndicatorMode).toBe('count');
   });
 });

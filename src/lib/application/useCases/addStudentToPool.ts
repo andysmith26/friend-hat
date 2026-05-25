@@ -6,7 +6,7 @@
  */
 
 import type { Student, Pool } from '$lib/domain';
-import { createStudent } from '$lib/domain/student';
+import { createStudent, setSourceStudentId } from '$lib/domain/student';
 import type { StudentRepository } from '$lib/application/ports/StudentRepository';
 import type { PoolRepository } from '$lib/application/ports/PoolRepository';
 import type { IdGenerator } from '$lib/application/ports/IdGenerator';
@@ -18,6 +18,8 @@ export interface AddStudentToPoolInput {
   lastName?: string;
   /** Optional student ID (e.g., email). If not provided, one will be generated. */
   studentId?: string;
+  /** Editable identifier from source data, stored separately from the internal ID. */
+  sourceStudentId?: string;
   gradeLevel?: string;
   gender?: string;
   meta?: Record<string, unknown>;
@@ -76,7 +78,7 @@ export async function addStudentToPool(
       lastName: input.lastName,
       gradeLevel: input.gradeLevel,
       gender: input.gender,
-      meta: input.meta
+      meta: setSourceStudentId(input.meta, input.sourceStudentId)
     });
 
     // Save student

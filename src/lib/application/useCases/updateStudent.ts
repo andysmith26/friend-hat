@@ -6,7 +6,7 @@
  */
 
 import type { Student } from '$lib/domain';
-import { createStudent } from '$lib/domain/student';
+import { createStudent, setSourceStudentId } from '$lib/domain/student';
 import type { StudentRepository } from '$lib/application/ports/StudentRepository';
 import { ok, err, type Result } from '$lib/types/result';
 
@@ -16,6 +16,7 @@ export interface UpdateStudentInput {
   lastName?: string;
   gradeLevel?: string;
   gender?: string;
+  sourceStudentId?: string;
 }
 
 export type UpdateStudentError =
@@ -45,7 +46,10 @@ export async function updateStudent(
       lastName: input.lastName !== undefined ? input.lastName : existing.lastName,
       gradeLevel: input.gradeLevel !== undefined ? input.gradeLevel : existing.gradeLevel,
       gender: input.gender !== undefined ? input.gender : existing.gender,
-      meta: existing.meta
+      meta:
+        input.sourceStudentId !== undefined
+          ? setSourceStudentId(existing.meta, input.sourceStudentId)
+          : existing.meta
     });
 
     await deps.studentRepo.saveMany([updated]);

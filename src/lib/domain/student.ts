@@ -59,6 +59,8 @@ export interface Student {
   meta?: Record<string, unknown>;
 }
 
+export const SOURCE_STUDENT_ID_META_KEY = 'sourceStudentId';
+
 /**
  * Factory function to create a Student with validation.
  *
@@ -98,6 +100,40 @@ export function createStudent(input: {
  */
 export function getCanonicalId(student: Student): string {
   return student.canonicalId ?? student.id;
+}
+
+/**
+ * Get the student ID from the original source data when available.
+ * Falls back to the current student id for legacy records that predate
+ * explicit source-id storage.
+ */
+export function getSourceStudentId(student: Student): string | undefined {
+  const rawSourceId = student.meta?.[SOURCE_STUDENT_ID_META_KEY];
+
+  if (typeof rawSourceId === 'string') {
+    const trimmedSourceId = rawSourceId.trim();
+    return trimmedSourceId || undefined;
+  }
+
+  const legacyId = student.id.trim();
+  return legacyId || undefined;
+}
+
+/**
+ * Merge a source student id into student metadata.
+ * An empty string sentinel preserves the intentional absence of a source id
+ * and disables the legacy fallback to student.id.
+ */
+export function setSourceStudentId(
+  meta: Record<string, unknown> | undefined,
+  sourceStudentId: string | undefined
+): Record<string, unknown> {
+  const nextMeta: Record<string, unknown> = { ...(meta ?? {}) };
+  const trimmedSourceId = sourceStudentId?.trim() ?? '';
+
+  nextMeta[SOURCE_STUDENT_ID_META_KEY] = trimmedSourceId;
+
+  return nextMeta;
 }
 
 /**

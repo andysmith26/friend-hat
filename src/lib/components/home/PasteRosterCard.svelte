@@ -8,7 +8,9 @@
 
   import { goto } from '$app/navigation';
   import { getAppEnvContext } from '$lib/contexts/appEnv';
+  import { getSourceStudentId } from '$lib/domain/student';
   import { InlineError } from '$lib/components/ui';
+  import { parseRosterFromPaste } from '$lib/services/rosterImport';
   import { createActivityInline, addStudentToPool } from '$lib/services/appEnvUseCases';
   import { detectSimpleNameList } from '$lib/utils/pasteDetection';
   import { isErr } from '$lib/types/result';
@@ -27,14 +29,16 @@
   let error = $state<string | null>(null);
 
   let lineCount = $derived(
-    pasteText
-      .split(/\r?\n/)
-      .filter((line) => line.trim().length > 0).length
+    pasteText.split(/\r?\n/).filter((line) => line.trim().length > 0).length
   );
 
   function parseName(raw: string) {
     const trimmed = raw.trim();
     if (!trimmed) return { firstName: '', lastName: '' };
+    if (trimmed.includes(',')) {
+      const parts = trimmed.split(',').map((part) => part.trim());
+      return { firstName: parts[1] ?? '', lastName: parts[0] ?? '' };
+    }
     const parts = trimmed.split(/\s+/);
     if (parts.length === 1) {
       return { firstName: parts[0], lastName: '' };
@@ -70,12 +74,31 @@
     // If paste text provided, import students
     const trimmedPaste = pasteText.trim();
     if (trimmedPaste) {
-      const detection = detectSimpleNameList(trimmedPaste);
-      if (detection.isSimpleNameList) {
-        const parsedStudents = detection.names.map((n) => parseName(n));
-        for (const { firstName, lastName } of parsedStudents) {
-          await addStudentToPool(env, { poolId: pool.id, firstName, lastName });
+      let parsedStudents: Array<{
+        firstName: string;
+        lastName: string;
+        sourceStudentId?: string;
+      }> = [];
+
+      try {
+        const rosterData = parseRosterFromPaste(trimmedPaste);
+        parsedStudents = rosterData.studentOrder.map((id) => {
+          const student = rosterData.studentsById[id];
+          return {
+            firstName: student?.firstName ?? '',
+            lastName: student?.lastName ?? '',
+            sourceStudentId: student ? getSourceStudentId(student) : undefined
+          };
+        });
+      } catch {
+        const detection = detectSimpleNameList(trimmedPaste);
+        if (detection.isSimpleNameList) {
+          parsedStudents = detection.names.map((name) => parseName(name));
         }
+      }
+
+      for (const { firstName, lastName, sourceStudentId } of parsedStudents) {
+        await addStudentToPool(env, { poolId: pool.id, firstName, lastName, sourceStudentId });
       }
     }
 
@@ -94,26 +117,32 @@
       class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal focus:ring-1 focus:ring-teal focus:outline-none"
       placeholder="e.g. 3rd Period Science"
       bind:value={activityName}
-      onkeydown={(e) => { if (e.key === 'Enter' && !pasteText.trim()) handleSubmit(); }}
+      onkeydown={(e) => {
+        if (e.key === 'Enter' && !pasteText.trim()) handleSubmit();
+      }}
       disabled={isSubmitting}
     />
   </div>
 
   <div>
     <label for="ps-paste" class="block text-xs font-medium text-gray-700">
-      Student names <span class="font-normal text-gray-400">(optional)</span>
+      Student roster <span class="font-normal text-gray-400">(optional)</span>
     </label>
     <textarea
       id="ps-paste"
       class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal focus:ring-1 focus:ring-teal focus:outline-none"
       rows="3"
-      placeholder={'Alex Johnson\nJamie Smith\n...'}
+      placeholder={'Alex Johnson\nJamie Smith\nAlex\tJohnson\talex-1'}
       bind:value={pasteText}
       disabled={isSubmitting}
     ></textarea>
+    <p class="mt-1 text-xs text-gray-500">
+      Paste one student per line, or tab-separated First, Last, ID rows.
+    </p>
     {#if lineCount > 0}
       <p class="mt-1 text-xs text-gray-500">
-        {lineCount} {lineCount === 1 ? 'student' : 'students'} detected
+        {lineCount}
+        {lineCount === 1 ? 'student' : 'students'} detected
       </p>
     {/if}
   </div>

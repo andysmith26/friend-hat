@@ -1,4 +1,5 @@
 import type { Student, StudentPreference } from '$lib/domain';
+import { setSourceStudentId } from '$lib/domain/student';
 
 export const SHEET_DATA_GUIDANCE = [
   '"Students" tab: columns should include ID and Name (with a header row).',
@@ -36,6 +37,13 @@ export interface SheetApiPayload {
   studentCount?: number;
 }
 
+interface ParsedRosterStudent {
+  id: string;
+  sourceStudentId: string;
+  firstName: string;
+  lastName: string;
+}
+
 /**
  * Parse roster data from pasted text (CSV or TSV).
  * Creates students with empty preferences (group requests will be imported separately).
@@ -45,54 +53,121 @@ export function parseRosterFromPaste(text: string): RosterData {
     .trim()
     .split(/\r?\n/)
     .filter((l) => l.trim().length > 0);
+
+  if (lines.length === 0) {
+    throw new Error('Please paste at least one student row.');
+  }
+
+  const parsedTabSeparatedRows = tryParseTabSeparatedRows(lines);
+  if (parsedTabSeparatedRows) {
+    return buildRosterData(parsedTabSeparatedRows);
+  }
+
   if (lines.length < 2) {
     throw new Error('Please paste at least a header row and one data row.');
   }
 
   const delimiter = lines[0].includes('\t') ? '\t' : ',';
-  const header = lines[0].split(delimiter).map((h) => h.trim().toLowerCase());
-  const colName = (wanted: string) => header.findIndex((h) => h === wanted);
+  const header = lines[0].split(delimiter).map(normalizeHeaderCell);
+  const colName = (...wanted: string[]) => header.findIndex((h) => wanted.includes(h));
 
-  const nameIdx = header.findIndex((h) => h === 'display name' || h === 'name');
-  const idIdx = colName('id');
-  if (nameIdx === -1 || idIdx === -1) {
-    throw new Error('Headers must include "display name" (or "name") and "id".');
+  const nameIdx = colName('display name', 'name');
+  const firstNameIdx = colName('first name', 'firstname', 'first');
+  const lastNameIdx = colName('last name', 'lastname', 'last');
+  const idIdx = colName('id', 'student id', 'studentid');
+  if ((nameIdx === -1 && firstNameIdx === -1) || idIdx === -1) {
+    throw new Error('Headers must include "display name" (or "name") or "first name", plus "id".');
   }
 
-  const map: Record<string, Student> = {};
-  const order: string[] = [];
-  const prefMap: Record<string, StudentPreference> = {};
+  const students: ParsedRosterStudent[] = [];
 
   for (let r = 1; r < lines.length; r++) {
     const raw = lines[r];
     const cells = splitCsvTsvRow(raw, delimiter, header.length);
     if (!cells) continue;
 
-    const name = (cells[nameIdx] ?? '').trim();
-    const id = (cells[idIdx] ?? '').trim().toLowerCase();
+    const name =
+      nameIdx !== -1
+        ? (cells[nameIdx] ?? '').trim()
+        : `${(cells[firstNameIdx] ?? '').trim()} ${(cells[lastNameIdx] ?? '').trim()}`.trim();
+    const sourceStudentId = (cells[idIdx] ?? '').trim();
+    const id = sourceStudentId.toLowerCase();
 
     if (!id) {
       continue;
-    }
-    if (map[id]) {
-      throw new Error(`Duplicate id found on row ${r + 1}: ${id}`);
     }
 
     const nameParts = name.trim().split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    map[id] = {
+    students.push({
       id,
+      sourceStudentId,
       firstName,
-      lastName,
-      gender: ''
-    };
-    order.push(id);
+      lastName
+    });
+  }
 
-    // Create empty preference - group requests will be imported separately
-    prefMap[id] = {
-      studentId: id,
+  return buildRosterData(students);
+}
+
+function normalizeHeaderCell(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function tryParseTabSeparatedRows(lines: string[]): ParsedRosterStudent[] | null {
+  const parsedStudents: ParsedRosterStudent[] = [];
+
+  for (const line of lines) {
+    if (!line.includes('\t')) {
+      return null;
+    }
+
+    const cells = splitCsvTsvRow(line, '\t', 3).map((cell) => cell.trim());
+    const [firstName, lastName, rawId] = cells;
+    const sourceStudentId = rawId;
+    const id = rawId.toLowerCase();
+
+    if (
+      normalizeHeaderCell(firstName) === 'first' &&
+      normalizeHeaderCell(lastName) === 'last' &&
+      (normalizeHeaderCell(rawId) === 'id' || normalizeHeaderCell(rawId) === 'student id')
+    ) {
+      return null;
+    }
+
+    if (!firstName || !lastName || !id) {
+      return null;
+    }
+
+    parsedStudents.push({ id, sourceStudentId, firstName, lastName });
+  }
+
+  return parsedStudents;
+}
+
+function buildRosterData(students: ParsedRosterStudent[]): RosterData {
+  const map: Record<string, Student> = {};
+  const order: string[] = [];
+  const prefMap: Record<string, StudentPreference> = {};
+
+  for (const [index, student] of students.entries()) {
+    if (map[student.id]) {
+      throw new Error(`Duplicate id found on row ${index + 1}: ${student.id}`);
+    }
+
+    map[student.id] = {
+      id: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      gender: '',
+      meta: setSourceStudentId(undefined, student.sourceStudentId)
+    };
+    order.push(student.id);
+
+    prefMap[student.id] = {
+      studentId: student.id,
       avoidStudentIds: [],
       likeGroupIds: [],
       avoidGroupIds: [],

@@ -19,6 +19,8 @@
   import { downloadActivityFile, generateExportFilename } from '$lib/utils/activityFile';
   import { prepareWorkspaceExport } from '$lib/services/appEnvUseCases';
   import { Alert, OverlaySheet } from '$lib/components/ui';
+  import { parseRosterFromPaste } from '$lib/services/rosterImport';
+  import { getSourceStudentId } from '$lib/domain/student';
   import { detectSimpleNameList } from '$lib/utils/pasteDetection';
   import ClassViewToolbar from './ClassViewToolbar.svelte';
   import RosterPanel from './RosterPanel.svelte';
@@ -230,6 +232,8 @@
   });
   // Preference highlighting state (separate from sidebar selection)
   let groupClickStudentId = $state<string | null>(null); // sticky: set by clicking student in groups
+  let dragRestoreGroupClickStudentId = $state<string | null>(null);
+  let dragRestorePeerRequestSourceStudentId = $state<string | null>(null);
 
   let activeStudentLikeGroupIds = $derived.by(() => {
     const activeId = draggingId ?? groupClickStudentId;
@@ -277,13 +281,19 @@
   }
 
   function handleDragStart(id: string) {
-    groupClickStudentId = null; // clear sticky highlight during drag
-    vm.actions.selectStudentPeerRequests(null);
+    dragRestoreGroupClickStudentId = groupClickStudentId;
+    dragRestorePeerRequestSourceStudentId = vm.state.selectedPeerRequestSourceStudentId;
+    groupClickStudentId = null; // clear sticky preference highlight during drag
+    vm.actions.selectStudentPeerRequests(id);
     vm.state.draggingId = id;
   }
 
   function handleDragEnd() {
     vm.state.draggingId = null;
+    groupClickStudentId = dragRestoreGroupClickStudentId;
+    vm.actions.selectStudentPeerRequests(dragRestorePeerRequestSourceStudentId);
+    dragRestoreGroupClickStudentId = null;
+    dragRestorePeerRequestSourceStudentId = null;
   }
 
   function handleCreateGroup() {
@@ -524,6 +534,7 @@
     lastName?: string;
     gradeLevel?: string;
     gender?: string;
+    sourceStudentId?: string;
   }): Promise<boolean> {
     if (studentSidebarMode === 'create') {
       const result = await vm.actions.addStudent(data);
@@ -614,12 +625,32 @@
       throw new Error('No roster found for this activity');
     }
 
-    const detection = detectSimpleNameList(pastedText);
-    if (!detection.isSimpleNameList) {
-      throw new Error('Could not parse the pasted text. Please paste one student name per line.');
-    }
+    let parsedStudents: Array<{
+      firstName: string;
+      lastName: string;
+      sourceStudentId?: string;
+    }> = [];
 
-    const parsedStudents = detection.names.map((name) => parseName(name));
+    try {
+      const rosterData = parseRosterFromPaste(pastedText);
+      parsedStudents = rosterData.studentOrder.map((id) => {
+        const student = rosterData.studentsById[id];
+        return {
+          firstName: student?.firstName ?? '',
+          lastName: student?.lastName ?? '',
+          sourceStudentId: student ? getSourceStudentId(student) : undefined
+        };
+      });
+    } catch {
+      const detection = detectSimpleNameList(pastedText);
+      if (!detection.isSimpleNameList) {
+        throw new Error(
+          'Could not parse the pasted text. Paste one student per line, or tab-separated First, Last, ID rows.'
+        );
+      }
+
+      parsedStudents = detection.names.map((name) => parseName(name));
+    }
 
     // WP11: If current roster is all placeholders, upgrade instead of append
     if (hasPlaceholderStudents) {
@@ -630,11 +661,12 @@
     const errors: string[] = [];
     const addedStudents: typeof students = [];
 
-    for (const { firstName, lastName } of parsedStudents) {
+    for (const { firstName, lastName, sourceStudentId } of parsedStudents) {
       const result = await addStudentToPool(env, {
         poolId: pool.id,
         firstName,
-        lastName
+        lastName,
+        sourceStudentId
       });
 
       if (isErr(result)) {

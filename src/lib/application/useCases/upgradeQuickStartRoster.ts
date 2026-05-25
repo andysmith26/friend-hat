@@ -10,12 +10,9 @@
  * @module application/useCases/upgradeQuickStartRoster
  */
 
-import type {
-  PoolRepository,
-  StudentRepository,
-  IdGenerator
-} from '$lib/application/ports';
+import type { PoolRepository, StudentRepository, IdGenerator } from '$lib/application/ports';
 import type { Student } from '$lib/domain';
+import { setSourceStudentId } from '$lib/domain/student';
 import type { Result } from '$lib/types/result';
 import { ok, err } from '$lib/types/result';
 
@@ -26,7 +23,7 @@ import { ok, err } from '$lib/types/result';
 export interface UpgradeQuickStartRosterInput {
   poolId: string;
   /** New student names to replace placeholders */
-  students: Array<{ firstName: string; lastName: string }>;
+  students: Array<{ firstName: string; lastName: string; sourceStudentId?: string }>;
 }
 
 export interface UpgradeQuickStartRosterResult {
@@ -87,7 +84,8 @@ export async function upgradeQuickStartRoster(
     const newStudents: Student[] = input.students.map((s) => ({
       id: deps.idGenerator.generateId(),
       firstName: s.firstName,
-      lastName: s.lastName
+      lastName: s.lastName,
+      meta: setSourceStudentId(undefined, s.sourceStudentId)
     }));
 
     // Persist new students

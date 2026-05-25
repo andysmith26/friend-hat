@@ -31,6 +31,7 @@ describe('getPeerRequestWorkspaceSummary', () => {
 
     expect(result.byStudentId.get('student-a')).toMatchObject({
       requestCount: 1,
+      confirmedRequestCount: 1,
       satisfiedCount: 1,
       unsatisfiedCount: 0,
       unresolvedCount: 0,
@@ -66,6 +67,7 @@ describe('getPeerRequestWorkspaceSummary', () => {
 
     expect(result.byStudentId.get('student-a')).toMatchObject({
       requestCount: 1,
+      confirmedRequestCount: 1,
       satisfiedCount: 0,
       unsatisfiedCount: 1,
       unresolvedCount: 0,
@@ -94,6 +96,7 @@ describe('getPeerRequestWorkspaceSummary', () => {
     });
 
     expect(result.byStudentId.get('student-a')).toMatchObject({
+      confirmedRequestCount: 1,
       unresolvedCount: 1,
       requestedStudentIds: ['student-b']
     });
@@ -129,6 +132,7 @@ describe('getPeerRequestWorkspaceSummary', () => {
 
     expect(result.byStudentId.get('student-a')).toMatchObject({
       requestCount: 2,
+      confirmedRequestCount: 0,
       unresolvedCount: 2,
       requestedStudentIds: ['student-b']
     });
@@ -156,6 +160,7 @@ describe('getPeerRequestWorkspaceSummary', () => {
     });
 
     expect(result.byStudentId.get('student-a')).toMatchObject({
+      confirmedRequestCount: 0,
       staleCount: 1,
       requestedStudentIds: []
     });
@@ -196,6 +201,7 @@ describe('getPeerRequestWorkspaceSummary', () => {
     });
 
     expect(result.byStudentId.get('student-a')?.items).toHaveLength(2);
+    expect(result.byStudentId.get('student-a')?.confirmedRequestCount).toBe(2);
     expect(result.byStudentId.get('student-a')?.requestedStudentIds).toEqual(['student-b']);
   });
 });

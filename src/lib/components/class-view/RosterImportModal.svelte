@@ -71,7 +71,7 @@
     >
       <h3 class="text-lg font-medium text-gray-900">Import Roster</h3>
       <p class="mt-1 text-sm text-gray-500">
-        Paste student names, one per line. Supports "First Last" or "Last, First" format.
+        Paste one student per line, or tab-separated First, Last, ID rows.
       </p>
 
       <div class="mt-4">
@@ -79,7 +79,7 @@
           bind:value={pasteText}
           class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
           rows="8"
-          placeholder={'Alex Johnson\nJamie Smith\nRiley Chen\n...'}
+          placeholder={'Alex Johnson\nJamie Smith\nAlex\tJohnson\talex-1\n...'}
         ></textarea>
 
         {#if lineCount > 0}
