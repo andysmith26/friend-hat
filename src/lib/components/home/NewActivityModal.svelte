@@ -51,7 +51,7 @@
     }}
   >
     <div
-      class="mx-4 w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
+      class="mx-4 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl"
       transition:scale={{ duration: 150, start: 0.95 }}
     >
       <div class="flex items-center justify-between">

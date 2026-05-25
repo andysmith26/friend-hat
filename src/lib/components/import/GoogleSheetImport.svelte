@@ -88,7 +88,9 @@
   // Derived state
   let canImport = $derived(hasRequiredMappings(columnMappings));
   let hasPeerRequestMappings = $derived(
-    columnMappings.some((mapping) => mapping.mappedTo !== null && isPeerRequestField(mapping.mappedTo))
+    columnMappings.some(
+      (mapping) => mapping.mappedTo !== null && isPeerRequestField(mapping.mappedTo)
+    )
   );
 
   // Validation preview
@@ -212,9 +214,10 @@
     });
 
     if (isErr(rosterResult)) {
-      importError = rosterResult.error.type === 'INTERNAL_ERROR'
-        ? rosterResult.error.message
-        : `Import failed: ${rosterResult.error.type}`;
+      importError =
+        rosterResult.error.type === 'INTERNAL_ERROR'
+          ? rosterResult.error.message
+          : `Import failed: ${rosterResult.error.type}`;
       isImporting = false;
       return;
     }
@@ -283,7 +286,9 @@
     isImporting = false;
   }
 
-  async function handlePeerRequestConfirm(decisions: import('$lib/application/useCases/confirmPeerRequestMatches').PeerRequestReviewDecision[]) {
+  async function handlePeerRequestConfirm(
+    decisions: import('$lib/application/useCases/confirmPeerRequestMatches').PeerRequestReviewDecision[]
+  ) {
     if (!pendingImportResult || !pendingPeerReview || !programId) {
       return;
     }
@@ -313,7 +318,11 @@
       return;
     }
 
-    await finalizeImport(pendingImportResult, confirmationResult.value.updatedRequests, importWarnings);
+    await finalizeImport(
+      pendingImportResult,
+      confirmationResult.value.updatedRequests,
+      importWarnings
+    );
   }
 </script>
 

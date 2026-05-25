@@ -24,7 +24,12 @@
   } from '$lib/services/appEnvUseCases';
   import type { SeedingStrategy } from '$lib/services/appEnvUseCases';
   import type { ColumnMapping, MappedField, RawSheetData } from '$lib/domain/import';
-  import { generateStudentId, hasRequiredMappings, isPeerRequestField, validateMappedData } from '$lib/domain/import';
+  import {
+    generateStudentId,
+    hasRequiredMappings,
+    isPeerRequestField,
+    validateMappedData
+  } from '$lib/domain/import';
   import type { Student } from '$lib/domain';
   import { parseActivityFile, readFileAsText } from '$lib/utils/activityFile';
   import { looksLikeCsv } from '$lib/utils/csvRosterParser';
@@ -72,7 +77,9 @@
   let seedingStrategy = $state<SeedingStrategy>('top-choice');
   let importWarnings = $state<string[]>([]);
   let isReviewingPeerRequests = $state(false);
-  let pendingPeerReview = $state<import('$lib/application/useCases/matchPeerRequests').MatchPeerRequestsOutput | null>(null);
+  let pendingPeerReview = $state<
+    import('$lib/application/useCases/matchPeerRequests').MatchPeerRequestsOutput | null
+  >(null);
   let pendingProgramId = $state<string | null>(null);
   let pendingReviewStudents = $state<Student[]>([]);
 
@@ -81,8 +88,10 @@
     preview?.type === 'json'
       ? preview.studentNames
       : preview?.type === 'csv'
-        ? (validateMappedData(preview.rawData, preview.columnMappings).validRows
-            .map((row) => [row.student?.firstName, row.student?.lastName].filter(Boolean).join(' '))
+        ? (validateMappedData(preview.rawData, preview.columnMappings)
+            .validRows.map((row) =>
+              [row.student?.firstName, row.student?.lastName].filter(Boolean).join(' ')
+            )
             .filter(Boolean) as string[])
         : []
   );
@@ -139,17 +148,16 @@
       return 'firstName';
     }
 
-    if (
-      h === 'last name' ||
-      h === 'lastname' ||
-      h === 'last' ||
-      h === 'lname' ||
-      h === 'surname'
-    ) {
+    if (h === 'last name' || h === 'lastname' || h === 'last' || h === 'lname' || h === 'surname') {
       return 'lastName';
     }
 
-    if (h.includes('choice') || h.includes('preference') || h.includes('rank') || h.includes('pick')) {
+    if (
+      h.includes('choice') ||
+      h.includes('preference') ||
+      h.includes('rank') ||
+      h.includes('pick')
+    ) {
       const num = h.match(/[1-5]/);
       const rank = num ? parseInt(num[0], 10) : 1;
       return `choice${Math.min(Math.max(rank, 1), 5)}` as MappedField;
@@ -221,9 +229,7 @@
             type: 'json',
             name: d.activity.name,
             studentCount: students.length,
-            studentNames: students.map((s) =>
-              [s.firstName, s.lastName].filter(Boolean).join(' ')
-            ),
+            studentNames: students.map((s) => [s.firstName, s.lastName].filter(Boolean).join(' ')),
             groupCount: groups.length,
             groupNames: groups.map((g) => g.name),
             data: d
@@ -280,7 +286,13 @@
     if (!preview || preview.type !== 'json') return;
 
     // Apply any name changes the user made
-    const exportData = { ...preview.data, activity: { ...preview.data.activity, name: activityName.trim() || preview.data.activity.name } };
+    const exportData = {
+      ...preview.data,
+      activity: {
+        ...preview.data.activity,
+        name: activityName.trim() || preview.data.activity.name
+      }
+    };
 
     const result = await importActivity(env, {
       exportData,
@@ -364,7 +376,9 @@
       lastName: student.lastName || undefined
     }));
 
-    if (!columnMappings.some((mapping) => mapping.mappedTo && isPeerRequestField(mapping.mappedTo))) {
+    if (
+      !columnMappings.some((mapping) => mapping.mappedTo && isPeerRequestField(mapping.mappedTo))
+    ) {
       onCreated?.(result.value.program.id);
       goto(`/activity/${result.value.program.id}`);
       return;
@@ -468,7 +482,13 @@
       <div
         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal/15 text-teal"
       >
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <svg
+          class="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+        >
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -492,7 +512,9 @@
     <!-- File picker -->
     <button
       type="button"
-      class="{compact ? '' : 'mt-4'} flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-teal/30 bg-white/60 px-4 py-6 text-sm font-medium text-gray-600 transition-colors hover:border-teal hover:bg-white hover:text-teal focus:ring-2 focus:ring-teal focus:ring-offset-2 focus:outline-none"
+      class="{compact
+        ? ''
+        : 'mt-4'} flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-teal/30 bg-white/60 px-4 py-6 text-sm font-medium text-gray-600 transition-colors hover:border-teal hover:bg-white hover:text-teal focus:ring-2 focus:ring-teal focus:ring-offset-2 focus:outline-none"
       onclick={() => fileInput?.click()}
     >
       <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -504,9 +526,11 @@
       </svg>
       Choose file
     </button>
-    <p class="{compact ? 'mt-1' : 'mt-2'} text-center text-xs text-gray-400">Accepts .csv, .tsv, or .json</p>
+    <p class="{compact ? 'mt-1' : 'mt-2'} text-center text-xs text-gray-400">
+      Accepts .csv, .tsv, or .json
+    </p>
   {:else if isReviewingPeerRequests && pendingPeerReview}
-    <div class="{compact ? '' : 'mt-5'}">
+    <div class={compact ? '' : 'mt-5'}>
       <div class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2">
         <div class="flex min-w-0 items-center gap-2 text-xs text-gray-500">
           <svg
@@ -535,6 +559,7 @@
           students={pendingReviewStudents}
           warnings={importWarnings}
           busy={isImporting}
+          {compact}
           confirmLabel="Save requests & open activity"
           onConfirm={handlePeerRequestConfirm}
         />
@@ -542,8 +567,7 @@
     </div>
   {:else}
     <!-- Preview / Confirmation -->
-    <div class="{compact ? '' : 'mt-5'}">
-
+    <div class={compact ? '' : 'mt-5'}>
       <!-- 1. File status — small, muted, out of the way -->
       <div class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2">
         <div class="flex min-w-0 items-center gap-2 text-xs text-gray-500">
@@ -574,7 +598,10 @@
 
       <!-- 2. Activity name — the primary input -->
       <div class="mt-5">
-        <label for={compact ? 'ir-name-modal' : 'ir-name'} class="block text-xs font-medium text-gray-700">Activity name</label>
+        <label
+          for={compact ? 'ir-name-modal' : 'ir-name'}
+          class="block text-xs font-medium text-gray-700">Activity name</label
+        >
         <input
           id={compact ? 'ir-name-modal' : 'ir-name'}
           type="text"
@@ -589,7 +616,8 @@
       <div class="mt-5 space-y-1.5">
         <div class="rounded-md border border-gray-100 bg-gray-50/60 px-3.5 py-2.5">
           <span class="text-sm font-medium text-gray-700">
-            {previewStudentCount} {previewStudentCount === 1 ? 'student' : 'students'}
+            {previewStudentCount}
+            {previewStudentCount === 1 ? 'student' : 'students'}
           </span>
           {#if previewStudentNames.length > 0}
             <p class="mt-0.5 text-xs leading-relaxed text-gray-400">
@@ -603,7 +631,8 @@
         {#if previewGroupCount > 0}
           <div class="rounded-md border border-gray-100 bg-gray-50/60 px-3.5 py-2.5">
             <span class="text-sm font-medium text-gray-700">
-              {previewGroupCount} {previewGroupCount === 1 ? 'group' : 'groups'}
+              {previewGroupCount}
+              {previewGroupCount === 1 ? 'group' : 'groups'}
             </span>
             {#if previewGroupNames.length > 0}
               <p class="mt-0.5 text-xs leading-relaxed text-gray-400">
@@ -616,12 +645,17 @@
         {/if}
 
         {#if preview.type === 'csv' && csvChoiceColumns === 0}
-          <p class="px-1 pt-0.5 text-xs text-gray-400">Roster only — no group preferences detected.</p>
+          <p class="px-1 pt-0.5 text-xs text-gray-400">
+            Roster only — no group preferences detected.
+          </p>
         {/if}
 
         {#if preview.type === 'csv' && csvValidationPreview && csvValidationPreview.summary.invalidCount > 0}
           <p class="px-1 pt-0.5 text-xs text-amber-600">
-            {csvValidationPreview.summary.invalidCount} warning{csvValidationPreview.summary.invalidCount !== 1 ? 's' : ''} (rows skipped or incomplete)
+            {csvValidationPreview.summary.invalidCount} warning{csvValidationPreview.summary
+              .invalidCount !== 1
+              ? 's'
+              : ''} (rows skipped or incomplete)
           </p>
         {/if}
       </div>
@@ -645,9 +679,14 @@
           </div>
 
           {#if csvValidationPreview}
-            <div class="rounded-md border border-gray-100 bg-gray-50/60 px-3.5 py-2.5 text-xs text-gray-600">
+            <div
+              class="rounded-md border border-gray-100 bg-gray-50/60 px-3.5 py-2.5 text-xs text-gray-600"
+            >
               <p>
-                {csvValidationPreview.summary.validCount} valid row{csvValidationPreview.summary.validCount === 1 ? '' : 's'}
+                {csvValidationPreview.summary.validCount} valid row{csvValidationPreview.summary
+                  .validCount === 1
+                  ? ''
+                  : 's'}
                 {#if csvHasPeerRequestMappings}
                   • peer requests will be reviewed before opening the activity
                 {/if}
@@ -699,7 +738,8 @@
           type="button"
           class="w-full rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-teal-dark focus:ring-2 focus:ring-teal focus:ring-offset-2 focus:outline-none disabled:opacity-50"
           onclick={handleImport}
-          disabled={isImporting || (preview.type === 'csv' && !hasRequiredMappings(preview.columnMappings))}
+          disabled={isImporting ||
+            (preview.type === 'csv' && !hasRequiredMappings(preview.columnMappings))}
         >
           {isImporting ? 'Importing...' : 'Import Activity'}
         </button>
