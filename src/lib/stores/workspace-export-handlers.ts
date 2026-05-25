@@ -110,11 +110,13 @@ export function createWorkspaceExportHandlers(deps: WorkspaceExportDeps) {
     const program = deps.getProgram();
     const view = deps.getView();
     if (!program || !view) return;
+    const peerRequests = await deps.getEnv().peerRequestRepo.listByProgramId(program.id);
 
     const exportResult = prepareWorkspaceExport(deps.getEnv(), {
       program,
       students: deps.getStudents(),
       preferences: deps.getPreferences(),
+      peerRequests,
       groups: view.groups,
       algorithmConfig: deps.getScenario()?.algorithmConfig,
       rowLayout: deps.getResolvedRowLayout()

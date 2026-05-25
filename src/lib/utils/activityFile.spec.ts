@@ -41,10 +41,34 @@ describe('serializeActivityToJson', () => {
 
   it('should preserve all fields', () => {
     const data = validExportData();
+    data.peerRequests = [
+      {
+        id: 'req-1',
+        requesterStudentId: 'alice',
+        rank: 1,
+        rawText: 'Bob Jones',
+        normalizedText: 'bob jones',
+        status: 'CONFIRMED',
+        resolvedStudentId: 'bob',
+        resolutionSource: 'MANUAL',
+        initialResolvedStudentId: 'bob',
+        initialResolutionSource: 'MANUAL',
+        resolutionHistory: [
+          {
+            action: 'MANUALLY_SET',
+            resolvedStudentId: 'bob',
+            resolutionSource: 'MANUAL',
+            occurredAt: '2026-05-25T12:00:00.000Z'
+          }
+        ],
+        candidates: [{ studentId: 'bob', score: 0.9, reasons: ['exact match'] }]
+      }
+    ];
     const parsed = JSON.parse(serializeActivityToJson(data));
     expect(parsed.version).toBe(ACTIVITY_FILE_VERSION);
     expect(parsed.activity.name).toBe('Fall Clubs');
     expect(parsed.roster.students).toHaveLength(2);
+    expect(parsed.peerRequests).toHaveLength(1);
   });
 });
 
@@ -229,6 +253,87 @@ describe('parseActivityFile', () => {
     if (result.valid) {
       expect(result.data.roster.students[0].firstName).toBe('Alice');
       expect(result.data.roster.students[0].lastName).toBe('Smith');
+    }
+  });
+
+  it('should parse peer requests in the current schema', () => {
+    const data = validExportData();
+    data.peerRequests = [
+      {
+        id: 'req-1',
+        requesterStudentId: 'alice',
+        rank: 1,
+        rawText: ' Bob Jones ',
+        normalizedText: 'bob jones',
+        status: 'AUTO_MATCHED_PENDING_CONFIRMATION',
+        resolvedStudentId: 'bob',
+        resolutionSource: 'AUTO',
+        initialResolvedStudentId: 'bob',
+        initialResolutionSource: 'AUTO',
+        resolutionHistory: [
+          {
+            action: 'AUTO_MATCHED',
+            resolvedStudentId: 'bob',
+            resolutionSource: 'AUTO',
+            occurredAt: '2026-05-25T12:00:00.000Z'
+          }
+        ],
+        candidates: [{ studentId: 'bob', score: 0.98, reasons: ['exact full name'] }]
+      }
+    ];
+
+    const result = parseActivityFile(JSON.stringify(data));
+
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.data.peerRequests).toEqual([
+        {
+          id: 'req-1',
+          requesterStudentId: 'alice',
+          rank: 1,
+          rawText: 'Bob Jones',
+          normalizedText: 'bob jones',
+          status: 'AUTO_MATCHED_PENDING_CONFIRMATION',
+          resolvedStudentId: 'bob',
+          resolutionSource: 'AUTO',
+          initialResolvedStudentId: 'bob',
+          initialResolutionSource: 'AUTO',
+          resolutionHistory: [
+            {
+              action: 'AUTO_MATCHED',
+              resolvedStudentId: 'bob',
+              resolutionSource: 'AUTO',
+              occurredAt: '2026-05-25T12:00:00.000Z'
+            }
+          ],
+          candidates: [{ studentId: 'bob', score: 0.98, reasons: ['exact full name'] }]
+        }
+      ]);
+    }
+  });
+
+  it('should derive normalized peer request text when omitted', () => {
+    const data = validExportData();
+    data.peerRequests = [
+      {
+        id: 'req-1',
+        requesterStudentId: 'alice',
+        rank: 1,
+        rawText: ' Bob, Jones ',
+        normalizedText: '',
+        status: 'UNRESOLVED',
+        resolutionSource: 'NONE',
+        resolutionHistory: [],
+        candidates: []
+      }
+    ];
+
+    const result = parseActivityFile(JSON.stringify(data));
+
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.data.peerRequests?.[0].normalizedText).toBe('bob jones');
+      expect(result.data.peerRequests?.[0].rawText).toBe('Bob, Jones');
     }
   });
 });

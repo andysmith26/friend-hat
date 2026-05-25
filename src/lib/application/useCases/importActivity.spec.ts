@@ -1,0 +1,115 @@
+import { describe, expect, it } from 'vitest';
+import { createInMemoryEnvironment } from '$lib/infrastructure/inMemoryEnvironment';
+import { ACTIVITY_FILE_VERSION, type ActivityExportData } from '$lib/utils/activityFile';
+import { importActivity } from './importActivity';
+
+describe('importActivity', () => {
+  it('imports peer requests and remaps student references to imported IDs', async () => {
+    const env = createInMemoryEnvironment(undefined, { useIndexedDb: false });
+    let counter = 0;
+
+    const exportData: ActivityExportData = {
+      version: ACTIVITY_FILE_VERSION,
+      exportedAt: '2026-05-25T12:00:00.000Z',
+      activity: {
+        name: 'Peer Request Import',
+        type: 'CLASS_ACTIVITY'
+      },
+      roster: {
+        students: [
+          { id: 'old-alice', firstName: 'Alice', lastName: 'Able' },
+          { id: 'old-bob', firstName: 'Bob', lastName: 'Baker' }
+        ]
+      },
+      preferences: [],
+      peerRequests: [
+        {
+          id: 'old-req-1',
+          requesterStudentId: 'old-alice',
+          rank: 1,
+          rawText: 'Bob Baker',
+          normalizedText: 'bob baker',
+          status: 'CONFIRMED',
+          resolvedStudentId: 'old-bob',
+          resolutionSource: 'MANUAL',
+          initialResolvedStudentId: 'old-bob',
+          initialResolutionSource: 'MANUAL',
+          resolutionHistory: [
+            {
+              action: 'MANUALLY_SET',
+              resolvedStudentId: 'old-bob',
+              resolutionSource: 'MANUAL',
+              occurredAt: '2026-05-25T11:30:00.000Z'
+            }
+          ],
+          candidates: [{ studentId: 'old-bob', score: 1, reasons: ['exact full name'] }]
+        }
+      ]
+    };
+
+    const result = await importActivity(
+      {
+        poolRepo: env.poolRepo,
+        studentRepo: env.studentRepo,
+        programRepo: env.programRepo,
+        preferenceRepo: env.preferenceRepo,
+        peerRequestRepo: env.peerRequestRepo,
+        scenarioRepo: env.scenarioRepo,
+        sessionRepo: env.sessionRepo,
+        placementRepo: env.placementRepo,
+        observationRepo: env.observationRepo,
+        idGenerator: {
+          generateId: () => `new-id-${++counter}`
+        },
+        clock: {
+          now: () => new Date('2026-05-25T12:00:00.000Z')
+        }
+      },
+      {
+        exportData,
+        ownerStaffId: 'owner-1'
+      }
+    );
+
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+
+    expect(result.value.peerRequestsImported).toBe(1);
+
+    const importedStudents = await env.studentRepo.listAll();
+    const importedAlice = importedStudents.find(
+      (student) => student.firstName === 'Alice' && student.lastName === 'Able'
+    );
+    const importedBob = importedStudents.find(
+      (student) => student.firstName === 'Bob' && student.lastName === 'Baker'
+    );
+    const importedPeerRequests = await env.peerRequestRepo.listByProgramId(result.value.program.id);
+
+    expect(importedAlice).toBeTruthy();
+    expect(importedBob).toBeTruthy();
+    expect(importedPeerRequests).toHaveLength(1);
+    expect(importedPeerRequests[0]).toMatchObject({
+      requesterStudentId: importedAlice?.id,
+      resolvedStudentId: importedBob?.id,
+      initialResolvedStudentId: importedBob?.id,
+      resolutionSource: 'MANUAL',
+      initialResolutionSource: 'MANUAL',
+      status: 'CONFIRMED'
+    });
+    expect(importedPeerRequests[0].candidates).toEqual([
+      {
+        studentId: importedBob?.id,
+        score: 1,
+        reasons: ['exact full name']
+      }
+    ]);
+    expect(importedPeerRequests[0].resolutionHistory).toEqual([
+      {
+        action: 'MANUALLY_SET',
+        resolvedStudentId: importedBob?.id,
+        resolutionSource: 'MANUAL',
+        occurredAt: '2026-05-25T11:30:00.000Z'
+      }
+    ]);
+  });
+});

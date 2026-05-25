@@ -383,10 +383,12 @@
       }
     } else if (action === 'move') {
       if (!program || !view) return;
+      const peerRequests = await env.peerRequestRepo.listByProgramId(program.id);
       const exportResult = prepareWorkspaceExport(env, {
         program,
         students,
         preferences: vm.state.preferences,
+        peerRequests,
         groups: view.groups,
         algorithmConfig: vm.state.scenario?.algorithmConfig,
         rowLayout: null
@@ -500,8 +502,19 @@
     await vm.actions.setPeerRequestMatch(payload);
   }
 
+  async function handleCreatePeerRequest(payload: {
+    requesterStudentId: string;
+    requestedStudentId: string;
+  }) {
+    await vm.actions.createPeerRequest(payload);
+  }
+
   async function handleClearPeerRequest(requestId: string) {
     await vm.actions.clearPeerRequestMatch(requestId);
+  }
+
+  async function handleDeletePeerRequest(requestId: string) {
+    await vm.actions.deletePeerRequest(requestId);
   }
 
   function handleCloseStudentDetail() {
@@ -861,8 +874,10 @@
           selectedStudentPreferences={activeStudentLikeGroupIds}
           studentPeerRequestSummaryById={peerRequestSummaryByStudentId}
           {selectedStudentRequestedPeerIds}
+          onAddPeerRequest={handleCreatePeerRequest}
           onQuickEditPeerRequest={handleQuickEditPeerRequest}
           onClearPeerRequest={handleClearPeerRequest}
+          onDeletePeerRequest={handleDeletePeerRequest}
           clickedStudentId={groupClickStudentId}
         />
 

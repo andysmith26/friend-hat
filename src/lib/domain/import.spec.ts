@@ -7,7 +7,13 @@ import {
   isChoiceField,
   getChoiceRank,
   isPeerRequestField,
+  isStudentIdField,
   getPeerRequestRank,
+  hasMappedField,
+  hasAnyChoiceMappings,
+  hasAnyPeerRequestMappings,
+  getMappedColumnIndex,
+  reconcileRowsByStudentId,
   generateStudentId,
   type ColumnMapping,
   type RawSheetData
@@ -48,6 +54,17 @@ describe('isPeerRequestField', () => {
   it('returns false for non-peer request fields', () => {
     expect(isPeerRequestField('choice1')).toBe(false);
     expect(isPeerRequestField('firstName')).toBe(false);
+  });
+});
+
+describe('isStudentIdField', () => {
+  it('returns true for the student ID field', () => {
+    expect(isStudentIdField('studentId')).toBe(true);
+  });
+
+  it('returns false for other fields', () => {
+    expect(isStudentIdField('firstName')).toBe(false);
+    expect(isStudentIdField('peerRequest1')).toBe(false);
   });
 });
 
@@ -138,6 +155,89 @@ describe('hasDuplicateMappings', () => {
     ];
 
     expect(hasDuplicateMappings(mappings)).toEqual([]);
+  });
+});
+
+describe('mapping helpers', () => {
+  const mappings: ColumnMapping[] = [
+    { columnIndex: 0, headerName: 'Student ID', mappedTo: 'studentId' },
+    { columnIndex: 1, headerName: 'Peer Request 1', mappedTo: 'peerRequest1' },
+    { columnIndex: 2, headerName: 'Ignored', mappedTo: 'ignore' }
+  ];
+
+  it('detects mapped fields', () => {
+    expect(hasMappedField(mappings, 'studentId')).toBe(true);
+    expect(hasMappedField(mappings, 'firstName')).toBe(false);
+  });
+
+  it('detects peer request mappings', () => {
+    expect(hasAnyPeerRequestMappings(mappings)).toBe(true);
+    expect(hasAnyChoiceMappings(mappings)).toBe(false);
+  });
+
+  it('returns the mapped column index', () => {
+    expect(getMappedColumnIndex(mappings, 'studentId')).toBe(0);
+    expect(getMappedColumnIndex(mappings, 'choice1')).toBeNull();
+  });
+});
+
+describe('reconcileRowsByStudentId', () => {
+  const data: RawSheetData = {
+    headers: ['Student ID', 'Peer Request 1'],
+    rows: [
+      { rowIndex: 2, cells: ['stu-1', 'Bob Jones'] },
+      { rowIndex: 3, cells: ['STU-2', 'Ava Smith'] },
+      { rowIndex: 4, cells: ['missing-student', 'No Match'] },
+      { rowIndex: 5, cells: ['', 'Blank ID'] }
+    ]
+  };
+
+  const mappings: ColumnMapping[] = [
+    { columnIndex: 0, headerName: 'Student ID', mappedTo: 'studentId' },
+    { columnIndex: 1, headerName: 'Peer Request 1', mappedTo: 'peerRequest1' }
+  ];
+
+  it('matches rows case-insensitively against valid student IDs', () => {
+    const result = reconcileRowsByStudentId(data, mappings, ['stu-1', 'stu-2']);
+
+    expect(result.matched).toEqual([
+      { rowIndex: 2, studentId: 'stu-1' },
+      { rowIndex: 3, studentId: 'stu-2' }
+    ]);
+  });
+
+  it('matches rows against stored source student IDs and returns internal student ids', () => {
+    const result = reconcileRowsByStudentId(data, mappings, [
+      { studentId: 'internal-1', sourceStudentId: 'stu-1' },
+      { studentId: 'internal-2', sourceStudentId: 'stu-2' }
+    ]);
+
+    expect(result.matched).toEqual([
+      { rowIndex: 2, studentId: 'internal-1' },
+      { rowIndex: 3, studentId: 'internal-2' }
+    ]);
+  });
+
+  it('returns unmatched rows with source context', () => {
+    const result = reconcileRowsByStudentId(data, mappings, ['stu-1', 'stu-2']);
+
+    expect(result.unmatched).toEqual([
+      {
+        rowIndex: 4,
+        sourceStudentId: 'missing-student',
+        cells: ['missing-student', 'No Match']
+      },
+      {
+        rowIndex: 5,
+        sourceStudentId: '',
+        cells: ['', 'Blank ID']
+      }
+    ]);
+  });
+
+  it('returns no links when studentId is not mapped', () => {
+    const result = reconcileRowsByStudentId(data, [], ['stu-1']);
+    expect(result).toEqual({ matched: [], unmatched: [] });
   });
 });
 

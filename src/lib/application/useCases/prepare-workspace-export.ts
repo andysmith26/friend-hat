@@ -1,4 +1,5 @@
 import type { Group, Preference, Program, Student } from '$lib/domain';
+import type { PeerRequestEntry } from '$lib/domain/peerRequest';
 import { extractStudentPreference } from '$lib/domain/preference';
 import { err, ok, type Result } from '$lib/types/result';
 import { ACTIVITY_FILE_VERSION, type ActivityExportData } from '$lib/utils/activityFile';
@@ -12,6 +13,7 @@ export type PrepareWorkspaceExportInput = {
   program: Program | null;
   students: Student[];
   preferences: Preference[];
+  peerRequests?: PeerRequestEntry[];
   groups: Group[];
   algorithmConfig?: unknown;
   rowLayout: GetWorkspaceGroupsDisplayOrderInput['rowLayout'];
@@ -116,6 +118,23 @@ export function prepareWorkspaceExport(
         avoidGroupIds: [...payload.avoidGroupIds]
       };
     }),
+    peerRequests: input.peerRequests?.map((request) => ({
+      id: request.id,
+      requesterStudentId: request.requesterStudentId,
+      rank: request.rank,
+      rawText: request.rawText,
+      normalizedText: request.normalizedText,
+      status: request.status,
+      resolvedStudentId: request.resolvedStudentId,
+      resolutionSource: request.resolutionSource,
+      initialResolvedStudentId: request.initialResolvedStudentId,
+      initialResolutionSource: request.initialResolutionSource,
+      resolutionHistory: request.resolutionHistory.map((entry) => ({ ...entry })),
+      candidates: request.candidates.map((candidate) => ({
+        ...candidate,
+        reasons: [...candidate.reasons]
+      }))
+    })),
     scenario: {
       groups: orderedGroups.map(cloneGroup),
       algorithmConfig: input.algorithmConfig

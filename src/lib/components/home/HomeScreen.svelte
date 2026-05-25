@@ -18,13 +18,16 @@
     deleteActivity,
     exportActivityData,
     createDemoActivity,
+    getActivityData,
     importActivity,
     type ActivityDisplay
   } from '$lib/services/appEnvUseCases';
   import { isErr } from '$lib/types/result';
+  import type { Student } from '$lib/domain';
   import { Button, Alert, InlineError } from '$lib/components/ui';
   import ActivityCardSkeleton from '$lib/components/ui/ActivityCardSkeleton.svelte';
   import ActivityCard from './ActivityCard.svelte';
+  import ImportPeerRequestsModal from './ImportPeerRequestsModal.svelte';
   import QuickStartCard from './QuickStartCard.svelte';
   import HomeHeroSplash from './HomeHeroSplash.svelte';
   import HomePostOnboardingBanner, {
@@ -67,6 +70,11 @@
 
   // Export state
   let isExporting = $state(false);
+  let importPeerRequestsLoadingId = $state<string | null>(null);
+  let peerRequestImportTarget = $state<{
+    activity: ActivityDisplay;
+    students: Student[];
+  } | null>(null);
 
   // Onboarding state
   const ONBOARDING_VARIANT_KEY = 'groupwheel-home-onboarding-variant';
@@ -301,6 +309,72 @@
     }
   }
 
+  async function handleImportPeerRequestsRequest(activity: ActivityDisplay) {
+    if (!env) return;
+
+    openMenuId = null;
+    importError = null;
+
+    if (activity.studentCount === 0) {
+      importError = 'Add roster students before importing peer requests.';
+      return;
+    }
+
+    importPeerRequestsLoadingId = activity.program.id;
+
+    const result = await getActivityData(env, { programId: activity.program.id });
+    importPeerRequestsLoadingId = null;
+
+    if (isErr(result)) {
+      importError =
+        result.error.type === 'PROGRAM_NOT_FOUND'
+          ? `Activity not found: ${activity.program.name}`
+          : 'Could not load the activity roster for peer request import.';
+      return;
+    }
+
+    peerRequestImportTarget = {
+      activity,
+      students: result.value.students
+    };
+  }
+
+  async function handlePeerRequestImportComplete(summary: {
+    savedCount: number;
+    unresolvedCount: number;
+    manualRemapCount: number;
+    skippedUnmatchedRowCount: number;
+    warnings: string[];
+  }) {
+    if (!peerRequestImportTarget) return;
+
+    const activityName = peerRequestImportTarget.activity.program.name;
+    const summaryParts = [`Imported ${summary.savedCount} peer requests into "${activityName}"`];
+
+    if (summary.manualRemapCount > 0) {
+      summaryParts.push(
+        `${summary.manualRemapCount} row${summary.manualRemapCount === 1 ? '' : 's'} remapped`
+      );
+    }
+
+    if (summary.skippedUnmatchedRowCount > 0) {
+      summaryParts.push(
+        `${summary.skippedUnmatchedRowCount} unmatched row${summary.skippedUnmatchedRowCount === 1 ? '' : 's'} skipped`
+      );
+    }
+
+    if (summary.unresolvedCount > 0) {
+      summaryParts.push(`${summary.unresolvedCount} unresolved`);
+    }
+
+    importSuccess = summaryParts.join(' • ');
+    peerRequestImportTarget = null;
+  }
+
+  function handlePeerRequestImportClose() {
+    peerRequestImportTarget = null;
+  }
+
   async function handleImportFile(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -444,9 +518,11 @@
           {activity}
           {now}
           {openMenuId}
+          {importPeerRequestsLoadingId}
           onRename={handleRenameRequest}
           onDelete={handleDeleteRequest}
           onExport={handleExportActivity}
+          onImportPeerRequests={handleImportPeerRequestsRequest}
           onToggleMenu={toggleMenu}
         />
       {/each}
@@ -475,6 +551,16 @@
     </div>
   {/if}
 </div>
+
+{#if peerRequestImportTarget}
+  <ImportPeerRequestsModal
+    activityName={peerRequestImportTarget.activity.program.name}
+    programId={peerRequestImportTarget.activity.program.id}
+    students={peerRequestImportTarget.students}
+    onClose={handlePeerRequestImportClose}
+    onComplete={handlePeerRequestImportComplete}
+  />
+{/if}
 
 <!-- Quick Start Modal -->
 {#if quickStartModalOpen}

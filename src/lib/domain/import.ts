@@ -43,12 +43,14 @@ export interface RawSheetData {
 /**
  * Domain fields that a sheet column can be mapped to.
  *
+ * - studentId: Existing roster identifier for import reconciliation.
  * - firstName: Required. Student's first name.
  * - lastName: Optional. Student's last name.
  * - choice1-5: Optional. Ranked group preferences (Shape B format).
  * - ignore: Explicitly skip this column.
  */
 export type MappedField =
+  | 'studentId'
   | 'firstName'
   | 'lastName'
   | 'choice1'
@@ -98,6 +100,10 @@ export function isPeerRequestField(
   return /^peerRequest[1-5]$/i.test(field);
 }
 
+export function isStudentIdField(field: string): field is 'studentId' {
+  return field === 'studentId';
+}
+
 export function getPeerRequestRank(field: MappedField): PeerRequestRank | null {
   if (!isPeerRequestField(field)) return null;
   const rank = parseInt(field.replace('peerRequest', ''), 10);
@@ -113,6 +119,7 @@ export const REQUIRED_FIELDS: MappedField[] = ['firstName'];
  * All optional fields that can be mapped.
  */
 export const OPTIONAL_FIELDS: MappedField[] = [
+  'studentId',
   'lastName',
   'choice1',
   'choice2',
@@ -167,6 +174,27 @@ export interface ImportValidationResult {
   };
 }
 
+export interface StudentIdRowLink {
+  rowIndex: number;
+  studentId: string;
+}
+
+export interface UnmatchedStudentIdRow {
+  rowIndex: number;
+  sourceStudentId: string;
+  cells: string[];
+}
+
+export interface StudentIdReconciliationResult {
+  matched: StudentIdRowLink[];
+  unmatched: UnmatchedStudentIdRow[];
+}
+
+export interface ValidStudentIdReference {
+  studentId: string;
+  sourceStudentId?: string;
+}
+
 // =============================================================================
 // Validation Functions
 // =============================================================================
@@ -203,6 +231,93 @@ export function hasDuplicateMappings(mappings: ColumnMapping[]): MappedField[] {
   return Array.from(fieldCounts.entries())
     .filter(([, count]) => count > 1)
     .map(([field]) => field);
+}
+
+export function hasMappedField(mappings: ColumnMapping[], field: MappedField): boolean {
+  return mappings.some((mapping) => mapping.mappedTo === field);
+}
+
+export function hasAnyChoiceMappings(mappings: ColumnMapping[]): boolean {
+  return mappings.some((mapping) => mapping.mappedTo !== null && isChoiceField(mapping.mappedTo));
+}
+
+export function hasAnyPeerRequestMappings(mappings: ColumnMapping[]): boolean {
+  return mappings.some(
+    (mapping) => mapping.mappedTo !== null && isPeerRequestField(mapping.mappedTo)
+  );
+}
+
+export function getMappedColumnIndex(mappings: ColumnMapping[], field: MappedField): number | null {
+  const mapping = mappings.find((entry) => entry.mappedTo === field);
+  return mapping ? mapping.columnIndex : null;
+}
+
+export function reconcileRowsByStudentId(
+  data: RawSheetData,
+  mappings: ColumnMapping[],
+  validStudentIds: Array<string | ValidStudentIdReference>
+): StudentIdReconciliationResult {
+  const studentIdColumnIndex = getMappedColumnIndex(mappings, 'studentId');
+  if (studentIdColumnIndex === null) {
+    return {
+      matched: [],
+      unmatched: []
+    };
+  }
+
+  const validIdsByLowercase = new Map<string, string>();
+
+  for (const validStudent of validStudentIds) {
+    if (typeof validStudent === 'string') {
+      validIdsByLowercase.set(validStudent.trim().toLowerCase(), validStudent);
+      continue;
+    }
+
+    const normalizedStudentId = validStudent.studentId.trim().toLowerCase();
+    if (normalizedStudentId) {
+      validIdsByLowercase.set(normalizedStudentId, validStudent.studentId);
+    }
+
+    const normalizedSourceStudentId = validStudent.sourceStudentId?.trim().toLowerCase();
+    if (normalizedSourceStudentId) {
+      validIdsByLowercase.set(normalizedSourceStudentId, validStudent.studentId);
+    }
+  }
+
+  const matched: StudentIdRowLink[] = [];
+  const unmatched: UnmatchedStudentIdRow[] = [];
+
+  for (const row of data.rows) {
+    const sourceStudentId = (row.cells[studentIdColumnIndex] ?? '').trim();
+    if (!sourceStudentId) {
+      unmatched.push({
+        rowIndex: row.rowIndex,
+        sourceStudentId: '',
+        cells: [...row.cells]
+      });
+      continue;
+    }
+
+    const matchedStudentId = validIdsByLowercase.get(sourceStudentId.toLowerCase());
+    if (!matchedStudentId) {
+      unmatched.push({
+        rowIndex: row.rowIndex,
+        sourceStudentId,
+        cells: [...row.cells]
+      });
+      continue;
+    }
+
+    matched.push({
+      rowIndex: row.rowIndex,
+      studentId: matchedStudentId
+    });
+  }
+
+  return {
+    matched,
+    unmatched
+  };
 }
 
 /**

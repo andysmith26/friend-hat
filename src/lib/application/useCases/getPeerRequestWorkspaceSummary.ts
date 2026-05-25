@@ -10,11 +10,12 @@ import {
 export interface PeerRequestWorkspaceAuditItem {
   label: string;
   resolvedStudentDisplayName?: string;
+  occurredAt?: string;
 }
 
 export interface PeerRequestWorkspaceItem {
   requestId: string;
-  rank: 1 | 2 | 3 | 4 | 5;
+  rank: number;
   rawText: string;
   resolvedStudentId?: string;
   resolvedStudentDisplayName?: string;
@@ -28,7 +29,7 @@ export interface PeerRequestWorkspaceItem {
 }
 
 function toAuditLabel(entry: PeerRequestResolutionAuditEntry): string {
-  if (entry.action === 'AUTO_MATCHED') return 'Initially matched';
+  if (entry.action === 'AUTO_MATCHED') return 'Auto-matched';
   if (entry.action === 'MANUALLY_SET') return 'Assigned';
   return 'Cleared';
 }
@@ -84,7 +85,9 @@ export interface GetPeerRequestWorkspaceSummaryOutput {
   byStudentId: Map<string, StudentPeerRequestWorkspaceSummary>;
 }
 
-function createEmptySummary(studentId: string): StudentPeerRequestWorkspaceSummary {
+export function createEmptyPeerRequestWorkspaceSummary(
+  studentId: string
+): StudentPeerRequestWorkspaceSummary {
   return {
     studentId,
     requestCount: 0,
@@ -128,7 +131,8 @@ export function getPeerRequestWorkspaceSummary(
 
   for (const request of input.requests) {
     const requesterId = request.requesterStudentId;
-    const summary = byStudentId.get(requesterId) ?? createEmptySummary(requesterId);
+    const summary =
+      byStudentId.get(requesterId) ?? createEmptyPeerRequestWorkspaceSummary(requesterId);
     const resolvedStudent = request.resolvedStudentId
       ? (studentById.get(request.resolvedStudentId) ?? null)
       : null;
@@ -163,6 +167,7 @@ export function getPeerRequestWorkspaceSummary(
       request.resolutionHistory.length > 0
         ? request.resolutionHistory.map((entry) => ({
             label: toAuditLabel(entry),
+            occurredAt: entry.occurredAt,
             resolvedStudentDisplayName: entry.resolvedStudentId
               ? getStudentDisplayName(
                   studentById.get(entry.resolvedStudentId) ?? {

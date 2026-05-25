@@ -66,6 +66,18 @@ describe('createPeerRequestEntry', () => {
     expect(entry.candidates[0].reasons).toEqual(['exact first name', 'mutated']);
   });
 
+  it('rejects non-positive ranks', () => {
+    expect(() =>
+      createPeerRequestEntry({
+        id: 'request-2b',
+        programId: 'program-1',
+        requesterStudentId: 'student-1',
+        rank: 0,
+        rawText: 'Jamie'
+      })
+    ).toThrow('Peer request rank must be a positive integer');
+  });
+
   it('appends audit history entries without duplicating identical consecutive states', () => {
     const request = createPeerRequestEntry({
       id: 'request-3',
@@ -78,16 +90,23 @@ describe('createPeerRequestEntry', () => {
     const first = appendPeerRequestResolutionHistory({
       request,
       resolvedStudentId: 'student-2',
-      resolutionSource: 'MANUAL'
+      resolutionSource: 'MANUAL',
+      occurredAt: '2026-05-25T12:00:00.000Z'
     });
     const second = appendPeerRequestResolutionHistory({
       request: { ...request, resolutionHistory: first },
       resolvedStudentId: 'student-2',
-      resolutionSource: 'MANUAL'
+      resolutionSource: 'MANUAL',
+      occurredAt: '2026-05-25T12:05:00.000Z'
     });
 
     expect(first).toEqual([
-      { action: 'MANUALLY_SET', resolvedStudentId: 'student-2', resolutionSource: 'MANUAL' }
+      {
+        action: 'MANUALLY_SET',
+        resolvedStudentId: 'student-2',
+        resolutionSource: 'MANUAL',
+        occurredAt: '2026-05-25T12:00:00.000Z'
+      }
     ]);
     expect(second).toEqual(first);
   });

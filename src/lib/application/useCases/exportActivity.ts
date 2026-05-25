@@ -3,7 +3,7 @@
  *
  * Gathers all data for a single activity (program) and packages it
  * into an ActivityExportData structure for file download.
- * Includes: roster, preferences, scenario, sessions, placements, observations.
+ * Includes: roster, preferences, peer requests, scenario, sessions, placements, observations.
  *
  * @module application/useCases/exportActivity
  */
@@ -13,6 +13,7 @@ import type {
   PoolRepository,
   StudentRepository,
   PreferenceRepository,
+  PeerRequestRepository,
   ScenarioRepository,
   SessionRepository,
   PlacementRepository,
@@ -24,6 +25,7 @@ import { ok, err } from '$lib/types/result';
 import {
   ACTIVITY_FILE_VERSION,
   type ActivityExportData,
+  type ExportedPeerRequest,
   type ExportedSession,
   type ExportedPlacement,
   type ExportedObservation
@@ -50,6 +52,7 @@ export interface ExportActivityDeps {
   poolRepo: PoolRepository;
   studentRepo: StudentRepository;
   preferenceRepo: PreferenceRepository;
+  peerRequestRepo?: PeerRequestRepository;
   scenarioRepo: ScenarioRepository;
   sessionRepo: SessionRepository;
   placementRepo: PlacementRepository;
@@ -84,14 +87,17 @@ export async function exportActivity(
         const allStudents = await Promise.all(
           pool.memberIds.map((id) => deps.studentRepo.getById(id))
         );
-        students = allStudents.filter(
-          (s): s is import('$lib/domain').Student => s !== null
-        );
+        students = allStudents.filter((s): s is import('$lib/domain').Student => s !== null);
       }
     }
 
     // Load preferences
     const preferences = await deps.preferenceRepo.listByProgramId(input.programId);
+
+    // Load peer requests
+    const peerRequests = deps.peerRequestRepo
+      ? await deps.peerRequestRepo.listByProgramId(input.programId)
+      : [];
 
     // Load scenario
     const scenario = await deps.scenarioRepo.getByProgramId(input.programId);
@@ -140,6 +146,25 @@ export async function exportActivity(
           avoidGroupIds: [...payload.avoidGroupIds]
         };
       }),
+      peerRequests: peerRequests.map(
+        (request): ExportedPeerRequest => ({
+          id: request.id,
+          requesterStudentId: request.requesterStudentId,
+          rank: request.rank,
+          rawText: request.rawText,
+          normalizedText: request.normalizedText,
+          status: request.status,
+          resolvedStudentId: request.resolvedStudentId,
+          resolutionSource: request.resolutionSource,
+          initialResolvedStudentId: request.initialResolvedStudentId,
+          initialResolutionSource: request.initialResolutionSource,
+          resolutionHistory: request.resolutionHistory.map((entry) => ({ ...entry })),
+          candidates: request.candidates.map((candidate) => ({
+            ...candidate,
+            reasons: [...candidate.reasons]
+          }))
+        })
+      ),
       scenario: scenario
         ? {
             groups: scenario.groups.map((g) => ({

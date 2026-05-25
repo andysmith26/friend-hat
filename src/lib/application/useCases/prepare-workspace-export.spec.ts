@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$lib/domain';
+import { createPeerRequestEntry } from '$lib/domain/peerRequest';
 import { testProgram, testStudents } from '$lib/test-utils/fixtures';
 import { prepareWorkspaceExport } from './prepare-workspace-export';
 
@@ -36,6 +37,29 @@ describe('prepareWorkspaceExport', () => {
           }
         }
       ],
+      peerRequests: [
+        createPeerRequestEntry({
+          id: 'req-1',
+          programId: testProgram.id,
+          requesterStudentId: 'stu-1',
+          rank: 1,
+          rawText: 'Brandon Baker',
+          status: 'CONFIRMED',
+          resolvedStudentId: 'stu-2',
+          resolutionSource: 'MANUAL',
+          initialResolvedStudentId: 'stu-2',
+          initialResolutionSource: 'MANUAL',
+          resolutionHistory: [
+            {
+              action: 'MANUALLY_SET',
+              resolvedStudentId: 'stu-2',
+              resolutionSource: 'MANUAL',
+              occurredAt: '2026-05-25T12:00:00.000Z'
+            }
+          ],
+          candidates: [{ studentId: 'stu-2', score: 0.95, reasons: ['exact full name'] }]
+        })
+      ],
       groups,
       algorithmConfig: { strategy: 'balanced' },
       rowLayout: {
@@ -61,6 +85,29 @@ describe('prepareWorkspaceExport', () => {
       avoidStudentIds: ['stu-3'],
       avoidGroupIds: []
     });
+    expect(result.value.activityExportData.peerRequests).toEqual([
+      {
+        id: 'req-1',
+        requesterStudentId: 'stu-1',
+        rank: 1,
+        rawText: 'Brandon Baker',
+        normalizedText: 'brandon baker',
+        status: 'CONFIRMED',
+        resolvedStudentId: 'stu-2',
+        resolutionSource: 'MANUAL',
+        initialResolvedStudentId: 'stu-2',
+        initialResolutionSource: 'MANUAL',
+        resolutionHistory: [
+          {
+            action: 'MANUALLY_SET',
+            resolvedStudentId: 'stu-2',
+            resolutionSource: 'MANUAL',
+            occurredAt: '2026-05-25T12:00:00.000Z'
+          }
+        ],
+        candidates: [{ studentId: 'stu-2', score: 0.95, reasons: ['exact full name'] }]
+      }
+    ]);
   });
 
   it('returns missing_entities when group members are not in roster', () => {

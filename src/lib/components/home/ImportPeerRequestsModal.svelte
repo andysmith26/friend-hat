@@ -1,0 +1,567 @@
+<script lang="ts">
+  import { fade, scale } from 'svelte/transition';
+  import { getAppEnvContext } from '$lib/contexts/appEnv';
+  import type { MatchPeerRequestsOutput } from '$lib/application/useCases/matchPeerRequests';
+  import { getSourceStudentId, type Student } from '$lib/domain';
+  import type {
+    ColumnMapping,
+    MappedField,
+    RawSheetData,
+    StudentIdRowLink,
+    UnmatchedStudentIdRow
+  } from '$lib/domain/import';
+  import { reconcileRowsByStudentId } from '$lib/domain/import';
+  import SheetPreview from '$lib/components/import/SheetPreview.svelte';
+  import PeerRequestMatchingReview from '$lib/components/import/PeerRequestMatchingReview.svelte';
+  import { Button, InlineError } from '$lib/components/ui';
+  import {
+    prepareUnmatchedPeerRequestRows,
+    validatePeerRequestImportMappings
+  } from '$lib/application/useCases/preparePeerRequestImportForExistingActivity';
+  import { parseCsvToSheetData } from '$lib/services/googleSheets';
+  import {
+    confirmPeerRequestMatches,
+    importPeerRequestsFromMapping,
+    matchPeerRequests,
+    savePeerRequests
+  } from '$lib/services/appEnvUseCases';
+  import { isErr } from '$lib/types/result';
+  import { readFileAsText } from '$lib/utils/activityFile';
+
+  interface ImportPeerRequestsComplete {
+    savedCount: number;
+    unresolvedCount: number;
+    manualRemapCount: number;
+    skippedUnmatchedRowCount: number;
+    warnings: string[];
+  }
+
+  interface Props {
+    activityName: string;
+    programId: string;
+    students: Student[];
+    onClose: () => void;
+    onComplete: (summary: ImportPeerRequestsComplete) => void | Promise<void>;
+  }
+
+  type Step = 'mapping' | 'unmatched' | 'review';
+  type ReviewedUnmatchedRow = UnmatchedStudentIdRow & {
+    peerRequestTexts: string[];
+  };
+
+  let { activityName, programId, students, onClose, onComplete }: Props = $props();
+
+  const env = getAppEnvContext();
+
+  let currentStep = $state<Step>('mapping');
+  let fileInput = $state<HTMLInputElement>();
+  let selectedFileName = $state('');
+  let rawData = $state<RawSheetData | null>(null);
+  let columnMappings = $state<ColumnMapping[]>([]);
+  let importError = $state('');
+  let warnings = $state<string[]>([]);
+  let isBusy = $state(false);
+  let matchedRowLinks = $state<StudentIdRowLink[]>([]);
+  let unmatchedRows = $state<ReviewedUnmatchedRow[]>([]);
+  let unmatchedSelections = $state<Record<number, string>>({});
+  let pendingPeerReview = $state<MatchPeerRequestsOutput | null>(null);
+  let manualRemapCount = $state(0);
+  let skippedUnmatchedRowCount = $state(0);
+
+  let matchedRowCount = $derived(matchedRowLinks.length);
+  let studentOptions = $derived(
+    [...students].sort((left, right) => {
+      const leftName = `${left.firstName} ${left.lastName ?? ''}`.trim().toLowerCase();
+      const rightName = `${right.firstName} ${right.lastName ?? ''}`.trim().toLowerCase();
+      return leftName.localeCompare(rightName);
+    })
+  );
+
+  function formatStudentName(student: Student): string {
+    return [student.firstName, student.lastName].filter(Boolean).join(' ').trim() || student.id;
+  }
+
+  function guessMapping(header: string): MappedField | null {
+    const normalized = header.toLowerCase().trim();
+
+    if (
+      normalized === 'student id' ||
+      normalized === 'studentid' ||
+      normalized === 'id' ||
+      normalized === 'email'
+    ) {
+      return 'studentId';
+    }
+
+    if (
+      normalized.includes('peer request') ||
+      normalized.includes('partner request') ||
+      normalized.includes('work with') ||
+      normalized.includes('want to work with')
+    ) {
+      const match = normalized.match(/[1-5]/);
+      const rank = match ? parseInt(match[0], 10) : 1;
+      return `peerRequest${Math.min(Math.max(rank, 1), 5)}` as MappedField;
+    }
+
+    if (
+      normalized.includes('choice') ||
+      normalized.includes('preference') ||
+      normalized.includes('rank')
+    ) {
+      const match = normalized.match(/[1-5]/);
+      const rank = match ? parseInt(match[0], 10) : 1;
+      return `choice${Math.min(Math.max(rank, 1), 5)}` as MappedField;
+    }
+
+    return null;
+  }
+
+  function initializeMappings(data: RawSheetData): void {
+    columnMappings = data.headers.map((header, index) => ({
+      columnIndex: index,
+      headerName: header,
+      mappedTo: guessMapping(header)
+    }));
+  }
+
+  async function handleFileChange(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    importError = '';
+    warnings = [];
+    currentStep = 'mapping';
+    matchedRowLinks = [];
+    unmatchedRows = [];
+    unmatchedSelections = {};
+
+    try {
+      const text = await readFileAsText(file);
+      const parsed = parseCsvToSheetData(text);
+      if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+        importError = 'File must include a header row and at least one data row.';
+        return;
+      }
+
+      rawData = parsed;
+      selectedFileName = file.name;
+      initializeMappings(parsed);
+    } catch (error) {
+      importError = error instanceof Error ? error.message : 'Could not read file.';
+    } finally {
+      input.value = '';
+    }
+  }
+
+  function handleMappingChange(columnIndex: number, field: MappedField | null): void {
+    columnMappings = columnMappings.map((mapping) =>
+      mapping.columnIndex === columnIndex ? { ...mapping, mappedTo: field } : mapping
+    );
+  }
+
+  function getMappingError(): string | null {
+    if (!rawData) {
+      return 'Choose a CSV or TSV file first.';
+    }
+
+    return validatePeerRequestImportMappings(columnMappings);
+  }
+
+  async function beginPeerRequestReview(
+    rowStudentLinks: StudentIdRowLink[],
+    nextManualRemapCount: number,
+    nextSkippedUnmatchedRowCount: number
+  ): Promise<void> {
+    if (!rawData) return;
+
+    isBusy = true;
+    importError = '';
+
+    const extractionResult = await importPeerRequestsFromMapping(env, {
+      programId,
+      rawData,
+      columnMappings,
+      rowStudentLinks
+    });
+
+    if (isErr(extractionResult)) {
+      importError = extractionResult.error.message;
+      isBusy = false;
+      return;
+    }
+
+    warnings = extractionResult.value.warnings;
+    manualRemapCount = nextManualRemapCount;
+    skippedUnmatchedRowCount = nextSkippedUnmatchedRowCount;
+
+    if (extractionResult.value.entries.length === 0) {
+      importError =
+        'No peer requests were found after applying the current mappings and row review.';
+      isBusy = false;
+      return;
+    }
+
+    const matchResult = await matchPeerRequests(env, {
+      requests: extractionResult.value.entries,
+      students
+    });
+
+    if (isErr(matchResult)) {
+      importError = 'Unable to match peer requests.';
+      isBusy = false;
+      return;
+    }
+
+    pendingPeerReview = matchResult.value;
+    currentStep = 'review';
+    isBusy = false;
+  }
+
+  async function handlePrepareImport(): Promise<void> {
+    const mappingError = getMappingError();
+    if (mappingError) {
+      importError = mappingError;
+      return;
+    }
+
+    if (!rawData) return;
+
+    const reconciliation = reconcileRowsByStudentId(
+      rawData,
+      columnMappings,
+      students.map((student) => ({
+        studentId: student.id,
+        sourceStudentId: getSourceStudentId(student)
+      }))
+    );
+
+    matchedRowLinks = reconciliation.matched;
+    unmatchedRows = prepareUnmatchedPeerRequestRows(
+      rawData,
+      columnMappings,
+      reconciliation.unmatched
+    );
+    unmatchedSelections = {};
+    importError = '';
+
+    if (unmatchedRows.length > 0) {
+      currentStep = 'unmatched';
+      return;
+    }
+
+    if (reconciliation.matched.length === 0) {
+      importError = 'No imported rows matched students in this activity roster.';
+      return;
+    }
+
+    await beginPeerRequestReview(reconciliation.matched, 0, 0);
+  }
+
+  async function handleContinueFromUnmatched(): Promise<void> {
+    const reviewedLinks = [...matchedRowLinks];
+    let nextManualRemapCount = 0;
+    let nextSkippedUnmatchedRowCount = 0;
+
+    for (const row of unmatchedRows) {
+      const selectedStudentId = unmatchedSelections[row.rowIndex]?.trim();
+      if (selectedStudentId) {
+        reviewedLinks.push({
+          rowIndex: row.rowIndex,
+          studentId: selectedStudentId
+        });
+        nextManualRemapCount += 1;
+      } else {
+        nextSkippedUnmatchedRowCount += 1;
+      }
+    }
+
+    if (reviewedLinks.length === 0) {
+      importError = 'Every unmatched row is currently skipped, so there is nothing to import.';
+      return;
+    }
+
+    await beginPeerRequestReview(reviewedLinks, nextManualRemapCount, nextSkippedUnmatchedRowCount);
+  }
+
+  async function handlePeerRequestConfirm(
+    decisions: import('$lib/application/useCases/confirmPeerRequestMatches').PeerRequestReviewDecision[]
+  ): Promise<void> {
+    if (!pendingPeerReview) return;
+
+    isBusy = true;
+    importError = '';
+
+    const confirmationResult = await confirmPeerRequestMatches(env, {
+      requests: pendingPeerReview.updatedRequests,
+      decisions
+    });
+
+    if (isErr(confirmationResult)) {
+      importError = confirmationResult.error.type;
+      isBusy = false;
+      return;
+    }
+
+    const saveResult = await savePeerRequests(env, {
+      programId,
+      entries: confirmationResult.value.updatedRequests
+    });
+
+    if (isErr(saveResult)) {
+      importError = saveResult.error.message;
+      isBusy = false;
+      return;
+    }
+
+    const unresolvedCount = confirmationResult.value.updatedRequests.filter(
+      (request) => request.status === 'UNRESOLVED'
+    ).length;
+
+    await onComplete({
+      savedCount: saveResult.value.savedCount,
+      unresolvedCount,
+      manualRemapCount,
+      skippedUnmatchedRowCount,
+      warnings
+    });
+
+    isBusy = false;
+    onClose();
+  }
+
+  function handleClose(): void {
+    if (isBusy) return;
+    onClose();
+  }
+
+  function handleOverlayClick(event: MouseEvent): void {
+    if (event.target === event.currentTarget) {
+      handleClose();
+    }
+  }
+
+  function handleKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      handleClose();
+    }
+  }
+</script>
+
+<div
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+  transition:fade={{ duration: 150 }}
+  role="dialog"
+  aria-modal="true"
+  aria-label="Import peer requests"
+  onclick={handleOverlayClick}
+  onkeydown={handleKeydown}
+>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-xl"
+    transition:scale={{ duration: 150, start: 0.97 }}
+    onclick={(event) => event.stopPropagation()}
+  >
+    <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+      <div>
+        <h2 class="text-lg font-semibold text-gray-900">Import Peer Requests</h2>
+        <p class="mt-1 text-sm text-gray-600">
+          Import peer requests into <span class="font-medium text-gray-900">{activityName}</span>
+          by matching source rows to the existing roster with a Student ID column.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        onclick={handleClose}
+        aria-label="Close"
+      >
+        <svg
+          class="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    {#if importError}
+      <div class="px-6 pt-4">
+        <InlineError message={importError} dismissible onDismiss={() => (importError = '')} />
+      </div>
+    {/if}
+
+    {#if currentStep === 'mapping'}
+      <div class="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900">Upload and map columns</h3>
+            <p class="mt-1 text-sm text-gray-600">
+              Map one Student ID column and one or more Peer Request columns. Choice columns are
+              rejected in this flow.
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <input
+              bind:this={fileInput}
+              type="file"
+              accept=".csv,.tsv,.txt"
+              class="hidden"
+              onchange={handleFileChange}
+            />
+            <Button variant="ghost" onclick={() => fileInput?.click()} disabled={isBusy}>
+              {rawData ? 'Choose Another File' : 'Choose File'}
+            </Button>
+          </div>
+        </div>
+
+        {#if selectedFileName}
+          <p class="mt-3 text-sm text-gray-500">Selected file: {selectedFileName}</p>
+        {/if}
+
+        {#if rawData}
+          <div class="mt-5 min-h-0 flex-1 overflow-hidden">
+            <SheetPreview
+              data={rawData}
+              mappings={columnMappings}
+              onMappingChange={handleMappingChange}
+            />
+          </div>
+        {:else}
+          <div
+            class="mt-6 flex flex-1 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-sm text-gray-600"
+          >
+            Upload a CSV or TSV file to review its columns before importing peer requests.
+          </div>
+        {/if}
+      </div>
+
+      <div class="flex items-center justify-between border-t border-gray-200 px-6 py-4">
+        <p class="text-sm text-gray-500">
+          This slice supports peer request import only. Avoid fields are ignored.
+        </p>
+        <div class="flex items-center gap-3">
+          <Button variant="ghost" onclick={handleClose} disabled={isBusy}>Cancel</Button>
+          <Button variant="secondary" onclick={handlePrepareImport} disabled={isBusy || !rawData}>
+            Review Rows
+          </Button>
+        </div>
+      </div>
+    {:else if currentStep === 'unmatched'}
+      <div class="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-5">
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p class="font-medium">Some rows could not be matched by Student ID.</p>
+          <p class="mt-1">
+            Matching is strict by source Student ID. Leave rows skipped or manually map them to a
+            roster student before continuing.
+          </p>
+        </div>
+
+        <div class="mt-4 flex items-center gap-4 text-sm text-gray-600">
+          <span>{matchedRowCount} rows matched automatically</span>
+          <span>{unmatchedRows.length} rows need review</span>
+        </div>
+
+        <div class="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+          {#each unmatchedRows as row (row.rowIndex)}
+            <div class="rounded-xl border border-gray-200 p-4">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm font-semibold text-gray-900">Row {row.rowIndex}</p>
+                  <p class="mt-1 text-sm text-gray-600">
+                    Source Student ID:
+                    <span class="font-medium text-gray-900">{row.sourceStudentId || 'Blank'}</span>
+                  </p>
+                </div>
+                <span
+                  class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
+                >
+                  {row.peerRequestTexts.length} peer request{row.peerRequestTexts.length === 1
+                    ? ''
+                    : 's'}
+                </span>
+              </div>
+
+              <div class="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                <div>
+                  <p class="text-xs font-medium tracking-wide text-gray-500 uppercase">
+                    Parsed peer request values
+                  </p>
+                  {#if row.peerRequestTexts.length > 0}
+                    <ul class="mt-2 space-y-1 text-sm text-gray-700">
+                      {#each row.peerRequestTexts as value}
+                        <li>{value}</li>
+                      {/each}
+                    </ul>
+                  {:else}
+                    <p class="mt-2 text-sm text-gray-500">
+                      No peer request values were found on this row.
+                    </p>
+                  {/if}
+                </div>
+
+                <div>
+                  <label
+                    class="block text-xs font-medium tracking-wide text-gray-500 uppercase"
+                    for={`unmatched-row-${row.rowIndex}`}
+                  >
+                    Manual remap
+                  </label>
+                  <select
+                    id={`unmatched-row-${row.rowIndex}`}
+                    class="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-teal focus:ring-1 focus:ring-teal"
+                    value={unmatchedSelections[row.rowIndex] ?? ''}
+                    onchange={(event) => {
+                      unmatchedSelections = {
+                        ...unmatchedSelections,
+                        [row.rowIndex]: (event.target as HTMLSelectElement).value
+                      };
+                    }}
+                  >
+                    <option value="">Skip this row</option>
+                    {#each studentOptions as student (student.id)}
+                      <option value={student.id}>{formatStudentName(student)}</option>
+                    {/each}
+                  </select>
+                </div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+        <Button variant="ghost" onclick={() => (currentStep = 'mapping')} disabled={isBusy}
+          >Back</Button
+        >
+        <Button
+          variant="secondary"
+          onclick={handleContinueFromUnmatched}
+          loading={isBusy}
+          disabled={isBusy}
+        >
+          Match Peer Requests
+        </Button>
+      </div>
+    {:else if pendingPeerReview}
+      <div class="min-h-0 flex-1 overflow-hidden p-6">
+        <PeerRequestMatchingReview
+          readyToConfirm={pendingPeerReview.readyToConfirm}
+          needsReview={pendingPeerReview.needsReview}
+          noMatch={pendingPeerReview.noMatch}
+          invalid={pendingPeerReview.invalid}
+          {students}
+          onConfirm={handlePeerRequestConfirm}
+          confirmLabel="Save Peer Requests"
+          busy={isBusy}
+          {warnings}
+        />
+      </div>
+    {/if}
+  </div>
+</div>

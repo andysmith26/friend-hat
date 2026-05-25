@@ -20,7 +20,15 @@ describe('getPeerRequestWorkspaceSummary', () => {
           rawText: 'Blake Benson',
           status: 'MANUALLY_SET',
           resolvedStudentId: 'student-b',
-          resolutionSource: 'MANUAL'
+          resolutionSource: 'MANUAL',
+          resolutionHistory: [
+            {
+              action: 'MANUALLY_SET',
+              resolvedStudentId: 'student-b',
+              resolutionSource: 'MANUAL',
+              occurredAt: '2026-05-25T12:00:00.000Z'
+            }
+          ]
         })
       ],
       students,
@@ -39,7 +47,13 @@ describe('getPeerRequestWorkspaceSummary', () => {
       requestedStudentIds: ['student-b']
     });
     expect(result.byStudentId.get('student-a')?.items[0]).toMatchObject({
-      auditItems: [{ label: 'Assigned', resolvedStudentDisplayName: 'Blake Benson' }],
+      auditItems: [
+        {
+          label: 'Assigned',
+          resolvedStudentDisplayName: 'Blake Benson',
+          occurredAt: '2026-05-25T12:00:00.000Z'
+        }
+      ],
       initialResolvedStudentDisplayName: 'Blake Benson',
       initialResolutionSource: 'MANUAL',
       hasChangedSinceInitial: false,
@@ -222,7 +236,21 @@ describe('getPeerRequestWorkspaceSummary', () => {
           resolvedStudentId: 'student-c',
           resolutionSource: 'MANUAL',
           initialResolvedStudentId: 'student-b',
-          initialResolutionSource: 'AUTO'
+          initialResolutionSource: 'AUTO',
+          resolutionHistory: [
+            {
+              action: 'AUTO_MATCHED',
+              resolvedStudentId: 'student-b',
+              resolutionSource: 'AUTO',
+              occurredAt: '2026-05-25T10:00:00.000Z'
+            },
+            {
+              action: 'MANUALLY_SET',
+              resolvedStudentId: 'student-c',
+              resolutionSource: 'MANUAL',
+              occurredAt: '2026-05-25T11:00:00.000Z'
+            }
+          ]
         })
       ],
       students,
@@ -238,9 +266,42 @@ describe('getPeerRequestWorkspaceSummary', () => {
       initialResolutionSource: 'AUTO',
       hasChangedSinceInitial: true,
       auditItems: [
-        { label: 'Initially matched', resolvedStudentDisplayName: 'Blake Benson' },
-        { label: 'Assigned', resolvedStudentDisplayName: 'Casey Cole' }
+        {
+          label: 'Auto-matched',
+          resolvedStudentDisplayName: 'Blake Benson',
+          occurredAt: '2026-05-25T10:00:00.000Z'
+        },
+        {
+          label: 'Assigned',
+          resolvedStudentDisplayName: 'Casey Cole',
+          occurredAt: '2026-05-25T11:00:00.000Z'
+        }
       ]
     });
+  });
+
+  it('sorts arbitrary-ranked requests in ascending order', () => {
+    const result = getPeerRequestWorkspaceSummary({
+      requests: [
+        createPeerRequestEntry({
+          id: 'request-10',
+          programId: 'program-1',
+          requesterStudentId: 'student-a',
+          rank: 7,
+          rawText: 'Casey Cole'
+        }),
+        createPeerRequestEntry({
+          id: 'request-11',
+          programId: 'program-1',
+          requesterStudentId: 'student-a',
+          rank: 6,
+          rawText: 'Blake Benson'
+        })
+      ],
+      students,
+      groups: []
+    });
+
+    expect(result.byStudentId.get('student-a')?.items.map((item) => item.rank)).toEqual([6, 7]);
   });
 });

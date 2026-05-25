@@ -68,7 +68,7 @@ describe('importPeerRequestsFromMapping', () => {
     }
   });
 
-  it('returns an error when a row with peer request text has no row-student link', () => {
+  it('ignores rows that are not present in the reviewed row-student links', () => {
     const result = importPeerRequestsFromMapping(
       { idGenerator },
       {
@@ -79,10 +79,14 @@ describe('importPeerRequestsFromMapping', () => {
       }
     );
 
-    expect(result).toEqual({
-      type: 'MISSING_ROW_LINK',
-      rowIndex: 3,
-      message: 'Missing row-to-student link for row 3'
-    });
+    expect('entries' in result).toBe(true);
+    if ('entries' in result) {
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries.map((entry) => entry.requesterStudentId)).toEqual([
+        'student-a',
+        'student-a'
+      ]);
+      expect(result.entries.every((entry) => entry.rawText !== 'Sam and Taylor')).toBe(true);
+    }
   });
 });

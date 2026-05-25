@@ -6,7 +6,7 @@
  * independently.
  */
 
-export type PeerRequestRank = 1 | 2 | 3 | 4 | 5;
+export type PeerRequestRank = number;
 
 export type PeerRequestResolutionStatus =
   | 'UNRESOLVED'
@@ -22,6 +22,7 @@ export interface PeerRequestResolutionAuditEntry {
   action: PeerRequestResolutionAuditAction;
   resolvedStudentId?: string;
   resolutionSource: PeerRequestResolutionSource;
+  occurredAt?: string;
 }
 
 export type PeerRequestSatisfactionStatus =
@@ -94,6 +95,9 @@ export function createPeerRequestEntry(input: {
   if (!input.rawText.trim()) {
     throw new Error('Peer request rawText is required');
   }
+  if (!Number.isInteger(input.rank) || input.rank < 1) {
+    throw new Error('Peer request rank must be a positive integer');
+  }
 
   return {
     id: input.id,
@@ -119,8 +123,9 @@ export function appendPeerRequestResolutionHistory(input: {
   request: PeerRequestEntry;
   resolvedStudentId?: string;
   resolutionSource: PeerRequestResolutionSource;
+  occurredAt?: string;
 }): PeerRequestResolutionAuditEntry[] {
-  const { request, resolvedStudentId, resolutionSource } = input;
+  const { request, resolvedStudentId, resolutionSource, occurredAt } = input;
   const nextEntry: PeerRequestResolutionAuditEntry = {
     action: resolvedStudentId
       ? resolutionSource === 'AUTO'
@@ -128,7 +133,8 @@ export function appendPeerRequestResolutionHistory(input: {
         : 'MANUALLY_SET'
       : 'CLEARED',
     resolvedStudentId,
-    resolutionSource
+    resolutionSource,
+    occurredAt: occurredAt ?? new Date().toISOString()
   };
 
   const previous = request.resolutionHistory[request.resolutionHistory.length - 1];

@@ -29,7 +29,12 @@ describe('confirmPeerRequestMatches', () => {
         initialResolutionSource: 'AUTO'
       });
       expect(result.updatedRequests[0].resolutionHistory).toEqual([
-        { action: 'AUTO_MATCHED', resolvedStudentId: 'student-2', resolutionSource: 'AUTO' }
+        expect.objectContaining({
+          action: 'AUTO_MATCHED',
+          resolvedStudentId: 'student-2',
+          resolutionSource: 'AUTO',
+          occurredAt: expect.any(String)
+        })
       ]);
     }
   });
@@ -58,7 +63,12 @@ describe('confirmPeerRequestMatches', () => {
         initialResolutionSource: 'MANUAL'
       });
       expect(result.updatedRequests[0].resolutionHistory).toEqual([
-        { action: 'MANUALLY_SET', resolvedStudentId: 'student-9', resolutionSource: 'MANUAL' }
+        expect.objectContaining({
+          action: 'MANUALLY_SET',
+          resolvedStudentId: 'student-9',
+          resolutionSource: 'MANUAL',
+          occurredAt: expect.any(String)
+        })
       ]);
     }
   });
@@ -90,7 +100,12 @@ describe('confirmPeerRequestMatches', () => {
         initialResolutionSource: 'MANUAL'
       });
       expect(result.updatedRequests[0].resolutionHistory).toEqual([
-        { action: 'CLEARED', resolvedStudentId: undefined, resolutionSource: 'NONE' }
+        expect.objectContaining({
+          action: 'CLEARED',
+          resolvedStudentId: undefined,
+          resolutionSource: 'NONE',
+          occurredAt: expect.any(String)
+        })
       ]);
     }
   });
@@ -123,7 +138,12 @@ describe('confirmPeerRequestMatches', () => {
         initialResolutionSource: 'AUTO'
       });
       expect(result.updatedRequests[0].resolutionHistory).toEqual([
-        { action: 'MANUALLY_SET', resolvedStudentId: 'student-3', resolutionSource: 'MANUAL' }
+        expect.objectContaining({
+          action: 'MANUALLY_SET',
+          resolvedStudentId: 'student-3',
+          resolutionSource: 'MANUAL',
+          occurredAt: expect.any(String)
+        })
       ]);
     }
   });

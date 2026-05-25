@@ -13,6 +13,7 @@ import type {
   StudentRepository,
   ProgramRepository,
   PreferenceRepository,
+  PeerRequestRepository,
   ScenarioRepository,
   SessionRepository,
   PlacementRepository,
@@ -22,6 +23,7 @@ import type {
 } from '$lib/application/ports';
 import type {
   Pool,
+  PeerRequestEntry,
   Program,
   Student,
   Scenario,
@@ -31,6 +33,7 @@ import type {
 } from '$lib/domain';
 import type { Preference, StudentPreference } from '$lib/domain/preference';
 import type { Group } from '$lib/domain/group';
+import { createPeerRequestEntry } from '$lib/domain/peerRequest';
 import type { Result } from '$lib/types/result';
 import { ok, err } from '$lib/types/result';
 import type { ActivityExportData } from '$lib/utils/activityFile';
@@ -64,6 +67,7 @@ export interface ImportActivityResult {
   sessionsImported: number;
   placementsImported: number;
   observationsImported: number;
+  peerRequestsImported: number;
 }
 
 export type ImportActivityError =
@@ -80,6 +84,7 @@ export interface ImportActivityDeps {
   studentRepo: StudentRepository;
   programRepo: ProgramRepository;
   preferenceRepo: PreferenceRepository;
+  peerRequestRepo?: PeerRequestRepository;
   scenarioRepo: ScenarioRepository;
   sessionRepo?: SessionRepository;
   placementRepo?: PlacementRepository;
@@ -402,6 +407,78 @@ export async function importActivity(
     }
 
     // -------------------------------------------------------------------------
+    // Step 11: Import Peer Requests (v3+)
+    // -------------------------------------------------------------------------
+
+    let peerRequestsImported = 0;
+
+    if (deps.peerRequestRepo && exportData.peerRequests && exportData.peerRequests.length > 0) {
+      const peerRequestsToSave: PeerRequestEntry[] = [];
+
+      for (const exportedRequest of exportData.peerRequests) {
+        const newRequesterStudentId = studentIdMap.get(exportedRequest.requesterStudentId);
+        if (!newRequesterStudentId) {
+          continue;
+        }
+
+        const remappedResolvedStudentId = exportedRequest.resolvedStudentId
+          ? studentIdMap.get(exportedRequest.resolvedStudentId)
+          : undefined;
+        const remappedInitialResolvedStudentId = exportedRequest.initialResolvedStudentId
+          ? studentIdMap.get(exportedRequest.initialResolvedStudentId)
+          : undefined;
+
+        peerRequestsToSave.push(
+          createPeerRequestEntry({
+            id: deps.idGenerator.generateId(),
+            programId: program.id,
+            requesterStudentId: newRequesterStudentId,
+            rank: exportedRequest.rank,
+            rawText: exportedRequest.rawText,
+            normalizedText: exportedRequest.normalizedText,
+            status: remappedResolvedStudentId ? exportedRequest.status : 'UNRESOLVED',
+            resolvedStudentId: remappedResolvedStudentId,
+            resolutionSource: remappedResolvedStudentId ? exportedRequest.resolutionSource : 'NONE',
+            initialResolvedStudentId: remappedInitialResolvedStudentId,
+            initialResolutionSource: remappedInitialResolvedStudentId
+              ? exportedRequest.initialResolutionSource
+              : undefined,
+            resolutionHistory: exportedRequest.resolutionHistory.map((entry) => ({
+              action: entry.action,
+              resolvedStudentId: entry.resolvedStudentId
+                ? studentIdMap.get(entry.resolvedStudentId)
+                : undefined,
+              resolutionSource: entry.resolutionSource,
+              occurredAt: entry.occurredAt
+            })),
+            candidates: exportedRequest.candidates
+              .map((candidate) => {
+                const studentId = studentIdMap.get(candidate.studentId);
+                if (!studentId) return null;
+                return {
+                  studentId,
+                  score: candidate.score,
+                  reasons: [...candidate.reasons]
+                };
+              })
+              .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+          })
+        );
+      }
+
+      if (peerRequestsToSave.length > 0) {
+        if (typeof deps.peerRequestRepo.saveMany === 'function') {
+          await deps.peerRequestRepo.saveMany(peerRequestsToSave);
+        } else {
+          for (const request of peerRequestsToSave) {
+            await deps.peerRequestRepo.save(request);
+          }
+        }
+        peerRequestsImported = peerRequestsToSave.length;
+      }
+    }
+
+    // -------------------------------------------------------------------------
     // Return Result
     // -------------------------------------------------------------------------
 
@@ -414,7 +491,8 @@ export async function importActivity(
       groupsImported,
       sessionsImported,
       placementsImported,
-      observationsImported
+      observationsImported,
+      peerRequestsImported
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error during import';

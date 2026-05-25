@@ -20,9 +20,7 @@ export interface ImportPeerRequestsFromMappingOutput {
   warnings: string[];
 }
 
-export type ImportPeerRequestsFromMappingError =
-  | { type: 'INVALID_INPUT'; message: string }
-  | { type: 'MISSING_ROW_LINK'; rowIndex: number; message: string };
+export type ImportPeerRequestsFromMappingError = { type: 'INVALID_INPUT'; message: string };
 
 const MULTI_NAME_PATTERN = /\b(and|or)\b|&|\/|;|\+/i;
 
@@ -57,21 +55,17 @@ export function importPeerRequestsFromMapping(
   const entries: PeerRequestEntry[] = [];
 
   for (const row of input.rawData.rows) {
+    const requesterStudentId = rowLinkByIndex.get(row.rowIndex);
+    if (!requesterStudentId) {
+      continue;
+    }
+
     const seenNormalizedValues = new Set<string>();
 
     for (const mapping of peerRequestMappings) {
       const rawText = row.cells[mapping.columnIndex] ?? '';
       if (!rawText.trim() || isIgnoredPeerRequestText(rawText)) {
         continue;
-      }
-
-      const requesterStudentId = rowLinkByIndex.get(row.rowIndex);
-      if (!requesterStudentId) {
-        return {
-          type: 'MISSING_ROW_LINK',
-          rowIndex: row.rowIndex,
-          message: `Missing row-to-student link for row ${row.rowIndex}`
-        };
       }
 
       const normalizedText = normalizePeerRequestText(rawText);

@@ -8,11 +8,23 @@
     onRename: (activity: ActivityDisplay) => void;
     onDelete: (activity: ActivityDisplay) => void;
     onExport: (activity: ActivityDisplay) => void;
+    onImportPeerRequests: (activity: ActivityDisplay) => void;
     openMenuId: string | null;
+    importPeerRequestsLoadingId?: string | null;
     onToggleMenu: (id: string, e: MouseEvent) => void;
   }
 
-  let { activity, now, onRename, onDelete, onExport, openMenuId, onToggleMenu }: Props = $props();
+  let {
+    activity,
+    now,
+    onRename,
+    onDelete,
+    onExport,
+    onImportPeerRequests,
+    openMenuId,
+    importPeerRequestsLoadingId = null,
+    onToggleMenu
+  }: Props = $props();
 
   function formatRelativeDate(date: Date, reference: Date): string {
     const diffMs = date.getTime() - reference.getTime();
@@ -63,6 +75,7 @@
   let timeLabel = $derived(getProgramTimeLabel(activity.program));
   let studentLabel = $derived(getStudentCountLabel(activity.studentCount));
   let isMenuOpen = $derived(openMenuId === activity.program.id);
+  let isImportPeerRequestsLoading = $derived(importPeerRequestsLoadingId === activity.program.id);
 </script>
 
 <div
@@ -112,6 +125,33 @@
         <div
           class="absolute right-0 z-20 mt-1 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
         >
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400"
+            onclick={() => {
+              onImportPeerRequests(activity);
+            }}
+            disabled={isImportPeerRequestsLoading || activity.studentCount === 0}
+          >
+            <svg
+              class="h-4 w-4 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 16.5V4.5m0 12 4.5-4.5M12 16.5l-4.5-4.5M3.75 19.5h16.5"
+              />
+            </svg>
+            {#if isImportPeerRequestsLoading}
+              Loading...
+            {:else}
+              Import Peer Requests
+            {/if}
+          </button>
           <button
             type="button"
             class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"

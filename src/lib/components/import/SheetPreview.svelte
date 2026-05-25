@@ -25,6 +25,7 @@
   // Field options for the dropdown
   const fieldOptions: { value: MappedField | 'none'; label: string; required: boolean }[] = [
     { value: 'none', label: 'Select field...', required: false },
+    { value: 'studentId', label: 'Student ID', required: false },
     { value: 'firstName', label: 'First Name', required: true },
     { value: 'lastName', label: 'Last Name', required: false },
     { value: 'choice1', label: 'Choice 1', required: false },

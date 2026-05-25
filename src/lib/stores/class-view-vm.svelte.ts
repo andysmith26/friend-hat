@@ -10,6 +10,7 @@ import type {
   Session,
   Student
 } from '$lib/domain';
+import { createPeerRequestEntry, getStudentDisplayName } from '$lib/domain';
 import type { ScenarioSatisfaction } from '$lib/domain/analytics';
 import type { StudentPreference } from '$lib/domain/preference';
 import {
@@ -253,8 +254,13 @@ export interface ClassViewVm {
       gender?: string;
     }) => Promise<{ success: boolean; studentId?: string }>;
     refreshPeerRequests: () => Promise<void>;
+    createPeerRequest: (payload: {
+      requesterStudentId: string;
+      requestedStudentId: string;
+    }) => Promise<void>;
     setPeerRequestMatch: (payload: { requestId: string; studentId: string }) => Promise<void>;
     clearPeerRequestMatch: (requestId: string) => Promise<void>;
+    deletePeerRequest: (requestId: string) => Promise<void>;
     selectStudentPeerRequests: (studentId: string | null) => void;
     updateStudent: (input: {
       studentId: string;
@@ -488,6 +494,54 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     syncSelectedPeerRequestHighlight();
   }
 
+  async function createPeerRequest(payload: {
+    requesterStudentId: string;
+    requestedStudentId: string;
+  }): Promise<void> {
+    if (!state.program || payload.requesterStudentId === payload.requestedStudentId) {
+      return;
+    }
+
+    const requester = state.studentsById[payload.requesterStudentId];
+    const requestedStudent = state.studentsById[payload.requestedStudentId];
+    if (!requester || !requestedStudent) {
+      return;
+    }
+
+    const nextRank =
+      Math.max(
+        0,
+        ...persistedPeerRequests
+          .filter((entry) => entry.requesterStudentId === payload.requesterStudentId)
+          .map((entry) => entry.rank)
+      ) + 1;
+
+    await state.env.peerRequestRepo.save(
+      createPeerRequestEntry({
+        id: state.env.idGenerator.generateId(),
+        programId: state.program.id,
+        requesterStudentId: requester.id,
+        rank: nextRank,
+        rawText: getStudentDisplayName(requestedStudent),
+        status: 'MANUALLY_SET',
+        resolvedStudentId: requestedStudent.id,
+        resolutionSource: 'MANUAL',
+        initialResolvedStudentId: requestedStudent.id,
+        initialResolutionSource: 'MANUAL',
+        resolutionHistory: [
+          {
+            action: 'MANUALLY_SET',
+            resolvedStudentId: requestedStudent.id,
+            resolutionSource: 'MANUAL',
+            occurredAt: new Date().toISOString()
+          }
+        ]
+      })
+    );
+
+    await refreshPeerRequests();
+  }
+
   async function setPeerRequestMatch(payload: {
     requestId: string;
     studentId: string;
@@ -544,6 +598,19 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
         resolutionSource: 'NONE'
       })
     });
+    await refreshPeerRequests();
+  }
+
+  async function deletePeerRequest(requestId: string): Promise<void> {
+    const request =
+      persistedPeerRequests.find((entry) => entry.id === requestId) ??
+      (await state.env.peerRequestRepo.getById(requestId));
+
+    if (!request) {
+      return;
+    }
+
+    await state.env.peerRequestRepo.delete(requestId);
     await refreshPeerRequests();
   }
 
@@ -1461,8 +1528,10 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
       removeStudent: removeStudentAction,
       toggleStudentActive,
       refreshPeerRequests,
+      createPeerRequest,
       setPeerRequestMatch,
       clearPeerRequestMatch,
+      deletePeerRequest,
       selectStudentPeerRequests
     }
   };

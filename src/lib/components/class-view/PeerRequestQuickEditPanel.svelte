@@ -9,11 +9,16 @@
     student: Student;
     studentsById: Record<string, Student>;
     summary: StudentPeerRequestWorkspaceSummary;
+    onAddPeerRequest?: (payload: {
+      requesterStudentId: string;
+      requestedStudentId: string;
+    }) => Promise<void> | void;
     onQuickEditPeerRequest?: (payload: {
       requestId: string;
       studentId: string;
     }) => Promise<void> | void;
     onClearPeerRequest?: (requestId: string) => Promise<void> | void;
+    onDeletePeerRequest?: (requestId: string) => Promise<void> | void;
     onClose: () => void;
   }
 
@@ -21,8 +26,10 @@
     student,
     studentsById,
     summary,
+    onAddPeerRequest,
     onQuickEditPeerRequest,
     onClearPeerRequest,
+    onDeletePeerRequest,
     onClose
   }: Props = $props();
 
@@ -31,6 +38,8 @@
   let savingRequestIds = $state<string[]>([]);
   let editingRequestId = $state<string | null>(null);
   let historyRequestId = $state<string | null>(null);
+  let addRequestStudentId = $state('');
+  let isAddingRequest = $state(false);
 
   const availableStudents = $derived.by(() =>
     Object.values(studentsById)
@@ -65,60 +74,19 @@
     return item.resolvedStudentDisplayName ?? 'Needs assignment';
   }
 
-  function getAttentionBadge(item: PeerRequestWorkspaceItem):
-    | { label: string; className: string }
-    | null {
-    if (!item.resolvedStudentId || item.satisfactionStatus === 'UNRESOLVED') {
-      return {
-        label: 'Needs assignment',
-        className: 'bg-amber-100 text-amber-800'
-      };
-    }
+  function formatAuditDateTime(iso?: string): string {
+    if (!iso) return 'Time unavailable';
 
-    if (item.satisfactionStatus === 'STALE') {
-      return {
-        label: 'Missing student',
-        className: 'bg-rose-100 text-rose-700'
-      };
-    }
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return 'Time unavailable';
 
-    if (item.satisfactionStatus === 'UNSATISFIED') {
-      return {
-        label: 'Different group',
-        className: 'bg-orange-100 text-orange-800'
-      };
-    }
-
-    if (item.satisfactionStatus === 'PENDING') {
-      return {
-        label: 'Waiting for placement',
-        className: 'bg-sky-100 text-sky-700'
-      };
-    }
-
-    return null;
-  }
-
-  function getAuditSnapshotText(item: PeerRequestWorkspaceItem): string {
-    if (!item.initialResolvedStudentDisplayName) {
-      return 'No initial match has been saved yet.';
-    }
-
-    return item.initialResolutionSource === 'AUTO'
-      ? `Initially matched to ${item.initialResolvedStudentDisplayName}.`
-      : `Initially assigned to ${item.initialResolvedStudentDisplayName}.`;
-  }
-
-  function getAuditChangeText(item: PeerRequestWorkspaceItem): string | null {
-    if (!item.hasChangedSinceInitial) {
-      return null;
-    }
-
-    if (item.resolvedStudentDisplayName) {
-      return `Current assignment is ${item.resolvedStudentDisplayName}.`;
-    }
-
-    return 'The current assignment has been cleared.';
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(date);
   }
 
   function toggleEditing(requestId: string) {
@@ -147,6 +115,32 @@
     try {
       await onClearPeerRequest?.(requestId);
       editingRequestId = null;
+    } finally {
+      savingRequestIds = savingRequestIds.filter((id) => id !== requestId);
+    }
+  }
+
+  async function handleAddRequest() {
+    if (!addRequestStudentId) return;
+
+    isAddingRequest = true;
+    try {
+      await onAddPeerRequest?.({
+        requesterStudentId: student.id,
+        requestedStudentId: addRequestStudentId
+      });
+      addRequestStudentId = '';
+    } finally {
+      isAddingRequest = false;
+    }
+  }
+
+  async function handleDeleteRequest(requestId: string) {
+    savingRequestIds = [...savingRequestIds, requestId];
+    try {
+      await onDeletePeerRequest?.(requestId);
+      editingRequestId = null;
+      historyRequestId = historyRequestId === requestId ? null : historyRequestId;
     } finally {
       savingRequestIds = savingRequestIds.filter((id) => id !== requestId);
     }
@@ -186,31 +180,72 @@
   </div>
 
   <div class="max-h-[min(60vh,32rem)] space-y-3 overflow-y-auto px-4 py-4">
+    <section class="rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-3">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label class="min-w-0 flex-1">
+          <span class="mb-1 block text-xs font-medium tracking-wide text-gray-500 uppercase">
+            Add peer request
+          </span>
+          <select
+            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 focus:outline-none"
+            bind:value={addRequestStudentId}
+            disabled={isAddingRequest}
+          >
+            <option value="">Choose a student...</option>
+            {#each availableStudents as candidate (candidate.id)}
+              <option value={candidate.id}>{getStudentDisplayName(candidate)}</option>
+            {/each}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          class="rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          onclick={handleAddRequest}
+          disabled={isAddingRequest || !addRequestStudentId}
+        >
+          {isAddingRequest ? 'Adding...' : 'Add request'}
+        </button>
+      </div>
+    </section>
+
+    {#if summary.items.length === 0}
+      <section class="rounded-xl border border-gray-200 bg-gray-50/70 p-4 text-sm text-gray-600">
+        No peer requests yet. Add one above to start tracking them here.
+      </section>
+    {:else}
+      <div class="px-1 text-xs font-medium tracking-wide text-gray-500 uppercase">
+        {summary.confirmedRequestCount} confirmed / {summary.satisfiedCount} satisfied
+      </div>
+    {/if}
+
     {#each summary.items as item (item.requestId)}
       {@const isSaving = savingRequestIds.includes(item.requestId)}
-      {@const attentionBadge = getAttentionBadge(item)}
       {@const isEditing = editingRequestId === item.requestId}
       {@const isHistoryOpen = historyRequestId === item.requestId}
-      <section class="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+      <section
+        class={`rounded-xl border p-3 ${item.satisfactionStatus === 'SATISFIED' ? 'border-green-400 bg-green-50/40' : 'border-gray-200 bg-gray-50/70'}`}
+      >
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full bg-gray-200 px-2 py-1 text-[11px] font-semibold tracking-wide text-gray-700 uppercase">
-                Rank {item.rank}
-              </span>
-              {#if attentionBadge}
-                <span class={`rounded-full px-2 py-1 text-[11px] font-medium ${attentionBadge.className}`}>
-                  {attentionBadge.label}
-                </span>
-              {/if}
-            </div>
-            <div class="mt-2 flex min-w-0 items-center gap-2">
-              <p class="truncate text-sm font-medium text-gray-900">{item.rawText}</p>
-              <span class="text-xs text-gray-400">→</span>
-              <p class="truncate text-sm text-gray-700">{getAssignmentLabel(item)}</p>
-            </div>
+            <p class="truncate text-sm font-medium text-gray-900">{getAssignmentLabel(item)}</p>
           </div>
           <div class="flex items-center gap-1">
+            <button
+              type="button"
+              class="rounded-lg p-2 text-rose-400 hover:bg-rose-100 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Delete peer request"
+              onclick={() => handleDeleteRequest(item.requestId)}
+              disabled={isSaving}
+            >
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path
+                  fill-rule="evenodd"
+                  d="M8.5 2a1 1 0 0 0-.8.4L7.1 3H4.75a.75.75 0 0 0 0 1.5h.46l.67 9.07A2.5 2.5 0 0 0 8.37 16h3.26a2.5 2.5 0 0 0 2.49-2.43l.67-9.07h.46a.75.75 0 0 0 0-1.5H12.9l-.6-.6a1 1 0 0 0-.8-.4h-3Zm1.25 4.25a.75.75 0 0 0-1.5 0v5.5a.75.75 0 0 0 1.5 0v-5.5Zm3 0a.75.75 0 0 0-1.5 0v5.5a.75.75 0 0 0 1.5 0v-5.5Z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
             <button
               type="button"
               class="rounded-lg p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
@@ -218,11 +253,17 @@
               onclick={() => toggleHistory(item.requestId)}
             >
               <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.5a.75.75 0 0 0-1.5 0v4c0 .199.079.39.22.53l2.5 2.5a.75.75 0 0 0 1.06-1.06l-2.28-2.22V6.5Z" clip-rule="evenodd"/>
+                <path
+                  fill-rule="evenodd"
+                  d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.5a.75.75 0 0 0-1.5 0v4c0 .199.079.39.22.53l2.5 2.5a.75.75 0 0 0 1.06-1.06l-2.28-2.22V6.5Z"
+                  clip-rule="evenodd"
+                />
               </svg>
             </button>
             {#if isSaving}
-              <span class="rounded-full bg-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600">
+              <span
+                class="rounded-full bg-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600"
+              >
                 Saving...
               </span>
             {:else if isEditing}
@@ -276,13 +317,18 @@
         {/if}
 
         {#if isHistoryOpen}
-          <div class="mt-3 rounded-lg border border-gray-200 bg-white/90 px-3 py-3 text-xs text-gray-600">
+          <div
+            class="mt-3 rounded-lg border border-gray-200 bg-white/90 px-3 py-3 text-xs text-gray-600"
+          >
             <p>Imported text: {item.rawText}</p>
             {#if item.auditItems.length > 0}
               <ul class="mt-2 space-y-1">
                 {#each item.auditItems as auditItem, index (`${item.requestId}-${auditItem.label}-${index}`)}
-                  <li>
-                    {auditItem.label}
+                  <li class="flex flex-wrap gap-x-2 gap-y-1">
+                    <span class="font-medium text-gray-900"
+                      >{formatAuditDateTime(auditItem.occurredAt)}</span
+                    >
+                    <span>{auditItem.label}</span>
                     {#if auditItem.resolvedStudentDisplayName}
                       <span class="text-gray-900">{auditItem.resolvedStudentDisplayName}</span>
                     {/if}
@@ -290,10 +336,7 @@
                 {/each}
               </ul>
             {:else}
-              <p class="mt-1">{getAuditSnapshotText(item)}</p>
-            {/if}
-            {#if getAuditChangeText(item)}
-              <p class="mt-2">{getAuditChangeText(item)}</p>
+              <p class="mt-1">No audit history yet.</p>
             {/if}
           </div>
         {/if}

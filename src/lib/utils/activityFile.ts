@@ -7,6 +7,14 @@
  * @module utils/activityFile
  */
 
+import { normalizePeerRequestText } from '$lib/domain/peerRequest';
+import type {
+  PeerRequestCandidate,
+  PeerRequestResolutionAuditAction,
+  PeerRequestResolutionAuditEntry,
+  PeerRequestResolutionSource,
+  PeerRequestResolutionStatus
+} from '$lib/domain/peerRequest';
 import type { ProgramType } from '$lib/domain/program';
 
 // =============================================================================
@@ -17,8 +25,9 @@ import type { ProgramType } from '$lib/domain/program';
  * Schema version for the export format.
  * v1: roster, preferences, scenario (groups)
  * v2: adds sessions, placements, observations, pool metadata
+ * v3: adds peer requests
  */
-export const ACTIVITY_FILE_VERSION = 2;
+export const ACTIVITY_FILE_VERSION = 3;
 
 /**
  * Student data for export (subset of domain Student).
@@ -110,9 +119,28 @@ export interface ExportedObservation {
 }
 
 /**
+ * Peer request data for export (v3+).
+ */
+export interface ExportedPeerRequest {
+  id: string;
+  requesterStudentId: string;
+  rank: number;
+  rawText: string;
+  normalizedText: string;
+  status: PeerRequestResolutionStatus;
+  resolvedStudentId?: string;
+  resolutionSource: PeerRequestResolutionSource;
+  initialResolvedStudentId?: string;
+  initialResolutionSource?: Exclude<PeerRequestResolutionSource, 'NONE'>;
+  resolutionHistory: PeerRequestResolutionAuditEntry[];
+  candidates: PeerRequestCandidate[];
+}
+
+/**
  * Complete activity export data structure.
  * v1 fields: activity, roster, preferences, scenario
  * v2 fields: sessions, placements, observations, pool
+ * v3 fields: peer requests
  */
 export interface ActivityExportData {
   version: number;
@@ -134,6 +162,7 @@ export interface ActivityExportData {
   sessions?: ExportedSession[];
   placements?: ExportedPlacement[];
   observations?: ExportedObservation[];
+  peerRequests?: ExportedPeerRequest[];
 }
 
 // =============================================================================
@@ -305,6 +334,10 @@ export function parseActivityFile(jsonString: string): ActivityFileValidation {
     return { valid: false, error: 'Preferences must be an array' };
   }
 
+  if (data.peerRequests !== undefined && !Array.isArray(data.peerRequests)) {
+    return { valid: false, error: 'Peer requests must be an array' };
+  }
+
   // Validate scenario if present
   if (data.scenario !== undefined) {
     if (typeof data.scenario !== 'object' || data.scenario === null) {
@@ -433,6 +466,120 @@ export function parseActivityFile(jsonString: string): ActivityFileValidation {
     }));
   }
 
+  if (Array.isArray(data.peerRequests)) {
+    for (let i = 0; i < data.peerRequests.length; i++) {
+      const request = data.peerRequests[i];
+      if (!request || typeof request !== 'object') {
+        return { valid: false, error: `Invalid peer request at index ${i}` };
+      }
+
+      const peerRequest = request as Record<string, unknown>;
+      if (typeof peerRequest.id !== 'string' || !peerRequest.id.trim()) {
+        return { valid: false, error: `Peer request at index ${i} is missing an ID` };
+      }
+      if (
+        typeof peerRequest.requesterStudentId !== 'string' ||
+        !peerRequest.requesterStudentId.trim()
+      ) {
+        return {
+          valid: false,
+          error: `Peer request at index ${i} is missing a requesterStudentId`
+        };
+      }
+      if (!Number.isInteger(peerRequest.rank) || Number(peerRequest.rank) < 1) {
+        return { valid: false, error: `Peer request at index ${i} has an invalid rank` };
+      }
+      if (typeof peerRequest.rawText !== 'string' || !peerRequest.rawText.trim()) {
+        return { valid: false, error: `Peer request at index ${i} is missing rawText` };
+      }
+      if (
+        peerRequest.resolutionHistory !== undefined &&
+        !Array.isArray(peerRequest.resolutionHistory)
+      ) {
+        return {
+          valid: false,
+          error: `Peer request at index ${i} has invalid resolutionHistory`
+        };
+      }
+      if (peerRequest.candidates !== undefined && !Array.isArray(peerRequest.candidates)) {
+        return { valid: false, error: `Peer request at index ${i} has invalid candidates` };
+      }
+    }
+
+    validatedData.peerRequests = (data.peerRequests as Record<string, unknown>[]).map((request) => {
+      const rawText = String(request.rawText ?? '').trim();
+      const resolvedStudentId =
+        typeof request.resolvedStudentId === 'string' && request.resolvedStudentId.trim()
+          ? request.resolvedStudentId
+          : undefined;
+      const initialResolvedStudentId =
+        typeof request.initialResolvedStudentId === 'string' &&
+        request.initialResolvedStudentId.trim()
+          ? request.initialResolvedStudentId
+          : undefined;
+
+      return {
+        id: String(request.id ?? ''),
+        requesterStudentId: String(request.requesterStudentId ?? ''),
+        rank: Number(request.rank ?? 1),
+        rawText,
+        normalizedText:
+          typeof request.normalizedText === 'string' && request.normalizedText.trim()
+            ? request.normalizedText.trim()
+            : normalizePeerRequestText(rawText),
+        status: isValidPeerRequestResolutionStatus(request.status) ? request.status : 'UNRESOLVED',
+        resolvedStudentId,
+        resolutionSource: isValidPeerRequestResolutionSource(request.resolutionSource)
+          ? request.resolutionSource
+          : 'NONE',
+        initialResolvedStudentId,
+        initialResolutionSource:
+          initialResolvedStudentId &&
+          isValidInitialPeerRequestResolutionSource(request.initialResolutionSource)
+            ? request.initialResolutionSource
+            : undefined,
+        resolutionHistory: Array.isArray(request.resolutionHistory)
+          ? request.resolutionHistory
+              .filter(
+                (entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object'
+              )
+              .map((entry) => ({
+                action: isValidPeerRequestResolutionAuditAction(entry.action)
+                  ? entry.action
+                  : 'CLEARED',
+                resolvedStudentId:
+                  typeof entry.resolvedStudentId === 'string' && entry.resolvedStudentId.trim()
+                    ? entry.resolvedStudentId
+                    : undefined,
+                resolutionSource: isValidPeerRequestResolutionSource(entry.resolutionSource)
+                  ? entry.resolutionSource
+                  : 'NONE',
+                occurredAt:
+                  typeof entry.occurredAt === 'string' && entry.occurredAt.trim()
+                    ? entry.occurredAt
+                    : undefined
+              }))
+          : [],
+        candidates: Array.isArray(request.candidates)
+          ? request.candidates
+              .filter(
+                (candidate): candidate is Record<string, unknown> =>
+                  !!candidate && typeof candidate === 'object'
+              )
+              .map((candidate) => ({
+                studentId: String(candidate.studentId ?? ''),
+                score: typeof candidate.score === 'number' ? candidate.score : 0,
+                reasons: Array.isArray(candidate.reasons)
+                  ? candidate.reasons.filter(
+                      (reason): reason is string => typeof reason === 'string'
+                    )
+                  : []
+              }))
+          : []
+      };
+    });
+  }
+
   return { valid: true, data: validatedData };
 }
 
@@ -447,6 +594,31 @@ function isValidProgramType(value: unknown): value is ProgramType {
     value === 'CLASS_ACTIVITY' ||
     value === 'OTHER'
   );
+}
+
+function isValidPeerRequestResolutionStatus(value: unknown): value is PeerRequestResolutionStatus {
+  return (
+    value === 'UNRESOLVED' ||
+    value === 'AUTO_MATCHED_PENDING_CONFIRMATION' ||
+    value === 'CONFIRMED' ||
+    value === 'MANUALLY_SET'
+  );
+}
+
+function isValidPeerRequestResolutionSource(value: unknown): value is PeerRequestResolutionSource {
+  return value === 'NONE' || value === 'AUTO' || value === 'MANUAL';
+}
+
+function isValidInitialPeerRequestResolutionSource(
+  value: unknown
+): value is Exclude<PeerRequestResolutionSource, 'NONE'> {
+  return value === 'AUTO' || value === 'MANUAL';
+}
+
+function isValidPeerRequestResolutionAuditAction(
+  value: unknown
+): value is PeerRequestResolutionAuditAction {
+  return value === 'AUTO_MATCHED' || value === 'MANUALLY_SET' || value === 'CLEARED';
 }
 
 /**

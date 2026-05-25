@@ -6,7 +6,10 @@
    */
 
   import type { Group, Student } from '$lib/domain';
-  import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
+  import {
+    createEmptyPeerRequestWorkspaceSummary,
+    type StudentPeerRequestWorkspaceSummary
+  } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
   import type { KeyboardMoveDirection } from '$lib/components/editing/DraggableStudentCard.svelte';
   import { Alert } from '$lib/components/ui';
   import GroupEditingLayout from '$lib/components/editing/GroupEditingLayout.svelte';
@@ -73,11 +76,16 @@
     // Peer request summary/highlight state
     studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
     selectedStudentRequestedPeerIds?: string[] | null;
+    onAddPeerRequest?: (payload: {
+      requesterStudentId: string;
+      requestedStudentId: string;
+    }) => Promise<void> | void;
     onQuickEditPeerRequest?: (payload: {
       requestId: string;
       studentId: string;
     }) => Promise<void> | void;
     onClearPeerRequest?: (requestId: string) => Promise<void> | void;
+    onDeletePeerRequest?: (requestId: string) => Promise<void> | void;
 
     // Read-only mode (published session)
     readOnly?: boolean;
@@ -117,14 +125,17 @@
     clickedStudentId = null,
     studentPeerRequestSummaryById = new Map(),
     selectedStudentRequestedPeerIds = null,
+    onAddPeerRequest,
     onQuickEditPeerRequest,
-    onClearPeerRequest
+    onClearPeerRequest,
+    onDeletePeerRequest
   }: Props = $props();
 
   let peerRequestDetailsStudentId = $state<string | null>(null);
   const peerRequestDetailsSummary = $derived(
     peerRequestDetailsStudentId
-      ? (studentPeerRequestSummaryById.get(peerRequestDetailsStudentId) ?? null)
+      ? (studentPeerRequestSummaryById.get(peerRequestDetailsStudentId) ??
+          createEmptyPeerRequestWorkspaceSummary(peerRequestDetailsStudentId))
       : null
   );
   const peerRequestDetailsStudent = $derived(
@@ -132,7 +143,11 @@
   );
 
   $effect(() => {
-    if (peerRequestDetailsStudentId && peerRequestDetailsStudentId !== clickedStudentId) {
+    if (
+      peerRequestDetailsStudentId &&
+      clickedStudentId &&
+      peerRequestDetailsStudentId !== clickedStudentId
+    ) {
       peerRequestDetailsStudentId = null;
     }
   });
@@ -209,8 +224,6 @@
   });
 
   function handleOpenPeerRequestDetails(studentId: string) {
-    const summary = studentPeerRequestSummaryById.get(studentId);
-    if (!summary || summary.requestCount === 0) return;
     peerRequestDetailsStudentId = peerRequestDetailsStudentId === studentId ? null : studentId;
   }
 </script>
@@ -340,8 +353,10 @@
         student={peerRequestDetailsStudent}
         {studentsById}
         summary={peerRequestDetailsSummary}
+        {onAddPeerRequest}
         {onQuickEditPeerRequest}
         {onClearPeerRequest}
+        {onDeletePeerRequest}
         onClose={() => {
           peerRequestDetailsStudentId = null;
         }}
