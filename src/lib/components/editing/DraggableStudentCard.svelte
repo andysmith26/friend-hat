@@ -169,9 +169,14 @@
 
     return `absolute top-1 right-1 block rounded-full transition-[width,height,box-shadow] duration-150 ease-out ${sizeClass} ${ringClass}`;
   });
+  const selectedCardClass = $derived.by(() => {
+    if (readonly || !isSelected) return '';
+    if (isPickedUp) return 'border-blue-500 shadow-md ring-2 ring-blue-500 ring-offset-1';
+    return 'border-sky-300 bg-sky-50 ring-2 ring-sky-200/90 ring-offset-1 shadow-[0_0_0_1px_rgba(125,211,252,0.35),0_10px_24px_-14px_rgba(56,189,248,0.35)]';
+  });
   const peerRequestHighlightClass = $derived(
     isPeerRequested && !isSelected && !isPickedUp
-      ? 'border-sky-300 bg-sky-50/60 ring-2 ring-sky-200 ring-offset-1'
+      ? 'border-blue-700 bg-blue-50/90 ring-2 ring-blue-600/90 ring-offset-2 shadow-[0_0_0_1px_rgba(29,78,216,0.32),0_0_0_7px_rgba(96,165,250,0.20),0_0_28px_10px_rgba(37,99,235,0.34)] scale-[1.03]'
       : ''
   );
 
@@ -302,11 +307,7 @@
         ? 'cursor-pointer border-gray-200 hover:border-gray-300 hover:shadow'
         : 'cursor-default border-gray-200'
       : 'cursor-grab'
-  } ${
-    !readonly && (isPickedUp || isSelected)
-      ? 'border-blue-500 shadow-md ring-2 ring-blue-500 ring-offset-1'
-      : 'border-gray-200'
-  } ${peerRequestHighlightClass} ${!readonly && isDragging ? 'cursor-grabbing opacity-60' : ''} ${flash ? 'flash-move' : ''} ${!readonly || onStudentClick ? 'focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:outline-none' : ''}`}
+  } ${selectedCardClass || 'border-gray-200'} ${peerRequestHighlightClass} ${!readonly && isDragging ? 'cursor-grabbing opacity-60' : ''} ${flash ? 'flash-move' : ''} ${!readonly || onStudentClick ? 'focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 focus-visible:outline-none' : ''}`}
   onmouseenter={readonly ? undefined : handleMouseEnter}
   onmouseleave={readonly ? undefined : handleMouseLeave}
   onkeydown={readonly ? undefined : handleKeydown}
@@ -391,7 +392,7 @@
   {/if}
   <div
     style="font-size: var(--card-font-size, 15px);"
-    class={`relative flex min-w-0 flex-1 items-center justify-start overflow-visible rounded-md bg-white px-1 py-0 font-semibold ${textTone}`}
+    class={`relative flex min-w-0 flex-1 items-center justify-start overflow-visible rounded-md bg-transparent px-1 py-0 font-semibold ${textTone}`}
   >
     <span class="mt-[2px] truncate text-left leading-none" title={fullName}>{compactLabel}</span>
     {#if hasPreferences && badgeText}

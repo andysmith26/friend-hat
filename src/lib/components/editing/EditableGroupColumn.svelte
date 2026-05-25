@@ -384,7 +384,7 @@
     <div
       use:droppable={{ container: group.id, callbacks: { onDrop: handleContainerDrop } }}
       class={`grid flex-1 place-items-center content-start px-1 py-1 ${draggingId ? 'bg-white' : ''}`}
-      style="grid-template-columns: 1fr; gap: var(--card-gap, 4px);"
+      style="--stack-card-gap: calc(var(--card-gap, 4px) + 2px); grid-template-columns: 1fr; gap: var(--stack-card-gap);"
     >
       {#if memberIds.length === 0}
         <p class="col-span-full py-6 text-center text-xs text-gray-500">
