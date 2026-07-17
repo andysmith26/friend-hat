@@ -30,93 +30,123 @@ export interface MatchPeerRequestsOutput {
 }
 
 const MAX_CANDIDATES = 3;
-const MIN_PLAUSIBLE_SCORE = 50;
+const MIN_PLAUSIBLE_SCORE = 0.6;
+const AMBIGUITY_THRESHOLD = 0.15;
 
 interface NormalizedStudentName {
-  fullName: string;
-  reversedFullName: string;
   firstName: string;
   lastName: string;
+  preferredName: string;
+}
+
+interface ScoredCandidate {
+  studentId: string;
+  baseScore: number;
+}
+
+function normalizeName(value: string | undefined): string {
+  return (value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/ +/g, ' ')
+    .trim();
 }
 
 function getNormalizedStudentName(student: Student): NormalizedStudentName {
-  const firstName = normalizePeerRequestText(student.firstName);
-  const lastName = normalizePeerRequestText(student.lastName ?? '');
-  const fullName = normalizePeerRequestText(`${student.firstName} ${student.lastName ?? ''}`);
-  const reversedFullName = normalizePeerRequestText(
-    `${student.lastName ?? ''} ${student.firstName}`
-  );
+  const metadataPreferredName = student.meta?.preferredName;
+  const preferredName =
+    typeof metadataPreferredName === 'string' && !student.preferredName?.trim()
+      ? metadataPreferredName
+      : student.preferredName;
 
   return {
-    fullName,
-    reversedFullName,
-    firstName,
-    lastName
+    firstName: normalizeName(student.firstName),
+    lastName: normalizeName(student.lastName),
+    preferredName: normalizeName(preferredName)
   };
 }
 
-function scoreCandidate(requestText: string, student: Student): PeerRequestCandidate | null {
-  const normalizedRequest = normalizePeerRequestText(requestText);
-  if (!normalizedRequest) {
-    return null;
+function jaroWinklerSimilarity(left: string, right: string): number {
+  if (left === right) return 1;
+  if (!left || !right) return 0;
+
+  const matchDistance = Math.max(Math.floor(Math.max(left.length, right.length) / 2) - 1, 0);
+  const leftMatches = new Array<boolean>(left.length).fill(false);
+  const rightMatches = new Array<boolean>(right.length).fill(false);
+  let matches = 0;
+
+  for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+    const start = Math.max(0, leftIndex - matchDistance);
+    const end = Math.min(leftIndex + matchDistance + 1, right.length);
+
+    for (let rightIndex = start; rightIndex < end; rightIndex += 1) {
+      if (!rightMatches[rightIndex] && left[leftIndex] === right[rightIndex]) {
+        leftMatches[leftIndex] = true;
+        rightMatches[rightIndex] = true;
+        matches += 1;
+        break;
+      }
+    }
   }
 
-  const studentName = getNormalizedStudentName(student);
-  let score = 0;
-  const reasons: string[] = [];
+  if (matches === 0) return 0;
 
-  if (normalizedRequest === studentName.fullName) {
-    return {
-      studentId: student.id,
-      score: 100,
-      reasons: ['Exact full name match']
-    };
+  let transpositions = 0;
+  let rightIndex = 0;
+  for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+    if (!leftMatches[leftIndex]) continue;
+    while (!rightMatches[rightIndex]) rightIndex += 1;
+    if (left[leftIndex] !== right[rightIndex]) transpositions += 1;
+    rightIndex += 1;
   }
 
-  if (normalizedRequest === studentName.reversedFullName && studentName.lastName) {
-    return {
-      studentId: student.id,
-      score: 92,
-      reasons: ['Exact full name match with reversed order']
-    };
+  const jaro =
+    (matches / left.length + matches / right.length + (matches - transpositions / 2) / matches) / 3;
+  if (jaro <= 0.7) return jaro;
+
+  let prefixLength = 0;
+  while (prefixLength < 4 && left[prefixLength] === right[prefixLength]) {
+    prefixLength += 1;
   }
 
-  if (normalizedRequest === studentName.firstName) {
-    score += 60;
-    reasons.push('Exact first name match');
-  }
+  return jaro + prefixLength * 0.1 * (1 - jaro);
+}
 
-  if (studentName.lastName && normalizedRequest === studentName.lastName) {
-    score += 25;
-    reasons.push('Exact last name match');
-  }
+function buildPermutations(student: Student): string[] {
+  const { firstName, lastName, preferredName } = getNormalizedStudentName(student);
+  const permutations = new Set<string>();
+  const add = (value: string): void => {
+    if (value) permutations.add(value);
+  };
 
-  if (studentName.lastName && normalizedRequest.includes(studentName.lastName)) {
-    score += 20;
-    reasons.push('Request includes matching last name');
+  if (firstName && lastName) {
+    add(`${firstName} ${lastName}`);
+    add(`${firstName} ${lastName[0]}`);
+    add(`${firstName[0]} ${lastName}`);
   }
+  if (preferredName && lastName) {
+    add(`${preferredName} ${lastName}`);
+    add(`${preferredName} ${lastName[0]}`);
+  }
+  add(firstName);
+  add(lastName);
 
-  if (
-    normalizedRequest.includes(studentName.firstName) &&
-    normalizedRequest !== studentName.firstName
-  ) {
-    score += 20;
-    reasons.push('Request includes matching first name');
-  }
+  return [...permutations];
+}
 
-  if (studentName.lastName && normalizedRequest.startsWith(studentName.firstName.slice(0, 1))) {
-    score += 5;
-    reasons.push('Request shares first-name initial');
-  }
-
-  if (score === 0) {
-    return null;
-  }
+function scoreCandidate(normalizedRequest: string, student: Student): ScoredCandidate {
+  const inputSpaceCount = (normalizedRequest.match(/ /g) ?? []).length;
+  const baseScore = Math.max(
+    ...buildPermutations(student).map((permutation) => {
+      const permutationSpaceCount = (permutation.match(/ /g) ?? []).length;
+      const score = jaroWinklerSimilarity(normalizedRequest, permutation);
+      return Math.max(0, score - (inputSpaceCount === permutationSpaceCount ? 0 : 0.1));
+    })
+  );
 
   return {
     studentId: student.id,
-    score: Math.min(score, 99),
-    reasons
+    baseScore
   };
 }
 
@@ -125,13 +155,12 @@ function isSelfMatch(request: PeerRequestEntry, requester: Student | undefined):
     return false;
   }
 
-  const normalizedRequest = request.normalizedText || normalizePeerRequestText(request.rawText);
+  const normalizedRequest = normalizeName(request.rawText);
   const requesterName = getNormalizedStudentName(requester);
 
   return (
-    normalizedRequest === requesterName.fullName ||
-    normalizedRequest === requesterName.reversedFullName ||
-    normalizedRequest === requesterName.firstName
+    buildPermutations(requester).includes(normalizedRequest) ||
+    (requesterName.preferredName !== '' && normalizedRequest === requesterName.preferredName)
   );
 }
 
@@ -160,6 +189,7 @@ export function matchPeerRequests(input: MatchPeerRequestsInput): MatchPeerReque
 
   for (const request of input.requests) {
     const requester = studentById.get(request.requesterStudentId);
+    const normalizedRequest = normalizeName(request.rawText);
 
     if (isSelfMatch(request, requester)) {
       const updatedRequest = toUpdatedRequest(request, [], 'INVALID');
@@ -174,27 +204,58 @@ export function matchPeerRequests(input: MatchPeerRequestsInput): MatchPeerReque
       continue;
     }
 
-    const candidates = input.students
-      .filter((student) => student.id !== request.requesterStudentId)
-      .map((student) => scoreCandidate(request.rawText, student))
-      .filter((candidate): candidate is PeerRequestCandidate => candidate !== null)
-      .sort((left, right) => right.score - left.score)
-      .slice(0, MAX_CANDIDATES);
+    const rankedCandidates = normalizedRequest
+      ? input.students
+          .filter((student) => student.id !== request.requesterStudentId)
+          .map((student) => scoreCandidate(normalizedRequest, student))
+          .sort(
+            (left, right) =>
+              right.baseScore - left.baseScore ||
+              (left.studentId < right.studentId ? -1 : left.studentId > right.studentId ? 1 : 0)
+          )
+          .slice(0, MAX_CANDIDATES)
+      : [];
 
-    const exactMatchCount = candidates.filter((candidate) => candidate.score === 100).length;
+    const topBaseScore = rankedCandidates[0]?.baseScore ?? 0;
+    const candidates: PeerRequestCandidate[] =
+      topBaseScore >= MIN_PLAUSIBLE_SCORE
+        ? rankedCandidates.map((candidate, index) => {
+            const confidence =
+              index === 0
+                ? candidate.baseScore *
+                  (1 -
+                    Math.max(
+                      0,
+                      (AMBIGUITY_THRESHOLD -
+                        (candidate.baseScore - (rankedCandidates[1]?.baseScore ?? 0))) /
+                        AMBIGUITY_THRESHOLD
+                    ) *
+                      0.5)
+                : candidate.baseScore * (candidate.baseScore / topBaseScore) ** 2;
+
+            return {
+              studentId: candidate.studentId,
+              score: confidence,
+              confidence,
+              baseScore: candidate.baseScore,
+              reasons: ['Jaro-Winkler name similarity']
+            };
+          })
+        : [];
+
     const bestCandidate = candidates[0];
 
     let bucket: PeerRequestMatchBucket;
     let warning: string | undefined;
 
-    if (!bestCandidate || bestCandidate.score < MIN_PLAUSIBLE_SCORE) {
+    if (!bestCandidate) {
       bucket = 'NO_MATCH';
-    } else if (bestCandidate.score === 100 && exactMatchCount === 1) {
+    } else if (bestCandidate.baseScore === 1 && bestCandidate.score > 0.5) {
       bucket = 'READY_TO_CONFIRM';
     } else {
       bucket = 'NEEDS_REVIEW';
-      if (bestCandidate.score === 100 && exactMatchCount > 1) {
-        warning = 'Multiple exact full-name matches found.';
+      if (bestCandidate.baseScore === 1 && bestCandidate.score === 0.5) {
+        warning = 'Multiple equally strong matches found.';
       }
     }
 

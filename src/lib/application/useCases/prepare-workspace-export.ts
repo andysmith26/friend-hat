@@ -103,6 +103,7 @@ export function prepareWorkspaceExport(
       students: input.students.map((student) => ({
         id: student.id,
         firstName: student.firstName,
+        preferredName: student.preferredName,
         lastName: student.lastName,
         gradeLevel: student.gradeLevel,
         gender: student.gender,

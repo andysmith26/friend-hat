@@ -35,6 +35,7 @@ export const ACTIVITY_FILE_VERSION = 3;
 export interface ExportedStudent {
   id: string;
   firstName: string;
+  preferredName?: string;
   lastName?: string;
   gradeLevel?: string;
   gender?: string;
@@ -376,6 +377,7 @@ export function parseActivityFile(jsonString: string): ActivityFileValidation {
       students: (roster.students as Record<string, unknown>[]).map((s) => ({
         id: (s.id as string).trim(),
         firstName: (s.firstName as string).trim(),
+        preferredName: typeof s.preferredName === 'string' ? s.preferredName.trim() : undefined,
         lastName: typeof s.lastName === 'string' ? s.lastName.trim() : undefined,
         gradeLevel: typeof s.gradeLevel === 'string' ? s.gradeLevel.trim() : undefined,
         gender: typeof s.gender === 'string' ? s.gender.trim() : undefined,
@@ -569,6 +571,10 @@ export function parseActivityFile(jsonString: string): ActivityFileValidation {
               .map((candidate) => ({
                 studentId: String(candidate.studentId ?? ''),
                 score: typeof candidate.score === 'number' ? candidate.score : 0,
+                confidence:
+                  typeof candidate.confidence === 'number' ? candidate.confidence : undefined,
+                baseScore:
+                  typeof candidate.baseScore === 'number' ? candidate.baseScore : undefined,
                 reasons: Array.isArray(candidate.reasons)
                   ? candidate.reasons.filter(
                       (reason): reason is string => typeof reason === 'string'

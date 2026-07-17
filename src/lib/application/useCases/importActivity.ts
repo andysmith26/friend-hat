@@ -148,6 +148,7 @@ export async function importActivity(
     const students: Student[] = exportData.roster.students.map((s) => ({
       id: studentIdMap.get(s.id)!,
       firstName: String(s.firstName),
+      preferredName: s.preferredName ? String(s.preferredName) : undefined,
       lastName: s.lastName ? String(s.lastName) : undefined,
       gradeLevel: s.gradeLevel ? String(s.gradeLevel) : undefined,
       gender: s.gender ? String(s.gender) : undefined,
@@ -458,6 +459,8 @@ export async function importActivity(
                 return {
                   studentId,
                   score: candidate.score,
+                  confidence: candidate.confidence,
+                  baseScore: candidate.baseScore,
                   reasons: [...candidate.reasons]
                 };
               })

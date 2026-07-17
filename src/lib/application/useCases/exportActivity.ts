@@ -131,6 +131,7 @@ export async function exportActivity(
         students: students.map((s) => ({
           id: s.id,
           firstName: s.firstName,
+          preferredName: s.preferredName,
           lastName: s.lastName,
           gradeLevel: s.gradeLevel,
           gender: s.gender,

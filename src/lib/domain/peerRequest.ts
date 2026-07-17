@@ -34,7 +34,12 @@ export type PeerRequestSatisfactionStatus =
 
 export interface PeerRequestCandidate {
   studentId: string;
+  /** Final ambiguity-calibrated confidence from 0 to 1. */
   score: number;
+  /** Alias for `score` in new matching results. */
+  confidence?: number;
+  /** Raw best permutation similarity before ambiguity calibration. */
+  baseScore?: number;
   reasons: string[];
 }
 

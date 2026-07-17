@@ -36,6 +36,11 @@ export interface Student {
   firstName: string;
 
   /**
+   * Optional first-name variant a student uses in class.
+   */
+  preferredName?: string;
+
+  /**
    * Student's last name. Optional (some contexts use single names).
    */
   lastName?: string;
@@ -70,6 +75,7 @@ export function createStudent(input: {
   id: string;
   canonicalId?: string;
   firstName: string;
+  preferredName?: string;
   lastName?: string;
   gradeLevel?: string;
   gender?: string;
@@ -86,6 +92,7 @@ export function createStudent(input: {
     id: input.id.trim(),
     canonicalId: input.canonicalId?.trim(),
     firstName: input.firstName.trim(),
+    preferredName: input.preferredName?.trim(),
     lastName: input.lastName?.trim(),
     gradeLevel: input.gradeLevel?.trim(),
     gender: input.gender?.trim(),
