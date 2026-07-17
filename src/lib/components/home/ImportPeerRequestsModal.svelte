@@ -54,6 +54,8 @@
   const env = getAppEnvContext();
 
   let currentStep = $state<Step>('mapping');
+  let sourceMode = $state<'paste' | 'file'>('paste');
+  let pasteText = $state('');
   let fileInput = $state<HTMLInputElement>();
   let selectedFileName = $state('');
   let rawData = $state<RawSheetData | null>(null);
@@ -69,6 +71,7 @@
   let skippedUnmatchedRowCount = $state(0);
 
   let matchedRowCount = $derived(matchedRowLinks.length);
+  let pasteRowCount = $derived(rawData && sourceMode === 'paste' ? rawData.rows.length : 0);
   let studentOptions = $derived(
     [...students].sort((left, right) => {
       const leftName = `${left.firstName} ${left.lastName ?? ''}`.trim().toLowerCase();
@@ -125,6 +128,44 @@
     }));
   }
 
+  function handleModeSwitch(mode: 'paste' | 'file'): void {
+    if (mode === sourceMode) return;
+    sourceMode = mode;
+    rawData = null;
+    pasteText = '';
+    selectedFileName = '';
+    columnMappings = [];
+    importError = '';
+  }
+
+  function handlePasteInput(event: Event): void {
+    const text = (event.target as HTMLTextAreaElement).value;
+    pasteText = text;
+    const trimmed = text.trim();
+    if (!trimmed) {
+      rawData = null;
+      columnMappings = [];
+      return;
+    }
+    try {
+      const parsed = parseCsvToSheetData(trimmed);
+      if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+        rawData = null;
+        return;
+      }
+      const headersChanged =
+        !rawData ||
+        parsed.headers.length !== rawData.headers.length ||
+        parsed.headers.some((h, i) => h !== rawData!.headers[i]);
+      rawData = parsed;
+      if (headersChanged) {
+        initializeMappings(parsed);
+      }
+    } catch {
+      rawData = null;
+    }
+  }
+
   async function handleFileChange(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -163,7 +204,9 @@
 
   function getMappingError(): string | null {
     if (!rawData) {
-      return 'Choose a CSV or TSV file first.';
+      return sourceMode === 'paste'
+        ? 'Paste CSV or TSV data first.'
+        : 'Choose a CSV or TSV file first.';
     }
 
     return validatePeerRequestImportMappings(columnMappings);
@@ -398,15 +441,84 @@
 
     {#if currentStep === 'mapping'}
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-5">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900">Upload and map columns</h3>
-            <p class="mt-1 text-sm text-gray-600">
-              Map one Student ID column and one or more Peer Request columns. Choice columns are
-              rejected in this flow.
-            </p>
-          </div>
-          <div class="flex items-center gap-3">
+        <!-- Source mode tabs -->
+        <div
+          class="flex items-center gap-1 self-start rounded-lg border border-gray-200 bg-gray-100 p-1"
+        >
+          <button
+            type="button"
+            class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors {sourceMode ===
+            'paste'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'}"
+            onclick={() => handleModeSwitch('paste')}
+            disabled={isBusy}
+          >
+            Paste
+          </button>
+          <button
+            type="button"
+            class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors {sourceMode ===
+            'file'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'}"
+            onclick={() => handleModeSwitch('file')}
+            disabled={isBusy}
+          >
+            Upload File
+          </button>
+        </div>
+
+        <p class="mt-3 text-sm text-gray-600">
+          Map one <strong>Student ID</strong> column and one or more <strong>Peer Request</strong> columns.
+        </p>
+
+        {#if sourceMode === 'paste'}
+          {#if !rawData}
+            <!-- Paste textarea — shown until data is detected -->
+            <div class="mt-4 flex flex-1 flex-col">
+              <textarea
+                class="min-h-[180px] w-full flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2.5 font-mono text-sm placeholder:text-gray-400 focus:border-teal focus:ring-1 focus:ring-teal focus:outline-none"
+                placeholder={'Student ID\tPeer Request 1\tPeer Request 2\nstu-1\tAlex Johnson\tMia Chen\nstu-2\tJordan Smith\t'}
+                value={pasteText}
+                oninput={handlePasteInput}
+                disabled={isBusy}
+                spellcheck={false}
+              ></textarea>
+              <p class="mt-1.5 text-xs text-gray-500">
+                Paste a tab-separated or comma-separated table. The first row must be a header row.
+              </p>
+            </div>
+          {:else}
+            <!-- Data detected from paste — show row count and SheetPreview -->
+            <div class="mt-3 flex items-center gap-3">
+              <span class="text-sm text-gray-600"
+                >{pasteRowCount} {pasteRowCount === 1 ? 'row' : 'rows'} detected</span
+              >
+              <button
+                type="button"
+                class="text-sm text-gray-500 underline hover:text-gray-700"
+                onclick={() => {
+                  rawData = null;
+                  columnMappings = [];
+                  importError = '';
+                }}
+                disabled={isBusy}
+              >
+                Clear
+              </button>
+            </div>
+            <div class="mt-4 min-h-0 flex-1 overflow-hidden">
+              <SheetPreview
+                data={rawData}
+                mappings={columnMappings}
+                onMappingChange={handleMappingChange}
+              />
+            </div>
+          {/if}
+        {:else}
+          <!-- File upload mode -->
+          <div class="mt-4 flex items-center gap-3">
             <input
               bind:this={fileInput}
               type="file"
@@ -417,40 +529,34 @@
             <Button variant="ghost" onclick={() => fileInput?.click()} disabled={isBusy}>
               {rawData ? 'Choose Another File' : 'Choose File'}
             </Button>
+            {#if selectedFileName}
+              <span class="text-sm text-gray-500">{selectedFileName}</span>
+            {/if}
           </div>
-        </div>
 
-        {#if selectedFileName}
-          <p class="mt-3 text-sm text-gray-500">Selected file: {selectedFileName}</p>
-        {/if}
-
-        {#if rawData}
-          <div class="mt-5 min-h-0 flex-1 overflow-hidden">
-            <SheetPreview
-              data={rawData}
-              mappings={columnMappings}
-              onMappingChange={handleMappingChange}
-            />
-          </div>
-        {:else}
-          <div
-            class="mt-6 flex flex-1 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-sm text-gray-600"
-          >
-            Upload a CSV or TSV file to review its columns before importing peer requests.
-          </div>
+          {#if rawData}
+            <div class="mt-4 min-h-0 flex-1 overflow-hidden">
+              <SheetPreview
+                data={rawData}
+                mappings={columnMappings}
+                onMappingChange={handleMappingChange}
+              />
+            </div>
+          {:else}
+            <div
+              class="mt-6 flex flex-1 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-sm text-gray-600"
+            >
+              Upload a CSV or TSV file to preview its columns.
+            </div>
+          {/if}
         {/if}
       </div>
 
-      <div class="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-        <p class="text-sm text-gray-500">
-          This slice supports peer request import only. Avoid fields are ignored.
-        </p>
-        <div class="flex items-center gap-3">
-          <Button variant="ghost" onclick={handleClose} disabled={isBusy}>Cancel</Button>
-          <Button variant="secondary" onclick={handlePrepareImport} disabled={isBusy || !rawData}>
-            Review Rows
-          </Button>
-        </div>
+      <div class="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+        <Button variant="ghost" onclick={handleClose} disabled={isBusy}>Cancel</Button>
+        <Button variant="secondary" onclick={handlePrepareImport} disabled={isBusy || !rawData}>
+          Review Rows
+        </Button>
       </div>
     {:else if currentStep === 'unmatched'}
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-5">
