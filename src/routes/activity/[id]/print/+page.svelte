@@ -11,6 +11,7 @@
   import { isErr } from '$lib/types/result';
   import type { Program, Scenario, Student, Group, Pool } from '$lib/domain';
   import { getActiveMemberIds } from '$lib/domain/pool';
+  import { getStudentLongName } from '$lib/domain/student';
   import { sortStudentIds } from '$lib/utils/csvExport';
   import type { SortBy } from '$lib/utils/csvExport';
 
@@ -88,7 +89,7 @@
   function getStudentName(studentId: string): string {
     const student = studentsById[studentId];
     if (!student) return studentId;
-    return `${student.firstName} ${student.lastName ?? ''}`.trim() || studentId;
+    return getStudentLongName(student) || studentId;
   }
 </script>
 

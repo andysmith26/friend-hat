@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Student } from '$lib/domain';
+  import { getStudentLongName, getStudentShortName, type Student } from '$lib/domain';
   import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
   import { uiSettings } from '$lib/stores/uiSettings.svelte';
   import { sortableItem, type Edge, type SortableDropState } from '$lib/utils/pragmatic-dnd';
@@ -65,19 +65,11 @@
     onOpenPeerRequestDetails?: (studentId: string) => void;
   }>();
 
-  const fullName = `${student.firstName} ${student.lastName ?? ''}`.trim() || student.id;
+  const fullName = $derived(getStudentLongName(student) || student.id);
   const gotTopChoice = $derived(preferenceRank === 1);
-
-  function getCompactLabel(firstName: string, lastName: string | null): string {
-    const cleanFirst = firstName.trim();
-    const lastInitial = (lastName ?? '').trim().charAt(0);
-    // Let CSS truncate handle overflow - don't add manual "..."
-    if (cleanFirst && lastInitial) return `${cleanFirst} ${lastInitial}.`;
-    if (cleanFirst) return cleanFirst;
-    return student.id.slice(0, 2).toUpperCase();
-  }
-
-  const compactLabel = $derived(getCompactLabel(student.firstName, student.lastName ?? null));
+  const compactLabel = $derived(
+    getStudentShortName(student) || student.id.slice(0, 2).toUpperCase()
+  );
 
   const badgeText = $derived.by(() => {
     if (!hasPreferences) return '';

@@ -28,6 +28,7 @@
     { value: 'studentId', label: 'Student ID', required: false },
     { value: 'displayName', label: 'Display Name', required: true },
     { value: 'firstName', label: 'First Name', required: true },
+    { value: 'preferredName', label: 'Preferred Name', required: false },
     { value: 'lastName', label: 'Last Name', required: false },
     { value: 'choice1', label: 'Choice 1', required: false },
     { value: 'choice2', label: 'Choice 2', required: false },
@@ -126,7 +127,9 @@
                   </option>
                 {/each}
               </select>
-              <label class="mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-normal text-gray-600">
+              <label
+                class="mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-normal text-gray-600"
+              >
                 <input
                   type="checkbox"
                   checked={getMappingForColumn(colIndex) === 'ignore'}

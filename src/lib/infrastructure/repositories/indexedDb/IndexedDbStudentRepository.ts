@@ -105,7 +105,10 @@ export class IndexedDbStudentRepository implements StudentRepository {
       let matches = true;
 
       if (firstNameLower) {
-        matches = matches && student.firstName.toLowerCase().includes(firstNameLower);
+        matches =
+          matches &&
+          (student.firstName.toLowerCase().includes(firstNameLower) ||
+            student.preferredName?.toLowerCase().includes(firstNameLower) === true);
       }
 
       if (lastNameLower && student.lastName) {

@@ -42,6 +42,7 @@ import { ok, err } from '$lib/types/result';
 export interface ParsedStudent {
   id: string;
   firstName: string;
+  preferredName?: string;
   lastName: string;
   displayName: string;
   grade?: string;
@@ -191,6 +192,7 @@ export async function createGroupingActivity(
     students = input.students.map((ps) => ({
       id: ps.id,
       firstName: ps.firstName,
+      preferredName: ps.preferredName,
       lastName: ps.lastName || undefined,
       gradeLevel: ps.grade,
       meta: ps.meta ? { ...ps.meta } : undefined

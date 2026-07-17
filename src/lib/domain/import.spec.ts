@@ -287,6 +287,26 @@ describe('validateMappedData', () => {
     expect(result.validRows[0].choices).toEqual(['Art Club']);
   });
 
+  it('extracts an optional preferred name', () => {
+    const data: RawSheetData = {
+      headers: ['First Name', 'Preferred Name', 'Last Name'],
+      rows: [{ rowIndex: 2, cells: ['Alexander', 'Alex', 'Smith'] }]
+    };
+    const mappings: ColumnMapping[] = [
+      { columnIndex: 0, headerName: 'First Name', mappedTo: 'firstName' },
+      { columnIndex: 1, headerName: 'Preferred Name', mappedTo: 'preferredName' },
+      { columnIndex: 2, headerName: 'Last Name', mappedTo: 'lastName' }
+    ];
+
+    const result = validateMappedData(data, mappings);
+
+    expect(result.validRows[0].student).toEqual({
+      firstName: 'Alexander',
+      preferredName: 'Alex',
+      lastName: 'Smith'
+    });
+  });
+
   it('handles rows with missing lastName', () => {
     const data: RawSheetData = {
       headers: ['First', 'Choice'],

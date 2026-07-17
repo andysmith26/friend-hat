@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Student } from '$lib/domain';
+  import { getStudentLongName, type Student } from '$lib/domain';
   import { getCanonicalId } from '$lib/domain/student';
   import type { StudentPreference } from '$lib/domain/preference';
 
@@ -33,12 +33,16 @@
     showProfileLink?: boolean;
   }>();
 
-  const fullName = $derived(`${student.firstName} ${student.lastName ?? ''}`.trim() || student.id);
+  const fullName = $derived(getStudentLongName(student) || student.id);
 
   const firstChoiceId = $derived(preferences?.likeGroupIds?.[0] ?? null);
   const secondChoiceId = $derived(preferences?.likeGroupIds?.[1] ?? null);
-  const firstChoice = $derived(firstChoiceId ? (groupNameMap[firstChoiceId] ?? firstChoiceId) : null);
-  const secondChoice = $derived(secondChoiceId ? (groupNameMap[secondChoiceId] ?? secondChoiceId) : null);
+  const firstChoice = $derived(
+    firstChoiceId ? (groupNameMap[firstChoiceId] ?? firstChoiceId) : null
+  );
+  const secondChoice = $derived(
+    secondChoiceId ? (groupNameMap[secondChoiceId] ?? secondChoiceId) : null
+  );
 
   // Show top 3 recent groupmates
   const topGroupmates = $derived(recentGroupmates.slice(0, 3));

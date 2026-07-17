@@ -41,6 +41,7 @@ describe('addStudentToPool', () => {
       {
         poolId: 'pool-1',
         firstName: 'Ada',
+        preferredName: 'Addy',
         lastName: 'Lovelace',
         sourceStudentId: 'S-42'
       }
@@ -50,6 +51,7 @@ describe('addStudentToPool', () => {
     if (result.status !== 'ok') return;
 
     expect(result.value.student.id).toBe('gw-student-1');
+    expect(result.value.student.preferredName).toBe('Addy');
     expect(result.value.student.meta?.sourceStudentId).toBe('S-42');
   });
 });

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { createStudent, getCanonicalId, getStudentDisplayName } from './student';
+import {
+  createStudent,
+  getCanonicalId,
+  getStudentDisplayName,
+  getStudentLongName,
+  getStudentShortName
+} from './student';
 import type { Student } from './student';
 
 describe('getStudentDisplayName', () => {
@@ -22,6 +28,17 @@ describe('getStudentDisplayName', () => {
     };
 
     expect(getStudentDisplayName(student)).toBe('John Doe (Grade 10)');
+  });
+
+  it('uses the preferred name when present', () => {
+    const student: Student = {
+      id: 'student-1',
+      firstName: 'Alexander',
+      preferredName: 'Alex',
+      lastName: 'Doe'
+    };
+
+    expect(getStudentDisplayName(student)).toBe('Alex Doe');
   });
 
   it('should handle missing firstName', () => {
@@ -131,6 +148,27 @@ describe('getStudentDisplayName', () => {
   });
 });
 
+describe('student name display variants', () => {
+  const student: Student = {
+    id: 'student-1',
+    firstName: 'Alexander',
+    preferredName: 'Alex',
+    lastName: 'Doe'
+  };
+
+  it('uses preferred name and last name for long displays', () => {
+    expect(getStudentLongName(student)).toBe('Alex Doe');
+  });
+
+  it('uses preferred name and last initial for compact displays', () => {
+    expect(getStudentShortName(student)).toBe('Alex D.');
+  });
+
+  it('falls back to the first name when no preferred name is set', () => {
+    expect(getStudentShortName({ ...student, preferredName: undefined })).toBe('Alexander D.');
+  });
+});
+
 describe('createStudent', () => {
   it('should create a valid student', () => {
     const student = createStudent({ id: 'student-1', firstName: 'John', lastName: 'Doe' });
@@ -156,12 +194,14 @@ describe('createStudent', () => {
     const student = createStudent({
       id: 'student-1',
       firstName: 'John',
+      preferredName: '  Johnny  ',
       gradeLevel: '  10  ',
       gender: '  F  ',
       canonicalId: '  canon-1  '
     });
 
     expect(student.gradeLevel).toBe('10');
+    expect(student.preferredName).toBe('Johnny');
     expect(student.gender).toBe('F');
     expect(student.canonicalId).toBe('canon-1');
   });

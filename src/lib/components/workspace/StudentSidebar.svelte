@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Student, StudentPreference } from '$lib/domain';
+  import { getStudentLongName, type Student, type StudentPreference } from '$lib/domain';
 
   const {
     students = [],
@@ -73,8 +73,7 @@
               onclick={() => onSelect?.(student.id)}
             >
               <p class="font-medium text-gray-900">
-                {student.firstName}
-                {student.lastName}
+                {getStudentLongName(student) || student.id}
               </p>
               {#if choices.length > 0}
                 <p class="mt-1 text-xs text-gray-500">
@@ -89,7 +88,7 @@
                 href="/groups/{programId}/students/{student.id}"
                 class="ml-2 flex-shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
                 title="View placement history"
-                aria-label="View placement history for {student.firstName} {student.lastName}"
+                aria-label="View placement history for {getStudentLongName(student) || student.id}"
                 onclick={(e) => e.stopPropagation()}
               >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

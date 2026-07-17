@@ -196,6 +196,7 @@ export async function importRosterWithMapping(
       const student = createStudent({
         id: studentId,
         firstName: row.student.firstName,
+        preferredName: row.student.preferredName,
         lastName: row.student.lastName,
         meta: {
           importRowIndex: row.rowIndex

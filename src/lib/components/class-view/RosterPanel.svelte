@@ -8,7 +8,7 @@
    * See: project definition.md — Part 3 (Class View), WP4, WP11
    */
 
-  import type { Student } from '$lib/domain';
+  import { getStudentGivenName, getStudentLongName, type Student } from '$lib/domain';
   import type { StudentPreference } from '$lib/domain/preference';
 
   interface RecentGroupmate {
@@ -70,10 +70,7 @@
   let inactiveStudents = $derived(students.filter((s) => inactiveStudentIds.has(s.id)));
 
   function studentDisplayName(student: Student): string {
-    if (student.firstName && student.lastName) return `${student.firstName} ${student.lastName}`;
-    if (student.firstName) return student.firstName;
-    if (student.lastName) return student.lastName;
-    return 'Student';
+    return getStudentLongName(student) || 'Student';
   }
 </script>
 
@@ -83,17 +80,25 @@
       type="button"
       onclick={() => onStudentClick?.(student.id)}
       class="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm
-        {isInactive ? 'text-gray-400 italic' : hasPlaceholderStudents ? 'text-gray-400 italic' : 'text-gray-700'}
+        {isInactive
+        ? 'text-gray-400 italic'
+        : hasPlaceholderStudents
+          ? 'text-gray-400 italic'
+          : 'text-gray-700'}
         {selectedStudentId === student.id
-          ? isInactive ? 'bg-gray-100 ring-1 ring-gray-200' : 'bg-teal-50 ring-1 ring-teal-200'
-          : 'hover:bg-gray-50'}
+        ? isInactive
+          ? 'bg-gray-100 ring-1 ring-gray-200'
+          : 'bg-teal-50 ring-1 ring-teal-200'
+        : 'hover:bg-gray-50'}
         cursor-pointer"
     >
       <span
         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium
-          {isInactive || hasPlaceholderStudents ? 'bg-gray-100 text-gray-400' : 'bg-gray-200 text-gray-600'}"
+          {isInactive || hasPlaceholderStudents
+          ? 'bg-gray-100 text-gray-400'
+          : 'bg-gray-200 text-gray-600'}"
       >
-        {(student.firstName?.[0] ?? student.lastName?.[0] ?? '?').toUpperCase()}
+        {(getStudentGivenName(student)[0] ?? student.lastName?.[0] ?? '?').toUpperCase()}
       </span>
       <span class="min-w-0 flex-1 truncate">
         {studentDisplayName(student)}
@@ -145,7 +150,11 @@
               {#each likeGroups as choice, i}
                 <span
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium
-                    {i === 0 ? 'bg-green-100 text-green-800' : i === 1 ? 'bg-amber-100 text-amber-800' : 'bg-gray-200 text-gray-600'}"
+                    {i === 0
+                    ? 'bg-green-100 text-green-800'
+                    : i === 1
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-gray-200 text-gray-600'}"
                 >
                   {i + 1}. {groupNameMap[choice] ?? choice}
                 </span>
@@ -182,14 +191,38 @@
                 : 'text-gray-500 hover:text-gray-700'}"
             >
               {#if isStudentInactive}
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                <svg
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                  />
                 </svg>
                 Mark active
               {:else}
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                <svg
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
+                  />
                 </svg>
                 Mark inactive
               {/if}
@@ -201,8 +234,18 @@
               onclick={onEditStudent}
               class="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700"
             >
-              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+              <svg
+                class="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+                />
               </svg>
               Edit
             </button>

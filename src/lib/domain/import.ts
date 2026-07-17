@@ -45,6 +45,7 @@ export interface RawSheetData {
  *
  * - studentId: Existing roster identifier for import reconciliation.
  * - displayName or firstName: One is required to identify each student.
+ * - preferredName: Optional. Name the student uses in class.
  * - lastName: Optional. Student's last name.
  * - choice1-5: Optional. Ranked group preferences (Shape B format).
  * - ignore: Explicitly skip this column.
@@ -53,6 +54,7 @@ export type MappedField =
   | 'studentId'
   | 'displayName'
   | 'firstName'
+  | 'preferredName'
   | 'lastName'
   | 'choice1'
   | 'choice2'
@@ -123,6 +125,7 @@ export const REQUIRED_FIELDS: MappedField[] = ['firstName'];
 export const OPTIONAL_FIELDS: MappedField[] = [
   'studentId',
   'displayName',
+  'preferredName',
   'lastName',
   'choice1',
   'choice2',
@@ -153,6 +156,7 @@ export interface RowValidationResult {
   /** Extracted student data (if valid) */
   student?: {
     firstName: string;
+    preferredName?: string;
     lastName?: string;
     sourceStudentId?: string;
   };
@@ -361,6 +365,9 @@ export function validateMappedData(
       errors.push('First name is empty');
     } else {
       // Extract lastName (optional)
+      const preferredNameIdx = fieldToColumn.get('preferredName');
+      const preferredName =
+        preferredNameIdx !== undefined ? (row.cells[preferredNameIdx] ?? '').trim() : '';
       const lastNameIdx = fieldToColumn.get('lastName');
       const lastName =
         lastNameIdx !== undefined
@@ -375,7 +382,8 @@ export function validateMappedData(
       student = {
         firstName,
         lastName: lastName || undefined,
-        sourceStudentId: sourceStudentId || undefined
+        sourceStudentId: sourceStudentId || undefined,
+        ...(preferredName ? { preferredName } : {})
       };
     }
 

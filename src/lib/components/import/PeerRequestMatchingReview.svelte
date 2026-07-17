@@ -59,7 +59,12 @@
   });
 
   function formatStudentName(student: Student): string {
-    return [student.firstName, student.lastName].filter(Boolean).join(' ').trim() || student.id;
+    return (
+      [student.preferredName?.trim() || student.firstName, student.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || student.id
+    );
   }
 
   function formatRequester(requesterStudentId: string): string {

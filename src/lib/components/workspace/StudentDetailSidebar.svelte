@@ -6,7 +6,7 @@
    * Supports three modes: view (read-only), edit (modify fields), create (new student).
    */
 
-  import { getStudentDisplayName, type Group, type Student } from '$lib/domain';
+  import { getStudentDisplayName, getStudentLongName, type Group, type Student } from '$lib/domain';
   import type { StudentPreference } from '$lib/domain/preference';
   import { createEmptyStudentPreference } from '$lib/domain/preference';
   import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
@@ -36,6 +36,7 @@
     onClose: () => void;
     onSave: (data: {
       firstName: string;
+      preferredName?: string;
       lastName?: string;
       gradeLevel?: string;
       gender?: string;
@@ -100,6 +101,7 @@
 
   // --- Form state ---
   let formFirstName = $state('');
+  let formPreferredName = $state('');
   let formLastName = $state('');
   let formGradeLevel = $state('');
   let formGender = $state('');
@@ -118,9 +120,7 @@
 
   const isEditing = $derived(mode === 'edit' || mode === 'create');
 
-  const fullName = $derived(
-    student ? `${student.firstName} ${student.lastName ?? ''}`.trim() || student.id : ''
-  );
+  const fullName = $derived(student ? getStudentLongName(student) || student.id : '');
 
   const canonicalId = $derived(student ? getCanonicalId(student) : null);
   const sourceStudentId = $derived(student ? getSourceStudentId(student) : undefined);
@@ -139,6 +139,7 @@
   $effect(() => {
     if (mode === 'edit' && student) {
       formFirstName = student.firstName ?? '';
+      formPreferredName = student.preferredName ?? '';
       formLastName = student.lastName ?? '';
       formGradeLevel = student.gradeLevel ?? '';
       formGender = student.gender ?? '';
@@ -152,6 +153,7 @@
       formError = null;
     } else if (mode === 'create') {
       formFirstName = '';
+      formPreferredName = '';
       formLastName = '';
       formGradeLevel = '';
       formGender = '';
@@ -216,6 +218,7 @@
 
     const success = await onSave({
       firstName: trimmedFirst,
+      preferredName: formPreferredName.trim() || undefined,
       lastName: formLastName.trim() || undefined,
       gradeLevel: formGradeLevel.trim() || undefined,
       gender: formGender.trim() || undefined,
@@ -442,6 +445,22 @@
             placeholder="First name"
             class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
           />
+        </div>
+
+        <div>
+          <label for="student-preferred-name" class="block text-xs font-medium text-gray-700">
+            Preferred Name
+          </label>
+          <input
+            id="student-preferred-name"
+            type="text"
+            bind:value={formPreferredName}
+            placeholder="Name used in class"
+            class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+          />
+          <p class="mt-1 text-[11px] text-gray-500">
+            Optional. Used throughout Groupwheel displays.
+          </p>
         </div>
 
         <div>

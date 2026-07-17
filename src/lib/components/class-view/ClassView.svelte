@@ -20,7 +20,7 @@
   import { prepareWorkspaceExport } from '$lib/services/appEnvUseCases';
   import { Alert, OverlaySheet } from '$lib/components/ui';
   import { parseRosterFromMappedData, parseRosterFromPaste } from '$lib/services/rosterImport';
-  import { getSourceStudentId } from '$lib/domain/student';
+  import { getSourceStudentId, getStudentGivenName, getStudentLongName } from '$lib/domain/student';
   import { detectSimpleNameList } from '$lib/utils/pasteDetection';
   import ClassViewToolbar from './ClassViewToolbar.svelte';
   import RosterPanel from './RosterPanel.svelte';
@@ -358,10 +358,10 @@
           const sa = vm.state.studentsById[a];
           const sb = vm.state.studentsById[b];
           if (!sa || !sb) return 0;
-          const primaryA = sortBy === 'firstName' ? (sa.firstName ?? '') : (sa.lastName ?? '');
-          const primaryB = sortBy === 'firstName' ? (sb.firstName ?? '') : (sb.lastName ?? '');
-          const secondaryA = sortBy === 'firstName' ? (sa.lastName ?? '') : (sa.firstName ?? '');
-          const secondaryB = sortBy === 'firstName' ? (sb.lastName ?? '') : (sb.firstName ?? '');
+          const primaryA = sortBy === 'firstName' ? getStudentGivenName(sa) : (sa.lastName ?? '');
+          const primaryB = sortBy === 'firstName' ? getStudentGivenName(sb) : (sb.lastName ?? '');
+          const secondaryA = sortBy === 'firstName' ? (sa.lastName ?? '') : getStudentGivenName(sa);
+          const secondaryB = sortBy === 'firstName' ? (sb.lastName ?? '') : getStudentGivenName(sb);
           const primaryCmp = primaryA.localeCompare(primaryB, undefined, { sensitivity: 'base' });
           if (primaryCmp !== 0) return primaryCmp;
           return secondaryA.localeCompare(secondaryB, undefined, { sensitivity: 'base' });
@@ -1075,7 +1075,7 @@
 
 {#if showRemoveConfirm && selectedStudent}
   <RemoveStudentConfirmDialog
-    studentName={`${selectedStudent.firstName} ${selectedStudent.lastName ?? ''}`.trim()}
+    studentName={getStudentLongName(selectedStudent) || selectedStudent.id}
     isInGroup={removeStudentIsInGroup}
     onConfirm={handleConfirmRemoveStudent}
     onCancel={handleCancelRemoveStudent}

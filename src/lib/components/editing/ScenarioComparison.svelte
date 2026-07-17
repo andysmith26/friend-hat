@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Group, Student } from '$lib/domain';
+  import { getStudentShortName, type Group, type Student } from '$lib/domain';
   import type { ScenarioSatisfaction } from '$lib/domain/analytics';
   import { interpretAnalytics, type MetricQuality } from '$lib/utils/analyticsInterpretation';
 
@@ -94,7 +94,7 @@
   function getStudentName(studentId: string): string {
     const s = studentsById[studentId];
     if (!s) return studentId.slice(0, 6);
-    return `${s.firstName} ${(s.lastName ?? '').charAt(0)}.`.trim();
+    return getStudentShortName(s) || studentId.slice(0, 6);
   }
 </script>
 

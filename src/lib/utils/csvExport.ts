@@ -9,7 +9,11 @@
 
 import type { Group } from '$lib/domain/group';
 import type { Student } from '$lib/domain/student';
-import { getStudentDisplayName } from '$lib/domain/student';
+import {
+  getStudentDisplayName,
+  getStudentGivenName,
+  getStudentLongName
+} from '$lib/domain/student';
 
 export type SortBy = 'firstName' | 'lastName' | 'none';
 
@@ -29,8 +33,8 @@ function compareStudents(
   if (!a) return 1;
   if (!b) return -1;
 
-  const aFirst = (a.firstName ?? '').trim();
-  const bFirst = (b.firstName ?? '').trim();
+  const aFirst = getStudentGivenName(a);
+  const bFirst = getStudentGivenName(b);
   const aLast = (a.lastName ?? '').trim();
   const bLast = (b.lastName ?? '').trim();
 
@@ -68,6 +72,7 @@ export interface ExportableAssignment {
   studentId: string;
   studentName: string;
   firstName: string;
+  preferredName?: string;
   lastName: string;
   grade?: string;
   groupName: string;
@@ -93,8 +98,9 @@ export function buildAssignmentList(
       if (student) {
         assignments.push({
           studentId: student.id,
-          studentName: getStudentDisplayName(student),
+          studentName: getStudentLongName(student),
           firstName: student.firstName,
+          preferredName: student.preferredName,
           lastName: student.lastName ?? '',
           grade: student.gradeLevel,
           groupName: group.name,

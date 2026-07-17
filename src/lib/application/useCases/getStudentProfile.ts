@@ -19,7 +19,7 @@ import type {
   Preference,
   Observation
 } from '$lib/domain';
-import { getCanonicalId } from '$lib/domain/student';
+import { getCanonicalId, getStudentLongName } from '$lib/domain/student';
 import type { StudentRepository } from '$lib/application/ports/StudentRepository';
 import type { StudentIdentityRepository } from '$lib/application/ports/StudentIdentityRepository';
 import type { PlacementRepository } from '$lib/application/ports/PlacementRepository';
@@ -145,9 +145,7 @@ export async function getStudentProfile(
   let identity = await studentIdentityRepo.getById(identityId);
 
   // Get all student records linked to this identity (or the student itself)
-  let studentRecords = identity
-    ? await studentRepo.listByCanonicalId(identityId)
-    : [];
+  let studentRecords = identity ? await studentRepo.listByCanonicalId(identityId) : [];
 
   // If no identity exists, look up the student record directly and build
   // a synthetic identity so the profile can still show placement history.
@@ -162,10 +160,10 @@ export async function getStudentProfile(
     studentRecords = [student];
     identity = {
       id: identityId,
-      displayName: student.lastName
-        ? `${student.firstName} ${student.lastName}`
-        : student.firstName,
-      knownVariants: [{ firstName: student.firstName, lastName: student.lastName, source: 'roster' }],
+      displayName: getStudentLongName(student),
+      knownVariants: [
+        { firstName: student.firstName, lastName: student.lastName, source: 'roster' }
+      ],
       createdAt: new Date(),
       gradeLevel: student.gradeLevel,
       gender: student.gender
@@ -324,15 +322,7 @@ async function calculatePairingStats(
 
     if (otherStudent) {
       otherStudentCanonicalId = getCanonicalId(otherStudent);
-      otherStudentName = otherStudent.lastName
-        ? `${otherStudent.firstName} ${otherStudent.lastName}`
-        : otherStudent.firstName;
-
-      // Try to get identity for better display name
-      const identity = await studentIdentityRepo.getById(otherStudentCanonicalId);
-      if (identity) {
-        otherStudentName = identity.displayName;
-      }
+      otherStudentName = getStudentLongName(otherStudent) || 'Unknown';
     }
 
     stats.push({

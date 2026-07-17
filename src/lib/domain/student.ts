@@ -36,7 +36,8 @@ export interface Student {
   firstName: string;
 
   /**
-   * Optional first-name variant a student uses in class.
+   * Optional name the student uses in class. When present, this is used in
+   * student-facing displays instead of `firstName`.
    */
   preferredName?: string;
 
@@ -144,14 +145,43 @@ export function setSourceStudentId(
 }
 
 /**
- * Get a display-friendly name for a student.
- * Returns "FirstName LastName" or just "FirstName" if no last name.
+ * Get the name a student uses in class, falling back to their first name.
+ */
+export function getStudentGivenName(student: Pick<Student, 'firstName' | 'preferredName'>): string {
+  return student.preferredName?.trim() || student.firstName?.trim() || '';
+}
+
+/**
+ * Get a long display name for contexts with enough room for the last name.
+ * Returns "PreferredName LastName", falling back to the student's first name.
+ */
+export function getStudentLongName(
+  student: Pick<Student, 'firstName' | 'preferredName' | 'lastName'>
+): string {
+  const givenName = student.preferredName?.trim() || student.firstName || '';
+  const lastName = student.lastName || '';
+  const combined = `${givenName} ${lastName}`.trim();
+  return combined || givenName.trim() || lastName.trim();
+}
+
+/**
+ * Get a compact display name for cards and other constrained UI.
+ * Returns "PreferredName L.", falling back gracefully when a name is absent.
+ */
+export function getStudentShortName(
+  student: Pick<Student, 'firstName' | 'preferredName' | 'lastName'>
+): string {
+  const givenName = getStudentGivenName(student);
+  const lastInitial = student.lastName?.trim().charAt(0) ?? '';
+  if (givenName && lastInitial) return `${givenName} ${lastInitial}.`;
+  return givenName || student.lastName?.trim() || '';
+}
+
+/**
+ * Get a display-friendly name including grade level when known.
  */
 export function getStudentDisplayName(student: Student): string {
-  const firstRaw = student.firstName ?? '';
-  const lastRaw = student.lastName ?? '';
-  const combined = `${firstRaw} ${lastRaw}`.trim();
-  const baseName = combined || firstRaw.trim() || lastRaw.trim() || '';
+  const baseName = getStudentLongName(student);
   const grade = (student.gradeLevel ?? '').toString().trim();
   return grade ? `${baseName} (Grade ${grade})` : baseName;
 }

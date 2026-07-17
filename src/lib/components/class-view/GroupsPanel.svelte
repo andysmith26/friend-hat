@@ -164,8 +164,8 @@
 
   // --- Preview group count (for the empty-state slider) ---
   // Stored as group count directly so every integer count is reachable.
-  const minGroups = $derived(Math.max(1, Math.ceil(studentCount / 10)));
-  const maxGroups = $derived(Math.max(1, Math.floor(studentCount / 2)));
+  const minGroups = 2;
+  const maxGroups = $derived(Math.max(minGroups, Math.floor(studentCount / 2)));
   // Default to ~4 students per group
   const defaultGroupCount = $derived(
     Math.max(minGroups, Math.min(maxGroups, Math.ceil(studentCount / 4)))

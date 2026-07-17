@@ -1,4 +1,4 @@
-import type { Placement } from '$lib/domain';
+import { getStudentLongName, type Placement } from '$lib/domain';
 import type {
   PlacementRepository,
   SessionRepository,
@@ -110,9 +110,7 @@ export async function listStudentStats(
 
   for (const [studentId, placements] of placementsByStudent) {
     const student = studentMap.get(studentId);
-    const studentName = student
-      ? `${student.firstName}${student.lastName ? ' ' + student.lastName : ''}`
-      : studentId;
+    const studentName = student ? getStudentLongName(student) || studentId : studentId;
 
     let firstChoiceCount = 0;
     let totalRank = 0;

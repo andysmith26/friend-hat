@@ -75,14 +75,23 @@
   let pasteRowCount = $derived(rawData && sourceMode === 'paste' ? rawData.rows.length : 0);
   let studentOptions = $derived(
     [...students].sort((left, right) => {
-      const leftName = `${left.firstName} ${left.lastName ?? ''}`.trim().toLowerCase();
-      const rightName = `${right.firstName} ${right.lastName ?? ''}`.trim().toLowerCase();
+      const leftName = `${left.preferredName?.trim() || left.firstName} ${left.lastName ?? ''}`
+        .trim()
+        .toLowerCase();
+      const rightName = `${right.preferredName?.trim() || right.firstName} ${right.lastName ?? ''}`
+        .trim()
+        .toLowerCase();
       return leftName.localeCompare(rightName);
     })
   );
 
   function formatStudentName(student: Student): string {
-    return [student.firstName, student.lastName].filter(Boolean).join(' ').trim() || student.id;
+    return (
+      [student.preferredName?.trim() || student.firstName, student.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || student.id
+    );
   }
 
   function initializeMappings(data: RawSheetData): void {

@@ -55,7 +55,9 @@
     const query = debouncedQuery.toLowerCase().trim();
     return allAssignments.filter(
       (a) =>
-        a.firstName.toLowerCase().startsWith(query) || a.lastName.toLowerCase().startsWith(query)
+        a.preferredName?.toLowerCase().startsWith(query) ||
+        a.firstName.toLowerCase().startsWith(query) ||
+        a.lastName.toLowerCase().startsWith(query)
     );
   });
 </script>

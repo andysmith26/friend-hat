@@ -37,4 +37,20 @@ describe('updateStudent', () => {
     expect(result.value.student.meta?.sourceStudentId).toBe('S-99');
     expect(result.value.student.meta?.homeroom).toBe('A');
   });
+
+  it('updates the optional preferred name without changing the legal first name', async () => {
+    const result = await updateStudent(
+      { studentRepo },
+      {
+        studentId: 'gw-student-1',
+        preferredName: 'Addy'
+      }
+    );
+
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+
+    expect(result.value.student.firstName).toBe('Ada');
+    expect(result.value.student.preferredName).toBe('Addy');
+  });
 });

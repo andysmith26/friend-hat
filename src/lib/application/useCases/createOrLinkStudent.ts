@@ -34,6 +34,8 @@ export interface CreateOrLinkStudentDeps {
 export interface StudentToImport {
   /** Student's first name */
   firstName: string;
+  /** Name the student uses in class (optional) */
+  preferredName?: string;
   /** Student's last name (optional) */
   lastName?: string;
   /** Grade level (optional) */
@@ -126,6 +128,7 @@ async function linkToExistingIdentity(
     id: studentId,
     canonicalId: existingIdentityId,
     firstName: studentData.firstName.trim(),
+    preferredName: studentData.preferredName?.trim(),
     lastName: studentData.lastName?.trim(),
     gradeLevel: studentData.gradeLevel?.trim(),
     gender: studentData.gender?.trim(),
@@ -203,6 +206,7 @@ async function createNewStudentWithIdentity(
     id: studentId,
     canonicalId: identityId,
     firstName: studentData.firstName.trim(),
+    preferredName: studentData.preferredName?.trim(),
     lastName: studentData.lastName?.trim(),
     gradeLevel: studentData.gradeLevel?.trim(),
     gender: studentData.gender?.trim(),

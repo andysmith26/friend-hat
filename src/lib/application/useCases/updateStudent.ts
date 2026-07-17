@@ -13,6 +13,7 @@ import { ok, err, type Result } from '$lib/types/result';
 export interface UpdateStudentInput {
   studentId: string;
   firstName?: string;
+  preferredName?: string;
   lastName?: string;
   gradeLevel?: string;
   gender?: string;
@@ -43,6 +44,8 @@ export async function updateStudent(
       id: existing.id,
       canonicalId: existing.canonicalId,
       firstName: input.firstName !== undefined ? input.firstName : existing.firstName,
+      preferredName:
+        input.preferredName !== undefined ? input.preferredName : existing.preferredName,
       lastName: input.lastName !== undefined ? input.lastName : existing.lastName,
       gradeLevel: input.gradeLevel !== undefined ? input.gradeLevel : existing.gradeLevel,
       gender: input.gender !== undefined ? input.gender : existing.gender,

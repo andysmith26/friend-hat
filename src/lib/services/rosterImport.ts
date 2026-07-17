@@ -28,6 +28,7 @@ export interface RosterData {
 export interface SheetStudentPayload {
   id?: string;
   firstName?: string;
+  preferredName?: string;
   lastName?: string;
   gender?: string;
 }
@@ -43,6 +44,7 @@ interface ParsedRosterStudent {
   id: string;
   sourceStudentId: string;
   firstName: string;
+  preferredName?: string;
   lastName: string;
 }
 
@@ -75,6 +77,14 @@ export function parseRosterFromPaste(text: string): RosterData {
 
   const nameIdx = colName('display name', 'name');
   const firstNameIdx = colName('first name', 'firstname', 'first');
+  const preferredNameIdx = colName(
+    'preferred name',
+    'preferredname',
+    'preferred',
+    'nickname',
+    'chosen name',
+    'chosenname'
+  );
   const lastNameIdx = colName('last name', 'lastname', 'last');
   const idIdx = colName('id', 'student id', 'studentid');
   if ((nameIdx === -1 && firstNameIdx === -1) || idIdx === -1) {
@@ -101,12 +111,14 @@ export function parseRosterFromPaste(text: string): RosterData {
 
     const nameParts = name.trim().split(' ');
     const firstName = nameParts[0] || '';
+    const preferredName = preferredNameIdx === -1 ? '' : (cells[preferredNameIdx] ?? '').trim();
     const lastName = nameParts.slice(1).join(' ') || '';
 
     students.push({
       id,
       sourceStudentId,
       firstName,
+      preferredName: preferredName || undefined,
       lastName
     });
   }
@@ -147,6 +159,7 @@ export function parseRosterFromMappedData(
           sourceStudentId ||
           generateStudentId(row.student.firstName, row.student.lastName, row.rowIndex),
         firstName: row.student.firstName,
+        preferredName: row.student.preferredName,
         lastName: row.student.lastName ?? ''
       }
     ];
@@ -203,6 +216,7 @@ function buildRosterData(students: ParsedRosterStudent[]): RosterData {
     map[student.id] = {
       id: student.id,
       firstName: student.firstName,
+      preferredName: student.preferredName,
       lastName: student.lastName,
       gender: '',
       meta: setSourceStudentId(undefined, student.sourceStudentId)
@@ -293,8 +307,13 @@ export function normalizeSheetResponse(payload: unknown) {
     );
   }
 
-  const validStudents: Array<{ id: string; firstName: string; lastName: string; gender: string }> =
-    [];
+  const validStudents: Array<{
+    id: string;
+    firstName: string;
+    preferredName?: string;
+    lastName: string;
+    gender: string;
+  }> = [];
   for (const student of students) {
     if (!student || typeof student !== 'object') continue;
     const id = typeof student.id === 'string' ? student.id.trim() : '';
@@ -302,6 +321,7 @@ export function normalizeSheetResponse(payload: unknown) {
     validStudents.push({
       id,
       firstName: typeof student.firstName === 'string' ? student.firstName : '',
+      preferredName: typeof student.preferredName === 'string' ? student.preferredName : undefined,
       lastName: typeof student.lastName === 'string' ? student.lastName : '',
       gender: typeof student.gender === 'string' ? student.gender : ''
     });

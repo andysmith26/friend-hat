@@ -15,6 +15,7 @@ import { ok, err, type Result } from '$lib/types/result';
 export interface AddStudentToPoolInput {
   poolId: string;
   firstName: string;
+  preferredName?: string;
   lastName?: string;
   /** Optional student ID (e.g., email). If not provided, one will be generated. */
   studentId?: string;
@@ -75,6 +76,7 @@ export async function addStudentToPool(
     const student = createStudent({
       id: studentId,
       firstName: input.firstName,
+      preferredName: input.preferredName,
       lastName: input.lastName,
       gradeLevel: input.gradeLevel,
       gender: input.gender,

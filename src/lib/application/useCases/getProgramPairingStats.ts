@@ -5,6 +5,7 @@ import type {
 } from '$lib/application/ports';
 import type { Result } from '$lib/types/result';
 import { ok } from '$lib/types/result';
+import { getStudentLongName } from '$lib/domain/student';
 
 /**
  * Statistics about how often two students have been grouped together.
@@ -111,7 +112,7 @@ export async function getProgramPairingStats(
   const getStudentName = (id: string): string => {
     const student = studentMap.get(id);
     if (!student) return id;
-    return `${student.firstName}${student.lastName ? ' ' + student.lastName : ''}`;
+    return getStudentLongName(student) || id;
   };
 
   // Convert to array and sort by count descending

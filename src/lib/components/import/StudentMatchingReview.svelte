@@ -148,8 +148,14 @@
     onConfirm(decisions);
   }
 
-  function formatStudentName(student: { firstName: string; lastName?: string }): string {
-    return student.lastName ? `${student.firstName} ${student.lastName}` : student.firstName;
+  function formatStudentName(student: {
+    firstName: string;
+    preferredName?: string;
+    lastName?: string;
+  }): string {
+    return [student.preferredName?.trim() || student.firstName, student.lastName]
+      .filter(Boolean)
+      .join(' ');
   }
 
   function formatIdentityDisplay(identity: StudentIdentity): string {

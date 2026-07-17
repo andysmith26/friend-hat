@@ -31,6 +31,7 @@
     validateMappedData
   } from '$lib/domain/import';
   import type { Student } from '$lib/domain';
+  import { getStudentLongName } from '$lib/domain/student';
   import { parseActivityFile, readFileAsText } from '$lib/utils/activityFile';
   import { looksLikeCsv } from '$lib/utils/csvRosterParser';
   import { parseCsvToSheetData } from '$lib/services/googleSheets';
@@ -90,9 +91,7 @@
       ? preview.studentNames
       : preview?.type === 'csv'
         ? (validateMappedData(preview.rawData, preview.columnMappings)
-            .validRows.map((row) =>
-              [row.student?.firstName, row.student?.lastName].filter(Boolean).join(' ')
-            )
+            .validRows.map((row) => (row.student ? getStudentLongName(row.student) : ''))
             .filter(Boolean) as string[])
         : []
   );
@@ -190,7 +189,7 @@
             type: 'json',
             name: d.activity.name,
             studentCount: students.length,
-            studentNames: students.map((s) => [s.firstName, s.lastName].filter(Boolean).join(' ')),
+            studentNames: students.map((s) => getStudentLongName(s)),
             groupCount: groups.length,
             groupNames: groups.map((g) => g.name),
             data: d
@@ -288,8 +287,9 @@
         return {
           id,
           firstName: student.firstName,
+          preferredName: student.preferredName,
           lastName: student.lastName ?? '',
-          displayName: `${student.firstName} ${student.lastName ?? ''}`.trim()
+          displayName: getStudentLongName(student)
         };
       });
 
@@ -334,6 +334,7 @@
     const builtStudentEntities: Student[] = builtStudents.map((student) => ({
       id: student.id,
       firstName: student.firstName,
+      preferredName: student.preferredName,
       lastName: student.lastName || undefined
     }));
 
