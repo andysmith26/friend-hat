@@ -6,8 +6,10 @@
    * Supports three modes: view (read-only), edit (modify fields), create (new student).
    */
 
-  import type { Student } from '$lib/domain';
+  import { getStudentDisplayName, type Group, type Student } from '$lib/domain';
   import type { StudentPreference } from '$lib/domain/preference';
+  import { createEmptyStudentPreference } from '$lib/domain/preference';
+  import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
   import { getCanonicalId, getSourceStudentId } from '$lib/domain/student';
   import { getAppEnvContext } from '$lib/contexts/appEnv';
   import { getStudentProfile } from '$lib/services/appEnvUseCases';
@@ -25,6 +27,9 @@
   interface Props {
     student: Student | null;
     preferences?: StudentPreference | null;
+    students?: Student[];
+    groups?: Group[];
+    peerRequestSummary?: StudentPeerRequestWorkspaceSummary | null;
     groupNameMap?: Record<string, string>;
     recentGroupmates?: RecentGroupmate[];
     mode: 'view' | 'edit' | 'create';
@@ -35,7 +40,15 @@
       gradeLevel?: string;
       gender?: string;
       sourceStudentId?: string;
+      preferences?: StudentPreference;
     }) => Promise<boolean>;
+    onAddPeerRequest?: (payload: {
+      requesterStudentId: string;
+      requestedStudentId: string;
+    }) => Promise<void> | void;
+    onQuickEditPeerRequest?: (payload: { requestId: string; studentId: string }) => Promise<void> | void;
+    onClearPeerRequest?: (requestId: string) => Promise<void> | void;
+    onDeletePeerRequest?: (requestId: string) => Promise<void> | void;
     onDelete: () => void;
     onEditMode: () => void;
     onCancelEdit: () => void;
@@ -48,11 +61,18 @@
   let {
     student,
     preferences = null,
+    students = [],
+    groups = [],
+    peerRequestSummary = null,
     groupNameMap = {},
     recentGroupmates = [],
     mode,
     onClose,
     onSave,
+    onAddPeerRequest,
+    onQuickEditPeerRequest,
+    onClearPeerRequest,
+    onDeletePeerRequest,
     onDelete,
     onEditMode,
     onCancelEdit,
@@ -81,8 +101,15 @@
   let formGradeLevel = $state('');
   let formGender = $state('');
   let formSourceStudentId = $state('');
+  let formLikeGroupIds = $state<string[]>([]);
+  let formAvoidGroupIds = $state<string[]>([]);
+  let formAvoidStudentIds = $state<string[]>([]);
+  let groupToAdd = $state('');
+  let peerToAdd = $state('');
   let formError = $state<string | null>(null);
   let isSaving = $state(false);
+  let savingPeerRequestIds = $state<string[]>([]);
+  let isAddingPeerRequest = $state(false);
 
   let firstNameInputEl = $state<HTMLInputElement | null>(null);
 
@@ -94,6 +121,14 @@
 
   const canonicalId = $derived(student ? getCanonicalId(student) : null);
   const sourceStudentId = $derived(student ? getSourceStudentId(student) : undefined);
+  const availablePeers = $derived.by(() =>
+    students
+      .filter((candidate) => candidate.id !== student?.id)
+      .sort((a, b) => getStudentDisplayName(a).localeCompare(getStudentDisplayName(b)))
+  );
+  const availableGroupsToLike = $derived(
+    groups.filter((group) => !formLikeGroupIds.includes(group.id) && !formAvoidGroupIds.includes(group.id))
+  );
 
   // Populate form when entering edit mode or switching students
   $effect(() => {
@@ -103,6 +138,12 @@
       formGradeLevel = student.gradeLevel ?? '';
       formGender = student.gender ?? '';
       formSourceStudentId = getSourceStudentId(student) ?? '';
+      const savedPreferences = preferences ?? createEmptyStudentPreference(student.id);
+      formLikeGroupIds = [...savedPreferences.likeGroupIds];
+      formAvoidGroupIds = [...savedPreferences.avoidGroupIds];
+      formAvoidStudentIds = [...savedPreferences.avoidStudentIds];
+      groupToAdd = '';
+      peerToAdd = '';
       formError = null;
     } else if (mode === 'create') {
       formFirstName = '';
@@ -110,6 +151,11 @@
       formGradeLevel = '';
       formGender = '';
       formSourceStudentId = '';
+      formLikeGroupIds = [];
+      formAvoidGroupIds = [];
+      formAvoidStudentIds = [];
+      groupToAdd = '';
+      peerToAdd = '';
       formError = null;
     }
   });
@@ -168,13 +214,93 @@
       lastName: formLastName.trim() || undefined,
       gradeLevel: formGradeLevel.trim() || undefined,
       gender: formGender.trim() || undefined,
-      sourceStudentId: formSourceStudentId.trim() || undefined
+      sourceStudentId: formSourceStudentId.trim() || undefined,
+      preferences:
+        mode === 'edit' && student
+          ? {
+              studentId: student.id,
+              avoidStudentIds: formAvoidStudentIds,
+              likeGroupIds: formLikeGroupIds,
+              avoidGroupIds: formAvoidGroupIds
+            }
+          : undefined
     });
 
     isSaving = false;
 
     if (!success) {
       formError = 'Failed to save. Please try again.';
+    }
+  }
+
+  function addPreferredGroup() {
+    if (!groupToAdd) return;
+    formLikeGroupIds = [...formLikeGroupIds, groupToAdd];
+    groupToAdd = '';
+  }
+
+  function removePreferredGroup(groupId: string) {
+    formLikeGroupIds = formLikeGroupIds.filter((id) => id !== groupId);
+  }
+
+  function movePreferredGroup(groupId: string, direction: -1 | 1) {
+    const index = formLikeGroupIds.indexOf(groupId);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= formLikeGroupIds.length) return;
+    const next = [...formLikeGroupIds];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    formLikeGroupIds = next;
+  }
+
+  function toggleAvoidGroup(groupId: string, checked: boolean) {
+    formAvoidGroupIds = checked
+      ? [...formAvoidGroupIds, groupId]
+      : formAvoidGroupIds.filter((id) => id !== groupId);
+    if (checked) removePreferredGroup(groupId);
+  }
+
+  function toggleAvoidPeer(studentId: string, checked: boolean) {
+    formAvoidStudentIds = checked
+      ? [...formAvoidStudentIds, studentId]
+      : formAvoidStudentIds.filter((id) => id !== studentId);
+  }
+
+  async function addPeerRequest() {
+    if (!student || !peerToAdd) return;
+    isAddingPeerRequest = true;
+    try {
+      await onAddPeerRequest?.({ requesterStudentId: student.id, requestedStudentId: peerToAdd });
+      peerToAdd = '';
+    } finally {
+      isAddingPeerRequest = false;
+    }
+  }
+
+  async function updatePeerRequest(requestId: string, studentId: string) {
+    if (!studentId) return;
+    savingPeerRequestIds = [...savingPeerRequestIds, requestId];
+    try {
+      await onQuickEditPeerRequest?.({ requestId, studentId });
+    } finally {
+      savingPeerRequestIds = savingPeerRequestIds.filter((id) => id !== requestId);
+    }
+  }
+
+  async function clearPeerRequest(requestId: string) {
+    savingPeerRequestIds = [...savingPeerRequestIds, requestId];
+    try {
+      await onClearPeerRequest?.(requestId);
+    } finally {
+      savingPeerRequestIds = savingPeerRequestIds.filter((id) => id !== requestId);
+    }
+  }
+
+  async function deletePeerRequest(requestId: string) {
+    savingPeerRequestIds = [...savingPeerRequestIds, requestId];
+    try {
+      await onDeletePeerRequest?.(requestId);
+    } finally {
+      savingPeerRequestIds = savingPeerRequestIds.filter((id) => id !== requestId);
     }
   }
 
@@ -380,6 +506,193 @@
             <option value="X">Non-binary</option>
           </select>
         </div>
+
+        {#if mode === 'edit' && student}
+          <fieldset class="space-y-3 border-t border-gray-200 pt-4">
+            <legend class="text-xs font-semibold tracking-wide text-gray-700 uppercase">
+              Group preferences
+            </legend>
+
+            <div>
+              <label for="preferred-group" class="block text-xs font-medium text-gray-700">
+                Preferred groups (in rank order)
+              </label>
+              <div class="mt-1 flex gap-2">
+                <select
+                  id="preferred-group"
+                  bind:value={groupToAdd}
+                  class="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                >
+                  <option value="">Choose a group...</option>
+                  {#each availableGroupsToLike as group (group.id)}
+                    <option value={group.id}>{group.name}</option>
+                  {/each}
+                </select>
+                <button
+                  type="button"
+                  onclick={addPreferredGroup}
+                  disabled={!groupToAdd}
+                  class="rounded-md border border-gray-300 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+              {#if formLikeGroupIds.length > 0}
+                <ol class="mt-2 space-y-1">
+                  {#each formLikeGroupIds as groupId, index (groupId)}
+                    <li class="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs">
+                      <span class="w-4 font-medium text-gray-500">{index + 1}</span>
+                      <span class="min-w-0 flex-1 truncate text-gray-800">
+                        {groupNameMap[groupId] ?? groupId}
+                      </span>
+                      <button
+                        type="button"
+                        onclick={() => movePreferredGroup(groupId, -1)}
+                        disabled={index === 0}
+                        aria-label="Move {groupNameMap[groupId] ?? groupId} up"
+                        class="text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                      >↑</button>
+                      <button
+                        type="button"
+                        onclick={() => movePreferredGroup(groupId, 1)}
+                        disabled={index === formLikeGroupIds.length - 1}
+                        aria-label="Move {groupNameMap[groupId] ?? groupId} down"
+                        class="text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                      >↓</button>
+                      <button
+                        type="button"
+                        onclick={() => removePreferredGroup(groupId)}
+                        aria-label="Remove preferred group {groupNameMap[groupId] ?? groupId}"
+                        class="text-red-500 hover:text-red-700"
+                      >Remove</button>
+                    </li>
+                  {/each}
+                </ol>
+              {:else}
+                <p class="mt-1 text-[11px] text-gray-500">No preferred groups selected.</p>
+              {/if}
+            </div>
+
+            <div>
+              <p class="text-xs font-medium text-gray-700">Groups to avoid</p>
+              {#if groups.length > 0}
+                <div class="mt-1.5 space-y-1">
+                  {#each groups as group (group.id)}
+                    <label class="flex items-center gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={formAvoidGroupIds.includes(group.id)}
+                        onchange={(event) =>
+                          toggleAvoidGroup(group.id, (event.currentTarget as HTMLInputElement).checked)}
+                      />
+                      {group.name}
+                    </label>
+                  {/each}
+                </div>
+              {:else}
+                <p class="mt-1 text-[11px] text-gray-500">Create groups before setting group preferences.</p>
+              {/if}
+            </div>
+          </fieldset>
+
+          <fieldset class="space-y-2 border-t border-gray-200 pt-4">
+            <legend class="text-xs font-semibold tracking-wide text-gray-700 uppercase">
+              Peer preferences
+            </legend>
+            <p class="text-[11px] text-gray-500">Avoid peers are used as grouping constraints.</p>
+            {#if availablePeers.length > 0}
+              <div class="max-h-36 space-y-1 overflow-y-auto pr-1">
+                {#each availablePeers as peer (peer.id)}
+                  <label class="flex items-center gap-2 text-xs text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={formAvoidStudentIds.includes(peer.id)}
+                      onchange={(event) =>
+                        toggleAvoidPeer(peer.id, (event.currentTarget as HTMLInputElement).checked)}
+                    />
+                    Avoid {getStudentDisplayName(peer)}
+                  </label>
+                {/each}
+              </div>
+            {:else}
+              <p class="text-[11px] text-gray-500">No other students are in this roster.</p>
+            {/if}
+          </fieldset>
+
+          <fieldset class="space-y-3 border-t border-gray-200 pt-4">
+            <legend class="text-xs font-semibold tracking-wide text-gray-700 uppercase">
+              Peer requests
+            </legend>
+            <p class="text-[11px] text-gray-500">
+              Add or resolve requests to work with a specific peer.
+            </p>
+            <div class="flex gap-2">
+              <select
+                aria-label="Add peer request"
+                bind:value={peerToAdd}
+                disabled={isAddingPeerRequest}
+                class="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+              >
+                <option value="">Choose a student...</option>
+                {#each availablePeers as peer (peer.id)}
+                  <option value={peer.id}>{getStudentDisplayName(peer)}</option>
+                {/each}
+              </select>
+              <button
+                type="button"
+                onclick={addPeerRequest}
+                disabled={isAddingPeerRequest || !peerToAdd}
+                class="rounded-md border border-gray-300 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isAddingPeerRequest ? 'Adding...' : 'Add'}
+              </button>
+            </div>
+            {#if peerRequestSummary?.items.length}
+              <div class="space-y-2">
+                {#each peerRequestSummary.items as request (request.requestId)}
+                  {@const isSavingPeerRequest = savingPeerRequestIds.includes(request.requestId)}
+                  <div class="rounded border border-gray-200 bg-gray-50 p-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-xs font-medium text-gray-800">Request {request.rank}</span>
+                      <button
+                        type="button"
+                        onclick={() => deletePeerRequest(request.requestId)}
+                        disabled={isSavingPeerRequest}
+                        class="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                      >Delete</button>
+                    </div>
+                    <select
+                      aria-label="Assign peer request {request.rank}"
+                      value={request.resolvedStudentId ?? ''}
+                      disabled={isSavingPeerRequest}
+                      onchange={(event) =>
+                        updatePeerRequest(
+                          request.requestId,
+                          (event.currentTarget as HTMLSelectElement).value
+                        )}
+                      class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                    >
+                      <option value="">Needs assignment</option>
+                      {#each availablePeers as peer (peer.id)}
+                        <option value={peer.id}>{getStudentDisplayName(peer)}</option>
+                      {/each}
+                    </select>
+                    {#if request.resolvedStudentId}
+                      <button
+                        type="button"
+                        onclick={() => clearPeerRequest(request.requestId)}
+                        disabled={isSavingPeerRequest}
+                        class="mt-1 text-[11px] text-gray-500 hover:text-gray-800 disabled:opacity-50"
+                      >Clear assignment</button>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {:else}
+              <p class="text-[11px] text-gray-500">No peer requests yet.</p>
+            {/if}
+          </fieldset>
+        {/if}
 
         {#if formError}
           <InlineError

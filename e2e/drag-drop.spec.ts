@@ -159,4 +159,31 @@ test.describe('Drag and Drop Workspace', () => {
     const studentCards = page.locator('[data-student-id]');
     expect(await studentCards.count()).toBe(10);
   });
+
+  test('student edit sidebar saves group and peer preference controls', async ({ page }) => {
+    const activityName = `Sidebar Preferences ${Date.now()}`;
+    await createActivityWithGroups(page, activityName);
+
+    const openRoster = page.getByRole('button', { name: 'Open roster' });
+    if (await openRoster.isVisible()) {
+      await openRoster.click();
+    }
+
+    await page.getByRole('button', { name: 'Alice Smith', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+
+    await expect(page.getByText('Group preferences')).toBeVisible();
+    await expect(page.getByText('Peer preferences')).toBeVisible();
+    await expect(page.getByText('Peer requests')).toBeVisible();
+
+    const preferredGroup = page.locator('#preferred-group');
+    await preferredGroup.selectOption({ index: 1 });
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.getByText(/^1\. Group /)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await expect(page.getByText(/^1\. Group /)).toBeVisible();
+  });
 });

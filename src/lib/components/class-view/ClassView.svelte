@@ -218,6 +218,9 @@
   let selectedStudentPreferences = $derived(
     selectedStudentId ? (vm.state.preferenceMap[selectedStudentId] ?? null) : null
   );
+  let selectedStudentPeerRequestSummary = $derived(
+    selectedStudentId ? (peerRequestSummaryByStudentId.get(selectedStudentId) ?? null) : null
+  );
   let selectedStudentRecentGroupmates = $derived.by(() => {
     if (!selectedStudentId) return [];
     const stats = vm.state.pairingStats;
@@ -548,9 +551,11 @@
     gradeLevel?: string;
     gender?: string;
     sourceStudentId?: string;
+    preferences?: import('$lib/domain/preference').StudentPreference;
   }): Promise<boolean> {
+    const { preferences, ...studentData } = data;
     if (studentSidebarMode === 'create') {
-      const result = await vm.actions.addStudent(data);
+      const result = await vm.actions.addStudent(studentData);
       if (result.success && result.studentId) {
         selectedStudentId = result.studentId;
         studentSidebarMode = 'view';
@@ -560,7 +565,11 @@
     } else {
       // Edit mode
       if (!selectedStudentId) return false;
-      const success = await vm.actions.updateStudent({ studentId: selectedStudentId, ...data });
+      const success = await vm.actions.updateStudent({ studentId: selectedStudentId, ...studentData });
+      if (success && preferences) {
+        const preferenceSaved = await vm.actions.updateStudentPreference(preferences);
+        if (!preferenceSaved) return false;
+      }
       if (success) {
         studentSidebarMode = 'view';
       }
@@ -1014,10 +1023,17 @@
         student={selectedStudent}
         mode={studentSidebarMode}
         preferences={selectedStudentPreferences}
+        students={students}
+        groups={view?.groups ?? []}
+        peerRequestSummary={selectedStudentPeerRequestSummary}
         {groupNameMap}
         recentGroupmates={selectedStudentRecentGroupmates}
         onClose={handleCloseStudentDetail}
         onSave={handleSaveStudent}
+        onAddPeerRequest={handleCreatePeerRequest}
+        onQuickEditPeerRequest={handleQuickEditPeerRequest}
+        onClearPeerRequest={handleClearPeerRequest}
+        onDeletePeerRequest={handleDeletePeerRequest}
         onDelete={handleRequestRemoveStudent}
         onEditMode={handleEditStudent}
         onCancelEdit={handleCancelEditStudent}

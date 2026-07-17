@@ -12,7 +12,7 @@ import type {
 } from '$lib/domain';
 import { createPeerRequestEntry, getStudentDisplayName } from '$lib/domain';
 import type { ScenarioSatisfaction } from '$lib/domain/analytics';
-import type { StudentPreference } from '$lib/domain/preference';
+import { createEmptyStudentPreference, type StudentPreference } from '$lib/domain/preference';
 import {
   getActivityData,
   getProgramPairingStats,
@@ -268,7 +268,9 @@ export interface ClassViewVm {
       lastName?: string;
       gradeLevel?: string;
       gender?: string;
+      sourceStudentId?: string;
     }) => Promise<boolean>;
+    updateStudentPreference: (input: StudentPreference) => Promise<boolean>;
     removeStudent: (studentId: string) => Promise<boolean>;
     toggleStudentActive: (studentId: string) => Promise<boolean>;
   };
@@ -1416,6 +1418,37 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
     return true;
   }
 
+  async function updateStudentPreferenceAction(input: StudentPreference): Promise<boolean> {
+    if (!state.program || !state.studentsById[input.studentId]) return false;
+
+    const existing = state.preferences.find((preference) => preference.studentId === input.studentId);
+    const preference: Preference = {
+      id: existing?.id ?? state.env.idGenerator.generateId(),
+      programId: state.program.id,
+      studentId: input.studentId,
+      payload: {
+        ...createEmptyStudentPreference(input.studentId),
+        avoidStudentIds: [...new Set(input.avoidStudentIds)],
+        likeGroupIds: [...new Set(input.likeGroupIds)],
+        avoidGroupIds: [...new Set(input.avoidGroupIds)],
+        ...(input.meta ? { meta: { ...input.meta } } : {})
+      }
+    };
+
+    try {
+      await state.env.preferenceRepo.save(preference);
+    } catch {
+      return false;
+    }
+
+    state.preferences = existing
+      ? state.preferences.map((item) => (item.id === existing.id ? preference : item))
+      : [...state.preferences, preference];
+    computePreferenceState();
+    computePreferenceRanks();
+    return true;
+  }
+
   async function removeStudentAction(studentId: string): Promise<boolean> {
     if (!state.pool || !state.program) return false;
 
@@ -1525,6 +1558,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
       upgradeRoster,
       addStudent,
       updateStudent: updateStudentAction,
+      updateStudentPreference: updateStudentPreferenceAction,
       removeStudent: removeStudentAction,
       toggleStudentActive,
       refreshPeerRequests,
