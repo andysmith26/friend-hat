@@ -46,7 +46,10 @@
       requesterStudentId: string;
       requestedStudentId: string;
     }) => Promise<void> | void;
-    onQuickEditPeerRequest?: (payload: { requestId: string; studentId: string }) => Promise<void> | void;
+    onQuickEditPeerRequest?: (payload: {
+      requestId: string;
+      studentId: string;
+    }) => Promise<void> | void;
     onClearPeerRequest?: (requestId: string) => Promise<void> | void;
     onDeletePeerRequest?: (requestId: string) => Promise<void> | void;
     onDelete: () => void;
@@ -127,7 +130,9 @@
       .sort((a, b) => getStudentDisplayName(a).localeCompare(getStudentDisplayName(b)))
   );
   const availableGroupsToLike = $derived(
-    groups.filter((group) => !formLikeGroupIds.includes(group.id) && !formAvoidGroupIds.includes(group.id))
+    groups.filter(
+      (group) => !formLikeGroupIds.includes(group.id) && !formAvoidGroupIds.includes(group.id)
+    )
   );
 
   // Populate form when entering edit mode or switching students
@@ -540,7 +545,9 @@
               {#if formLikeGroupIds.length > 0}
                 <ol class="mt-2 space-y-1">
                   {#each formLikeGroupIds as groupId, index (groupId)}
-                    <li class="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs">
+                    <li
+                      class="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs"
+                    >
                       <span class="w-4 font-medium text-gray-500">{index + 1}</span>
                       <span class="min-w-0 flex-1 truncate text-gray-800">
                         {groupNameMap[groupId] ?? groupId}
@@ -550,21 +557,21 @@
                         onclick={() => movePreferredGroup(groupId, -1)}
                         disabled={index === 0}
                         aria-label="Move {groupNameMap[groupId] ?? groupId} up"
-                        class="text-gray-500 hover:text-gray-800 disabled:opacity-30"
-                      >↑</button>
+                        class="text-gray-500 hover:text-gray-800 disabled:opacity-30">↑</button
+                      >
                       <button
                         type="button"
                         onclick={() => movePreferredGroup(groupId, 1)}
                         disabled={index === formLikeGroupIds.length - 1}
                         aria-label="Move {groupNameMap[groupId] ?? groupId} down"
-                        class="text-gray-500 hover:text-gray-800 disabled:opacity-30"
-                      >↓</button>
+                        class="text-gray-500 hover:text-gray-800 disabled:opacity-30">↓</button
+                      >
                       <button
                         type="button"
                         onclick={() => removePreferredGroup(groupId)}
                         aria-label="Remove preferred group {groupNameMap[groupId] ?? groupId}"
-                        class="text-red-500 hover:text-red-700"
-                      >Remove</button>
+                        class="text-red-500 hover:text-red-700">Remove</button
+                      >
                     </li>
                   {/each}
                 </ol>
@@ -583,14 +590,19 @@
                         type="checkbox"
                         checked={formAvoidGroupIds.includes(group.id)}
                         onchange={(event) =>
-                          toggleAvoidGroup(group.id, (event.currentTarget as HTMLInputElement).checked)}
+                          toggleAvoidGroup(
+                            group.id,
+                            (event.currentTarget as HTMLInputElement).checked
+                          )}
                       />
                       {group.name}
                     </label>
                   {/each}
                 </div>
               {:else}
-                <p class="mt-1 text-[11px] text-gray-500">Create groups before setting group preferences.</p>
+                <p class="mt-1 text-[11px] text-gray-500">
+                  Create groups before setting group preferences.
+                </p>
               {/if}
             </div>
           </fieldset>
@@ -659,7 +671,8 @@
                         onclick={() => deletePeerRequest(request.requestId)}
                         disabled={isSavingPeerRequest}
                         class="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
-                      >Delete</button>
+                        >Delete</button
+                      >
                     </div>
                     <select
                       aria-label="Assign peer request {request.rank}"
@@ -683,7 +696,8 @@
                         onclick={() => clearPeerRequest(request.requestId)}
                         disabled={isSavingPeerRequest}
                         class="mt-1 text-[11px] text-gray-500 hover:text-gray-800 disabled:opacity-50"
-                      >Clear assignment</button>
+                        >Clear assignment</button
+                      >
                     {/if}
                   </div>
                 {/each}

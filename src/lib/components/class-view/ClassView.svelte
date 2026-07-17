@@ -565,7 +565,10 @@
     } else {
       // Edit mode
       if (!selectedStudentId) return false;
-      const success = await vm.actions.updateStudent({ studentId: selectedStudentId, ...studentData });
+      const success = await vm.actions.updateStudent({
+        studentId: selectedStudentId,
+        ...studentData
+      });
       if (success && preferences) {
         const preferenceSaved = await vm.actions.updateStudentPreference(preferences);
         if (!preferenceSaved) return false;
@@ -1023,7 +1026,7 @@
         student={selectedStudent}
         mode={studentSidebarMode}
         preferences={selectedStudentPreferences}
-        students={students}
+        {students}
         groups={view?.groups ?? []}
         peerRequestSummary={selectedStudentPeerRequestSummary}
         {groupNameMap}

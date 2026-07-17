@@ -1421,7 +1421,9 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
   async function updateStudentPreferenceAction(input: StudentPreference): Promise<boolean> {
     if (!state.program || !state.studentsById[input.studentId]) return false;
 
-    const existing = state.preferences.find((preference) => preference.studentId === input.studentId);
+    const existing = state.preferences.find(
+      (preference) => preference.studentId === input.studentId
+    );
     const preference: Preference = {
       id: existing?.id ?? state.env.idGenerator.generateId(),
       programId: state.program.id,
