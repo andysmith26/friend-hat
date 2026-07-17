@@ -19,7 +19,7 @@
   import { downloadActivityFile, generateExportFilename } from '$lib/utils/activityFile';
   import { prepareWorkspaceExport } from '$lib/services/appEnvUseCases';
   import { Alert, OverlaySheet } from '$lib/components/ui';
-  import { parseRosterFromPaste } from '$lib/services/rosterImport';
+  import { parseRosterFromMappedData, parseRosterFromPaste } from '$lib/services/rosterImport';
   import { getSourceStudentId } from '$lib/domain/student';
   import { detectSimpleNameList } from '$lib/utils/pasteDetection';
   import ClassViewToolbar from './ClassViewToolbar.svelte';
@@ -645,7 +645,11 @@
     };
   }
 
-  async function handleImport(pastedText: string) {
+  async function handleImport(
+    pastedText: string,
+    rawData?: import('$lib/domain/import').RawSheetData,
+    columnMappings?: import('$lib/domain/import').ColumnMapping[]
+  ) {
     if (!pool) {
       throw new Error('No roster found for this activity');
     }
@@ -657,7 +661,10 @@
     }> = [];
 
     try {
-      const rosterData = parseRosterFromPaste(pastedText);
+      const rosterData =
+        rawData && columnMappings
+          ? parseRosterFromMappedData(rawData, columnMappings)
+          : parseRosterFromPaste(pastedText);
       parsedStudents = rosterData.studentOrder.map((id) => {
         const student = rosterData.studentsById[id];
         return {

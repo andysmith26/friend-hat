@@ -14,6 +14,7 @@
   import { hasRequiredMappings, isPeerRequestField, validateMappedData } from '$lib/domain/import';
   import type { PoolType } from '$lib/domain';
   import { fetchGoogleSheet, isGoogleSheetsUrl, getPreviewRows } from '$lib/services/googleSheets';
+  import { createImportColumnMappings } from '$lib/services/importFieldMatching';
   import {
     confirmPeerRequestMatches,
     importPeerRequestsFromMapping,
@@ -101,54 +102,7 @@
 
   // Initialize column mappings when sheet data is loaded
   function initializeMappings(data: RawSheetData) {
-    columnMappings = data.headers.map((header, index) => ({
-      columnIndex: index,
-      headerName: header,
-      mappedTo: guessMapping(header)
-    }));
-  }
-
-  // Attempt to auto-detect column mappings based on header names
-  function guessMapping(header: string): MappedField | null {
-    const h = header.toLowerCase().trim();
-
-    // First name patterns
-    if (h === 'first name' || h === 'firstname' || h === 'first') {
-      return 'firstName';
-    }
-
-    // Last name patterns
-    if (h === 'last name' || h === 'lastname' || h === 'last') {
-      return 'lastName';
-    }
-
-    // Choice patterns
-    if (h.includes('choice') || h.includes('preference') || h.includes('rank')) {
-      const num = h.match(/\d+/);
-      if (num) {
-        const n = parseInt(num[0]);
-        if (n >= 1 && n <= 5) {
-          return `choice${n}` as MappedField;
-        }
-      }
-      // Default to choice 1 if no number found
-      if (h.includes('1') || h === 'choice' || h === 'preference') {
-        return 'choice1';
-      }
-    }
-
-    if (
-      h.includes('peer request') ||
-      h.includes('partner request') ||
-      h.includes('work with') ||
-      h.includes('want to work with')
-    ) {
-      const num = h.match(/[1-5]/);
-      const rank = num ? parseInt(num[0], 10) : 1;
-      return `peerRequest${Math.min(Math.max(rank, 1), 5)}` as MappedField;
-    }
-
-    return null;
+    columnMappings = createImportColumnMappings(data);
   }
 
   // Handle URL submission

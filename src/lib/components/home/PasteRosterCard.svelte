@@ -9,11 +9,15 @@
   import { goto } from '$app/navigation';
   import { getAppEnvContext } from '$lib/contexts/appEnv';
   import { getSourceStudentId } from '$lib/domain/student';
+  import type { ColumnMapping, MappedField, RawSheetData } from '$lib/domain/import';
   import { InlineError } from '$lib/components/ui';
-  import { parseRosterFromPaste } from '$lib/services/rosterImport';
+  import { parseRosterFromMappedData, parseRosterFromPaste } from '$lib/services/rosterImport';
+  import { parseCsvToSheetData } from '$lib/services/googleSheets';
+  import { createImportColumnMappings } from '$lib/services/importFieldMatching';
   import { createActivityInline, addStudentToPool } from '$lib/services/appEnvUseCases';
   import { detectSimpleNameList } from '$lib/utils/pasteDetection';
   import { isErr } from '$lib/types/result';
+  import SheetPreview from '$lib/components/import/SheetPreview.svelte';
 
   let {
     onCreated
@@ -25,6 +29,8 @@
 
   let activityName = $state('');
   let pasteText = $state('');
+  let pastedRosterData = $state<RawSheetData | null>(null);
+  let columnMappings = $state<ColumnMapping[]>([]);
   let isSubmitting = $state(false);
   let error = $state<string | null>(null);
 
@@ -49,6 +55,46 @@
     };
   }
 
+  function handlePasteInput(event: Event): void {
+    const text = (event.target as HTMLTextAreaElement).value;
+    pasteText = text;
+
+    if (!text.trim() || detectSimpleNameList(text).isSimpleNameList) {
+      pastedRosterData = null;
+      columnMappings = [];
+      return;
+    }
+
+    const parsed = parseCsvToSheetData(text);
+    if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+      pastedRosterData = null;
+      columnMappings = [];
+      return;
+    }
+
+    const headersChanged =
+      !pastedRosterData ||
+      parsed.headers.length !== pastedRosterData.headers.length ||
+      parsed.headers.some((header, index) => header !== pastedRosterData!.headers[index]);
+
+    pastedRosterData = parsed;
+    if (headersChanged) {
+      columnMappings = createImportColumnMappings(parsed);
+    }
+  }
+
+  function handleMappingChange(columnIndex: number, field: MappedField | null): void {
+    columnMappings = columnMappings.map((mapping) =>
+      mapping.columnIndex === columnIndex ? { ...mapping, mappedTo: field } : mapping
+    );
+  }
+
+  function clearPastedRoster(): void {
+    pasteText = '';
+    pastedRosterData = null;
+    columnMappings = [];
+  }
+
   async function handleSubmit() {
     if (isSubmitting) return;
 
@@ -61,6 +107,38 @@
     isSubmitting = true;
     error = null;
 
+    const trimmedPaste = pasteText.trim();
+    let parsedStudents: Array<{
+      firstName: string;
+      lastName: string;
+      sourceStudentId?: string;
+    }> = [];
+
+    if (trimmedPaste) {
+      try {
+        const rosterData = pastedRosterData
+          ? parseRosterFromMappedData(pastedRosterData, columnMappings)
+          : parseRosterFromPaste(trimmedPaste);
+        parsedStudents = rosterData.studentOrder.map((id) => {
+          const student = rosterData.studentsById[id];
+          return {
+            firstName: student?.firstName ?? '',
+            lastName: student?.lastName ?? '',
+            sourceStudentId: student ? getSourceStudentId(student) : undefined
+          };
+        });
+      } catch (parseError) {
+        const detection = detectSimpleNameList(trimmedPaste);
+        if (detection.isSimpleNameList) {
+          parsedStudents = detection.names.map((studentName) => parseName(studentName));
+        } else {
+          error = parseError instanceof Error ? parseError.message : 'Could not parse the roster.';
+          isSubmitting = false;
+          return;
+        }
+      }
+    }
+
     // Create the activity
     const createResult = await createActivityInline(env, { name });
     if (isErr(createResult)) {
@@ -71,35 +149,8 @@
 
     const { program, pool } = createResult.value;
 
-    // If paste text provided, import students
-    const trimmedPaste = pasteText.trim();
-    if (trimmedPaste) {
-      let parsedStudents: Array<{
-        firstName: string;
-        lastName: string;
-        sourceStudentId?: string;
-      }> = [];
-
-      try {
-        const rosterData = parseRosterFromPaste(trimmedPaste);
-        parsedStudents = rosterData.studentOrder.map((id) => {
-          const student = rosterData.studentsById[id];
-          return {
-            firstName: student?.firstName ?? '',
-            lastName: student?.lastName ?? '',
-            sourceStudentId: student ? getSourceStudentId(student) : undefined
-          };
-        });
-      } catch {
-        const detection = detectSimpleNameList(trimmedPaste);
-        if (detection.isSimpleNameList) {
-          parsedStudents = detection.names.map((name) => parseName(name));
-        }
-      }
-
-      for (const { firstName, lastName, sourceStudentId } of parsedStudents) {
-        await addStudentToPool(env, { poolId: pool.id, firstName, lastName, sourceStudentId });
-      }
+    for (const { firstName, lastName, sourceStudentId } of parsedStudents) {
+      await addStudentToPool(env, { poolId: pool.id, firstName, lastName, sourceStudentId });
     }
 
     onCreated?.(program.id);
@@ -133,12 +184,37 @@
       class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal focus:ring-1 focus:ring-teal focus:outline-none"
       rows="3"
       placeholder={'Alex Johnson\nJamie Smith\nAlex\tJohnson\talex-1'}
-      bind:value={pasteText}
+      value={pasteText}
+      oninput={handlePasteInput}
       disabled={isSubmitting}
     ></textarea>
-    <p class="mt-1 text-xs text-gray-500">
-      Paste one student per line, or tab-separated First, Last, ID rows.
-    </p>
+    {#if pastedRosterData}
+      <div class="mt-3 flex items-center justify-between gap-3">
+        <p class="text-xs text-gray-500">
+          Review the detected columns before creating the activity.
+        </p>
+        <button
+          type="button"
+          class="text-xs text-gray-500 underline hover:text-gray-700"
+          onclick={clearPastedRoster}
+          disabled={isSubmitting}
+        >
+          Clear
+        </button>
+      </div>
+      <div class="mt-3 max-h-72 overflow-auto">
+        <SheetPreview
+          data={pastedRosterData}
+          mappings={columnMappings}
+          maxPreviewRows={6}
+          onMappingChange={handleMappingChange}
+        />
+      </div>
+    {:else}
+      <p class="mt-1 text-xs text-gray-500">
+        Paste one student per line, or a table with a header row to match its fields.
+      </p>
+    {/if}
     {#if lineCount > 0}
       <p class="mt-1 text-xs text-gray-500">
         {lineCount}

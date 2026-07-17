@@ -26,6 +26,7 @@
   const fieldOptions: { value: MappedField | 'none'; label: string; required: boolean }[] = [
     { value: 'none', label: 'Select field...', required: false },
     { value: 'studentId', label: 'Student ID', required: false },
+    { value: 'displayName', label: 'Display Name', required: true },
     { value: 'firstName', label: 'First Name', required: true },
     { value: 'lastName', label: 'Last Name', required: false },
     { value: 'choice1', label: 'Choice 1', required: false },
@@ -37,8 +38,7 @@
     { value: 'peerRequest2', label: 'Peer Request 2', required: false },
     { value: 'peerRequest3', label: 'Peer Request 3', required: false },
     { value: 'peerRequest4', label: 'Peer Request 4', required: false },
-    { value: 'peerRequest5', label: 'Peer Request 5', required: false },
-    { value: 'ignore', label: 'Ignore', required: false }
+    { value: 'peerRequest5', label: 'Peer Request 5', required: false }
   ];
 
   // Get the current mapping for a column
@@ -61,12 +61,16 @@
     }
   }
 
+  function handleIgnoreChange(columnIndex: number, ignored: boolean): void {
+    onMappingChange(columnIndex, ignored ? 'ignore' : null);
+  }
+
   // Get styling for the column based on its mapping state
   function getColumnHeaderClass(columnIndex: number): string {
     const mapping = getMappingForColumn(columnIndex);
-    if (!mapping) return 'bg-gray-50';
+    if (!mapping) return 'bg-gray-100 text-gray-400';
     if (mapping === 'ignore') return 'bg-gray-100 text-gray-400';
-    if (REQUIRED_FIELDS.includes(mapping)) return 'bg-green-50';
+    if (REQUIRED_FIELDS.includes(mapping) || mapping === 'displayName') return 'bg-green-50';
     return 'bg-teal-50';
   }
 
@@ -122,6 +126,15 @@
                   </option>
                 {/each}
               </select>
+              <label class="mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-normal text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={getMappingForColumn(colIndex) === 'ignore'}
+                  onchange={(event) =>
+                    handleIgnoreChange(colIndex, (event.target as HTMLInputElement).checked)}
+                />
+                Ignore column
+              </label>
             </th>
           {/each}
         </tr>
@@ -156,7 +169,7 @@
             {#each row.cells as cell, colIndex}
               {@const mapping = getMappingForColumn(colIndex)}
               <td
-                class="max-w-[200px] truncate px-3 py-2 {mapping === 'ignore'
+                class="max-w-[200px] truncate px-3 py-2 {mapping === 'ignore' || mapping === null
                   ? 'text-gray-300'
                   : 'text-gray-700'}"
                 title={cell}

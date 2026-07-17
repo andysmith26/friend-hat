@@ -34,6 +34,7 @@
   import { parseActivityFile, readFileAsText } from '$lib/utils/activityFile';
   import { looksLikeCsv } from '$lib/utils/csvRosterParser';
   import { parseCsvToSheetData } from '$lib/services/googleSheets';
+  import { createImportColumnMappings } from '$lib/services/importFieldMatching';
   import { isErr } from '$lib/types/result';
   import SheetPreview from '$lib/components/import/SheetPreview.svelte';
   import PeerRequestMatchingReview from '$lib/components/import/PeerRequestMatchingReview.svelte';
@@ -141,48 +142,8 @@
       : false
   );
 
-  function guessMapping(header: string): MappedField | null {
-    const h = header.toLowerCase().trim();
-
-    if (h === 'first name' || h === 'firstname' || h === 'first' || h === 'fname') {
-      return 'firstName';
-    }
-
-    if (h === 'last name' || h === 'lastname' || h === 'last' || h === 'lname' || h === 'surname') {
-      return 'lastName';
-    }
-
-    if (
-      h.includes('choice') ||
-      h.includes('preference') ||
-      h.includes('rank') ||
-      h.includes('pick')
-    ) {
-      const num = h.match(/[1-5]/);
-      const rank = num ? parseInt(num[0], 10) : 1;
-      return `choice${Math.min(Math.max(rank, 1), 5)}` as MappedField;
-    }
-
-    if (
-      h.includes('peer request') ||
-      h.includes('partner request') ||
-      h.includes('work with') ||
-      h.includes('want to work with')
-    ) {
-      const num = h.match(/[1-5]/);
-      const rank = num ? parseInt(num[0], 10) : 1;
-      return `peerRequest${Math.min(Math.max(rank, 1), 5)}` as MappedField;
-    }
-
-    return null;
-  }
-
   function initializeMappings(data: RawSheetData): ColumnMapping[] {
-    return data.headers.map((header, index) => ({
-      columnIndex: index,
-      headerName: header,
-      mappedTo: guessMapping(header)
-    }));
+    return createImportColumnMappings(data);
   }
 
   function handleCsvMappingChange(columnIndex: number, field: MappedField | null) {
@@ -310,7 +271,7 @@
 
   async function handleCsvImport(rawData: RawSheetData, columnMappings: ColumnMapping[]) {
     if (!hasRequiredMappings(columnMappings)) {
-      throw new Error('Map at least a First Name column before importing.');
+      throw new Error('Map a First Name or Display Name column before importing.');
     }
 
     const validation = validateMappedData(rawData, columnMappings);

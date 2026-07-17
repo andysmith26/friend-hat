@@ -44,13 +44,14 @@ export interface RawSheetData {
  * Domain fields that a sheet column can be mapped to.
  *
  * - studentId: Existing roster identifier for import reconciliation.
- * - firstName: Required. Student's first name.
+ * - displayName or firstName: One is required to identify each student.
  * - lastName: Optional. Student's last name.
  * - choice1-5: Optional. Ranked group preferences (Shape B format).
  * - ignore: Explicitly skip this column.
  */
 export type MappedField =
   | 'studentId'
+  | 'displayName'
   | 'firstName'
   | 'lastName'
   | 'choice1'
@@ -111,7 +112,8 @@ export function getPeerRequestRank(field: MappedField): PeerRequestRank | null {
 }
 
 /**
- * All required fields that must be mapped for a valid import.
+ * Default required field shown by the mapping UI. A displayName mapping is
+ * also accepted by hasRequiredMappings for single-name-column rosters.
  */
 export const REQUIRED_FIELDS: MappedField[] = ['firstName'];
 
@@ -120,6 +122,7 @@ export const REQUIRED_FIELDS: MappedField[] = ['firstName'];
  */
 export const OPTIONAL_FIELDS: MappedField[] = [
   'studentId',
+  'displayName',
   'lastName',
   'choice1',
   'choice2',
@@ -151,6 +154,7 @@ export interface RowValidationResult {
   student?: {
     firstName: string;
     lastName?: string;
+    sourceStudentId?: string;
   };
   /** Extracted group choices in rank order (if any) */
   choices?: string[];
@@ -204,7 +208,7 @@ export interface ValidStudentIdReference {
  */
 export function hasRequiredMappings(mappings: ColumnMapping[]): boolean {
   const mappedFields = new Set(mappings.map((m) => m.mappedTo).filter((f) => f !== null));
-  return REQUIRED_FIELDS.every((field) => mappedFields.has(field));
+  return mappedFields.has('firstName') || mappedFields.has('displayName');
 }
 
 /**
@@ -212,7 +216,7 @@ export function hasRequiredMappings(mappings: ColumnMapping[]): boolean {
  */
 export function getMissingRequiredFields(mappings: ColumnMapping[]): MappedField[] {
   const mappedFields = new Set(mappings.map((m) => m.mappedTo).filter((f) => f !== null));
-  return REQUIRED_FIELDS.filter((field) => !mappedFields.has(field));
+  return mappedFields.has('firstName') || mappedFields.has('displayName') ? [] : REQUIRED_FIELDS;
 }
 
 /**
@@ -346,18 +350,32 @@ export function validateMappedData(
 
     // Extract firstName (required)
     const firstNameIdx = fieldToColumn.get('firstName');
-    const firstName = firstNameIdx !== undefined ? (row.cells[firstNameIdx] ?? '').trim() : '';
+    const displayNameIdx = fieldToColumn.get('displayName');
+    const displayName =
+      displayNameIdx !== undefined ? (row.cells[displayNameIdx] ?? '').trim() : '';
+    const nameParts = displayName.split(/\s+/).filter(Boolean);
+    const firstName =
+      firstNameIdx !== undefined ? (row.cells[firstNameIdx] ?? '').trim() : (nameParts[0] ?? '');
 
     if (!firstName) {
       errors.push('First name is empty');
     } else {
       // Extract lastName (optional)
       const lastNameIdx = fieldToColumn.get('lastName');
-      const lastName = lastNameIdx !== undefined ? (row.cells[lastNameIdx] ?? '').trim() : '';
+      const lastName =
+        lastNameIdx !== undefined
+          ? (row.cells[lastNameIdx] ?? '').trim()
+          : firstNameIdx === undefined
+            ? nameParts.slice(1).join(' ')
+            : '';
+      const studentIdIdx = fieldToColumn.get('studentId');
+      const sourceStudentId =
+        studentIdIdx !== undefined ? (row.cells[studentIdIdx] ?? '').trim() : '';
 
       student = {
         firstName,
-        lastName: lastName || undefined
+        lastName: lastName || undefined,
+        sourceStudentId: sourceStudentId || undefined
       };
     }
 

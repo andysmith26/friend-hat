@@ -90,6 +90,14 @@ describe('hasRequiredMappings', () => {
     expect(hasRequiredMappings(mappings)).toBe(true);
   });
 
+  it('returns true when displayName is mapped', () => {
+    const mappings: ColumnMapping[] = [
+      { columnIndex: 0, headerName: 'Name', mappedTo: 'displayName' }
+    ];
+
+    expect(hasRequiredMappings(mappings)).toBe(true);
+  });
+
   it('returns false when firstName is not mapped', () => {
     const mappings: ColumnMapping[] = [
       { columnIndex: 0, headerName: 'Name', mappedTo: 'lastName' },

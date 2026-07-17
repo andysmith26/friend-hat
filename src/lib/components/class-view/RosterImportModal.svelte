@@ -10,22 +10,73 @@
 
   import { fade, scale } from 'svelte/transition';
   import { Button, InlineError } from '$lib/components/ui';
+  import type { ColumnMapping, MappedField, RawSheetData } from '$lib/domain/import';
+  import SheetPreview from '$lib/components/import/SheetPreview.svelte';
+  import { parseCsvToSheetData } from '$lib/services/googleSheets';
+  import { createImportColumnMappings } from '$lib/services/importFieldMatching';
+  import { detectSimpleNameList } from '$lib/utils/pasteDetection';
 
   interface Props {
     open: boolean;
     onClose: () => void;
-    onImport: (pastedText: string) => Promise<void>;
+    onImport: (
+      pastedText: string,
+      rawData?: RawSheetData,
+      columnMappings?: ColumnMapping[]
+    ) => Promise<void>;
   }
 
   let { open, onClose, onImport }: Props = $props();
 
   let pasteText = $state('');
+  let pastedRosterData = $state<RawSheetData | null>(null);
+  let columnMappings = $state<ColumnMapping[]>([]);
   let importing = $state(false);
   let error = $state<string | null>(null);
 
   let lineCount = $derived(
     pasteText.split(/\r?\n/).filter((line) => line.trim().length > 0).length
   );
+
+  function handlePasteInput(event: Event): void {
+    const text = (event.target as HTMLTextAreaElement).value;
+    pasteText = text;
+
+    if (!text.trim() || detectSimpleNameList(text).isSimpleNameList) {
+      pastedRosterData = null;
+      columnMappings = [];
+      return;
+    }
+
+    const parsed = parseCsvToSheetData(text);
+    if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+      pastedRosterData = null;
+      columnMappings = [];
+      return;
+    }
+
+    const headersChanged =
+      !pastedRosterData ||
+      parsed.headers.length !== pastedRosterData.headers.length ||
+      parsed.headers.some((header, index) => header !== pastedRosterData!.headers[index]);
+
+    pastedRosterData = parsed;
+    if (headersChanged) {
+      columnMappings = createImportColumnMappings(parsed);
+    }
+  }
+
+  function handleMappingChange(columnIndex: number, field: MappedField | null): void {
+    columnMappings = columnMappings.map((mapping) =>
+      mapping.columnIndex === columnIndex ? { ...mapping, mappedTo: field } : mapping
+    );
+  }
+
+  function clearPastedRoster(): void {
+    pasteText = '';
+    pastedRosterData = null;
+    columnMappings = [];
+  }
 
   async function handleImport() {
     if (!pasteText.trim()) {
@@ -37,8 +88,8 @@
     error = null;
 
     try {
-      await onImport(pasteText);
-      pasteText = '';
+      await onImport(pasteText, pastedRosterData ?? undefined, columnMappings);
+      clearPastedRoster();
       onClose();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Import failed';
@@ -65,38 +116,63 @@
   >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+      class="mx-4 flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-xl"
       transition:scale={{ duration: 150, start: 0.95 }}
       onclick={(e) => e.stopPropagation()}
     >
-      <h3 class="text-lg font-medium text-gray-900">Import Roster</h3>
-      <p class="mt-1 text-sm text-gray-500">
-        Paste one student per line, or tab-separated First, Last, ID rows.
-      </p>
+      <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <h3 class="text-lg font-medium text-gray-900">Import Roster</h3>
+        <p class="mt-1 text-sm text-gray-500">
+          Paste one student per line, or a table with a header row to match its fields.
+        </p>
 
-      <div class="mt-4">
-        <textarea
-          bind:value={pasteText}
-          class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
-          rows="8"
-          placeholder={'Alex Johnson\nJamie Smith\nAlex\tJohnson\talex-1\n...'}
-        ></textarea>
+        <div class="mt-4">
+          <textarea
+            value={pasteText}
+            oninput={handlePasteInput}
+            class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+            rows="8"
+            placeholder={'Alex Johnson\nJamie Smith\nAlex\tJohnson\talex-1\n...'}
+          ></textarea>
 
-        {#if lineCount > 0}
-          <p class="mt-1 text-xs text-gray-500">
-            {lineCount}
-            {lineCount === 1 ? 'student' : 'students'} detected
-          </p>
-        {/if}
+          {#if pastedRosterData}
+            <div class="mt-3 flex items-center justify-between gap-3">
+              <p class="text-xs text-gray-500">Review the detected columns before importing.</p>
+              <button
+                type="button"
+                class="text-xs text-gray-500 underline hover:text-gray-700"
+                onclick={clearPastedRoster}
+                disabled={importing}
+              >
+                Clear
+              </button>
+            </div>
+            <div class="mt-3 max-h-[24rem] overflow-auto pr-1">
+              <SheetPreview
+                data={pastedRosterData}
+                mappings={columnMappings}
+                maxPreviewRows={10}
+                onMappingChange={handleMappingChange}
+              />
+            </div>
+          {/if}
 
-        {#if error}
-          <div class="mt-2">
-            <InlineError message={error} dismissible onDismiss={() => (error = null)} />
-          </div>
-        {/if}
+          {#if lineCount > 0}
+            <p class="mt-1 text-xs text-gray-500">
+              {lineCount}
+              {lineCount === 1 ? 'student' : 'students'} detected
+            </p>
+          {/if}
+
+          {#if error}
+            <div class="mt-2">
+              <InlineError message={error} dismissible onDismiss={() => (error = null)} />
+            </div>
+          {/if}
+        </div>
       </div>
 
-      <div class="mt-4 flex justify-end gap-3">
+      <div class="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
         <Button variant="ghost" onclick={onClose} disabled={importing}>Cancel</Button>
         <Button
           variant="secondary"

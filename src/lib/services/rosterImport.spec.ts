@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRosterFromPaste } from './rosterImport';
+import { parseRosterFromMappedData, parseRosterFromPaste } from './rosterImport';
 
 describe('parseRosterFromPaste', () => {
   it('parses tab-separated First, Last, ID rows without a header', () => {
@@ -18,6 +18,30 @@ describe('parseRosterFromPaste', () => {
       firstName: 'Bob',
       lastName: 'Brown',
       meta: { sourceStudentId: 'B-200' }
+    });
+  });
+
+  it('uses a reviewed mapping when parsing pasted table data', () => {
+    const result = parseRosterFromMappedData(
+      {
+        headers: ['Given', 'Family', 'School email'],
+        rows: [
+          { rowIndex: 2, cells: ['Alice', 'Anderson', 'alice@example.edu'] },
+          { rowIndex: 3, cells: ['Bob', 'Brown', 'bob@example.edu'] }
+        ]
+      },
+      [
+        { columnIndex: 0, headerName: 'Given', mappedTo: 'firstName' },
+        { columnIndex: 1, headerName: 'Family', mappedTo: 'lastName' },
+        { columnIndex: 2, headerName: 'School email', mappedTo: 'studentId' }
+      ]
+    );
+
+    expect(result.studentOrder).toEqual(['alice@example.edu', 'bob@example.edu']);
+    expect(result.studentsById['alice@example.edu']).toMatchObject({
+      firstName: 'Alice',
+      lastName: 'Anderson',
+      meta: { sourceStudentId: 'alice@example.edu' }
     });
   });
 });

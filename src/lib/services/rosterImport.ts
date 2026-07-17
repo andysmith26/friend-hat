@@ -1,5 +1,7 @@
 import type { Student, StudentPreference } from '$lib/domain';
 import { setSourceStudentId } from '$lib/domain/student';
+import type { ColumnMapping, RawSheetData } from '$lib/domain/import';
+import { generateStudentId, hasRequiredMappings, validateMappedData } from '$lib/domain/import';
 
 export const SHEET_DATA_GUIDANCE = [
   '"Students" tab: columns should include ID and Name (with a header row).',
@@ -108,6 +110,47 @@ export function parseRosterFromPaste(text: string): RosterData {
       lastName
     });
   }
+
+  return buildRosterData(students);
+}
+
+/**
+ * Build roster data from a user-reviewed column mapping.
+ *
+ * The field mapping UI is shared by pasted, uploaded, and Google Sheets data;
+ * this parser keeps roster-paste imports aligned with its selected mappings.
+ */
+export function parseRosterFromMappedData(
+  data: RawSheetData,
+  mappings: ColumnMapping[]
+): RosterData {
+  if (!hasRequiredMappings(mappings)) {
+    throw new Error('Map a First Name or Display Name column before importing.');
+  }
+
+  const validation = validateMappedData(data, mappings);
+  if (validation.validRows.length === 0) {
+    throw new Error('No valid student rows found in the pasted data.');
+  }
+
+  const students = validation.validRows.flatMap((row) => {
+    if (!row.student) return [];
+
+    const sourceStudentId = row.student.sourceStudentId;
+    return [
+      {
+        id: (
+          sourceStudentId ||
+          generateStudentId(row.student.firstName, row.student.lastName, row.rowIndex)
+        ).toLowerCase(),
+        sourceStudentId:
+          sourceStudentId ||
+          generateStudentId(row.student.firstName, row.student.lastName, row.rowIndex),
+        firstName: row.student.firstName,
+        lastName: row.student.lastName ?? ''
+      }
+    ];
+  });
 
   return buildRosterData(students);
 }

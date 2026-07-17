@@ -11,6 +11,7 @@
     UnmatchedStudentIdRow
   } from '$lib/domain/import';
   import { reconcileRowsByStudentId } from '$lib/domain/import';
+  import { createImportColumnMappings } from '$lib/services/importFieldMatching';
   import SheetPreview from '$lib/components/import/SheetPreview.svelte';
   import PeerRequestMatchingReview from '$lib/components/import/PeerRequestMatchingReview.svelte';
   import { Button, InlineError } from '$lib/components/ui';
@@ -84,48 +85,8 @@
     return [student.firstName, student.lastName].filter(Boolean).join(' ').trim() || student.id;
   }
 
-  function guessMapping(header: string): MappedField | null {
-    const normalized = header.toLowerCase().trim();
-
-    if (
-      normalized === 'student id' ||
-      normalized === 'studentid' ||
-      normalized === 'id' ||
-      normalized === 'email'
-    ) {
-      return 'studentId';
-    }
-
-    if (
-      normalized.includes('peer request') ||
-      normalized.includes('partner request') ||
-      normalized.includes('work with') ||
-      normalized.includes('want to work with')
-    ) {
-      const match = normalized.match(/[1-5]/);
-      const rank = match ? parseInt(match[0], 10) : 1;
-      return `peerRequest${Math.min(Math.max(rank, 1), 5)}` as MappedField;
-    }
-
-    if (
-      normalized.includes('choice') ||
-      normalized.includes('preference') ||
-      normalized.includes('rank')
-    ) {
-      const match = normalized.match(/[1-5]/);
-      const rank = match ? parseInt(match[0], 10) : 1;
-      return `choice${Math.min(Math.max(rank, 1), 5)}` as MappedField;
-    }
-
-    return null;
-  }
-
   function initializeMappings(data: RawSheetData): void {
-    columnMappings = data.headers.map((header, index) => ({
-      columnIndex: index,
-      headerName: header,
-      mappedTo: guessMapping(header)
-    }));
+    columnMappings = createImportColumnMappings(data);
   }
 
   function handleModeSwitch(mode: 'paste' | 'file'): void {
