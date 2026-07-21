@@ -110,6 +110,7 @@
     const trimmedPaste = pasteText.trim();
     let parsedStudents: Array<{
       firstName: string;
+      preferredName?: string;
       lastName: string;
       sourceStudentId?: string;
     }> = [];
@@ -123,6 +124,7 @@
           const student = rosterData.studentsById[id];
           return {
             firstName: student?.firstName ?? '',
+            preferredName: student?.preferredName,
             lastName: student?.lastName ?? '',
             sourceStudentId: student ? getSourceStudentId(student) : undefined
           };
@@ -149,8 +151,14 @@
 
     const { program, pool } = createResult.value;
 
-    for (const { firstName, lastName, sourceStudentId } of parsedStudents) {
-      await addStudentToPool(env, { poolId: pool.id, firstName, lastName, sourceStudentId });
+    for (const { firstName, preferredName, lastName, sourceStudentId } of parsedStudents) {
+      await addStudentToPool(env, {
+        poolId: pool.id,
+        firstName,
+        preferredName,
+        lastName,
+        sourceStudentId
+      });
     }
 
     onCreated?.(program.id);

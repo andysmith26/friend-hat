@@ -249,6 +249,7 @@ export interface ClassViewVm {
     // Student CRUD
     addStudent: (input: {
       firstName: string;
+      preferredName?: string;
       lastName?: string;
       gradeLevel?: string;
       gender?: string;
@@ -265,6 +266,7 @@ export interface ClassViewVm {
     updateStudent: (input: {
       studentId: string;
       firstName?: string;
+      preferredName?: string;
       lastName?: string;
       gradeLevel?: string;
       gender?: string;
@@ -1228,7 +1230,12 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
    * When counts differ, clears the scenario so the teacher regenerates.
    */
   async function upgradeRoster(
-    students: Array<{ firstName: string; lastName: string; sourceStudentId?: string }>
+    students: Array<{
+      firstName: string;
+      preferredName?: string;
+      lastName: string;
+      sourceStudentId?: string;
+    }>
   ): Promise<void> {
     if (!state.pool) return;
 
@@ -1376,6 +1383,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
 
   async function addStudent(input: {
     firstName: string;
+    preferredName?: string;
     lastName?: string;
     gradeLevel?: string;
     gender?: string;
@@ -1402,6 +1410,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
   async function updateStudentAction(input: {
     studentId: string;
     firstName?: string;
+    preferredName?: string;
     lastName?: string;
     gradeLevel?: string;
     gender?: string;

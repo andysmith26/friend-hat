@@ -245,7 +245,13 @@ function buildRosterData(students: ParsedRosterStudent[]): RosterData {
  * Creates students with empty preferences (group requests will be imported separately).
  */
 export function parseRosterFromSheets(
-  students: Array<{ id: string; firstName: string; lastName: string; gender: string }>,
+  students: Array<{
+    id: string;
+    firstName: string;
+    preferredName?: string;
+    lastName: string;
+    gender: string;
+  }>,
   _connections: Record<string, string[]> = {} // Deprecated parameter, ignored
 ): RosterData {
   const map: Record<string, Student> = {};
@@ -264,6 +270,7 @@ export function parseRosterFromSheets(
     map[id] = {
       id,
       firstName: student.firstName,
+      preferredName: student.preferredName,
       lastName: student.lastName,
       gender: student.gender
     };

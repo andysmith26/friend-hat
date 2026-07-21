@@ -44,4 +44,25 @@ describe('parseRosterFromPaste', () => {
       meta: { sourceStudentId: 'alice@example.edu' }
     });
   });
+
+  it('preserves a preferred-name column selected in the reviewed mapping', () => {
+    const result = parseRosterFromMappedData(
+      {
+        headers: ['Given', 'Preferred', 'Family', 'School email'],
+        rows: [{ rowIndex: 2, cells: ['Alexander', 'Alex', 'Anderson', 'alex@example.edu'] }]
+      },
+      [
+        { columnIndex: 0, headerName: 'Given', mappedTo: 'firstName' },
+        { columnIndex: 1, headerName: 'Preferred', mappedTo: 'preferredName' },
+        { columnIndex: 2, headerName: 'Family', mappedTo: 'lastName' },
+        { columnIndex: 3, headerName: 'School email', mappedTo: 'studentId' }
+      ]
+    );
+
+    expect(result.studentsById['alex@example.edu']).toMatchObject({
+      firstName: 'Alexander',
+      preferredName: 'Alex',
+      lastName: 'Anderson'
+    });
+  });
 });

@@ -49,7 +49,12 @@ describe('upgradeQuickStartRoster', () => {
       {
         poolId: 'pool-1',
         students: [
-          { firstName: 'Ada', lastName: 'Lovelace', sourceStudentId: 'S-42' },
+          {
+            firstName: 'Ada',
+            preferredName: 'Addy',
+            lastName: 'Lovelace',
+            sourceStudentId: 'S-42'
+          },
           { firstName: 'Grace', lastName: 'Hopper', sourceStudentId: 'S-99' }
         ]
       }
@@ -65,6 +70,7 @@ describe('upgradeQuickStartRoster', () => {
       {
         id: 'student-1',
         firstName: 'Ada',
+        preferredName: 'Addy',
         lastName: 'Lovelace',
         meta: { sourceStudentId: 'S-42' }
       },

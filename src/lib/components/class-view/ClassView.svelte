@@ -547,6 +547,7 @@
 
   async function handleSaveStudent(data: {
     firstName: string;
+    preferredName?: string;
     lastName?: string;
     gradeLevel?: string;
     gender?: string;
@@ -656,6 +657,7 @@
 
     let parsedStudents: Array<{
       firstName: string;
+      preferredName?: string;
       lastName: string;
       sourceStudentId?: string;
     }> = [];
@@ -669,6 +671,7 @@
         const student = rosterData.studentsById[id];
         return {
           firstName: student?.firstName ?? '',
+          preferredName: student?.preferredName,
           lastName: student?.lastName ?? '',
           sourceStudentId: student ? getSourceStudentId(student) : undefined
         };
@@ -693,10 +696,11 @@
     const errors: string[] = [];
     const addedStudents: typeof students = [];
 
-    for (const { firstName, lastName, sourceStudentId } of parsedStudents) {
+    for (const { firstName, preferredName, lastName, sourceStudentId } of parsedStudents) {
       const result = await addStudentToPool(env, {
         poolId: pool.id,
         firstName,
+        preferredName,
         lastName,
         sourceStudentId
       });
