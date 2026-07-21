@@ -598,7 +598,13 @@
                     aria-label="Remove tag {tag}"
                     class="rounded-full p-0.5 text-teal-600 hover:bg-teal-100 hover:text-teal-900"
                   >
-                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg
+                      class="h-3 w-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path stroke-linecap="round" d="m6 6 12 12M18 6 6 18" />
                     </svg>
                   </button>

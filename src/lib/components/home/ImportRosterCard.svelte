@@ -336,8 +336,7 @@
       id: student.id,
       firstName: student.firstName,
       preferredName: student.preferredName,
-      lastName: student.lastName || undefined
-      ,
+      lastName: student.lastName || undefined,
       tags: student.tags
     }));
 

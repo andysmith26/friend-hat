@@ -115,8 +115,7 @@ export function parseRosterFromPaste(text: string): RosterData {
     const nameParts = name.trim().split(' ');
     const firstName = nameParts[0] || '';
     const preferredName = preferredNameIdx === -1 ? '' : (cells[preferredNameIdx] ?? '').trim();
-    const tags =
-      tagsIdx === -1 ? [] : normalizeStudentTags((cells[tagsIdx] ?? '').split(/[,;|]/));
+    const tags = tagsIdx === -1 ? [] : normalizeStudentTags((cells[tagsIdx] ?? '').split(/[,;|]/));
     const lastName = nameParts.slice(1).join(' ') || '';
 
     students.push({
