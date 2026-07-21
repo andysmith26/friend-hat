@@ -6,7 +6,13 @@
    * Supports three modes: view (read-only), edit (modify fields), create (new student).
    */
 
-  import { getStudentDisplayName, getStudentLongName, type Group, type Student } from '$lib/domain';
+  import {
+    getStudentDisplayName,
+    getStudentLongName,
+    normalizeStudentTags,
+    type Group,
+    type Student
+  } from '$lib/domain';
   import type { StudentPreference } from '$lib/domain/preference';
   import { createEmptyStudentPreference } from '$lib/domain/preference';
   import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
@@ -40,6 +46,7 @@
       lastName?: string;
       gradeLevel?: string;
       gender?: string;
+      tags?: string[];
       sourceStudentId?: string;
       preferences?: StudentPreference;
     }) => Promise<boolean>;
@@ -105,6 +112,8 @@
   let formLastName = $state('');
   let formGradeLevel = $state('');
   let formGender = $state('');
+  let formTags = $state<string[]>([]);
+  let tagInput = $state('');
   let formSourceStudentId = $state('');
   let formLikeGroupIds = $state<string[]>([]);
   let formAvoidGroupIds = $state<string[]>([]);
@@ -143,6 +152,8 @@
       formLastName = student.lastName ?? '';
       formGradeLevel = student.gradeLevel ?? '';
       formGender = student.gender ?? '';
+      formTags = [...(student.tags ?? [])];
+      tagInput = '';
       formSourceStudentId = getSourceStudentId(student) ?? '';
       const savedPreferences = preferences ?? createEmptyStudentPreference(student.id);
       formLikeGroupIds = [...savedPreferences.likeGroupIds];
@@ -157,6 +168,8 @@
       formLastName = '';
       formGradeLevel = '';
       formGender = '';
+      formTags = [];
+      tagInput = '';
       formSourceStudentId = '';
       formLikeGroupIds = [];
       formAvoidGroupIds = [];
@@ -222,6 +235,7 @@
       lastName: formLastName.trim() || undefined,
       gradeLevel: formGradeLevel.trim() || undefined,
       gender: formGender.trim() || undefined,
+      tags: formTags,
       sourceStudentId: formSourceStudentId.trim() || undefined,
       preferences:
         mode === 'edit' && student
@@ -273,6 +287,16 @@
       : formAvoidStudentIds.filter((id) => id !== studentId);
   }
 
+  function addTags(rawTags: string = tagInput): void {
+    const tagsToAdd = rawTags.split(/[,;|]/);
+    formTags = normalizeStudentTags([...formTags, ...tagsToAdd]);
+    tagInput = '';
+  }
+
+  function removeTag(tag: string): void {
+    formTags = formTags.filter((existing) => existing !== tag);
+  }
+
   async function addPeerRequest() {
     if (!student || !peerToAdd) return;
     isAddingPeerRequest = true;
@@ -313,6 +337,15 @@
   }
 
   function handleFormKeydown(e: KeyboardEvent) {
+    if (
+      e.key === 'Enter' &&
+      e.target instanceof HTMLInputElement &&
+      e.target.id === 'student-tags'
+    ) {
+      e.preventDefault();
+      addTags();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -529,6 +562,50 @@
             <option value="M">Male</option>
             <option value="X">Non-binary</option>
           </select>
+        </div>
+
+        <div>
+          <label for="student-tags" class="block text-xs font-medium text-gray-700">Tags</label>
+          <div class="mt-1 flex gap-2">
+            <input
+              id="student-tags"
+              type="text"
+              bind:value={tagInput}
+              placeholder="e.g. Honors, ELL"
+              class="block min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+              onblur={() => addTags()}
+            />
+            <button
+              type="button"
+              onclick={() => addTags()}
+              disabled={!tagInput.trim()}
+              class="rounded-md border border-gray-300 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+          <p class="mt-1 text-[11px] text-gray-500">Press Enter or separate tags with commas.</p>
+          {#if formTags.length > 0}
+            <div class="mt-2 flex flex-wrap gap-1.5" aria-label="Student tags">
+              {#each formTags as tag (tag)}
+                <span
+                  class="inline-flex items-center gap-1 rounded-full bg-teal-50 py-1 pr-1 pl-2 text-xs font-medium text-teal-800"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onclick={() => removeTag(tag)}
+                    aria-label="Remove tag {tag}"
+                    class="rounded-full p-0.5 text-teal-600 hover:bg-teal-100 hover:text-teal-900"
+                  >
+                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" d="m6 6 12 12M18 6 6 18" />
+                    </svg>
+                  </button>
+                </span>
+              {/each}
+            </div>
+          {/if}
         </div>
 
         {#if mode === 'edit' && student}

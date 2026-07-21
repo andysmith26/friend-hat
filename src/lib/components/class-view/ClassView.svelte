@@ -551,6 +551,7 @@
     lastName?: string;
     gradeLevel?: string;
     gender?: string;
+    tags?: string[];
     sourceStudentId?: string;
     preferences?: import('$lib/domain/preference').StudentPreference;
   }): Promise<boolean> {
@@ -659,6 +660,7 @@
       firstName: string;
       preferredName?: string;
       lastName: string;
+      tags?: string[];
       sourceStudentId?: string;
     }> = [];
 
@@ -673,6 +675,7 @@
           firstName: student?.firstName ?? '',
           preferredName: student?.preferredName,
           lastName: student?.lastName ?? '',
+          tags: student?.tags,
           sourceStudentId: student ? getSourceStudentId(student) : undefined
         };
       });
@@ -696,12 +699,13 @@
     const errors: string[] = [];
     const addedStudents: typeof students = [];
 
-    for (const { firstName, preferredName, lastName, sourceStudentId } of parsedStudents) {
+    for (const { firstName, preferredName, lastName, tags, sourceStudentId } of parsedStudents) {
       const result = await addStudentToPool(env, {
         poolId: pool.id,
         firstName,
         preferredName,
         lastName,
+        tags,
         sourceStudentId
       });
 

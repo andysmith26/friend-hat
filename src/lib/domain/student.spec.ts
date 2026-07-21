@@ -4,7 +4,8 @@ import {
   getCanonicalId,
   getStudentDisplayName,
   getStudentLongName,
-  getStudentShortName
+  getStudentShortName,
+  normalizeStudentTags
 } from './student';
 import type { Student } from './student';
 
@@ -223,6 +224,17 @@ describe('createStudent', () => {
     const student = createStudent({ id: 'student-1', firstName: 'John', meta });
 
     expect(student.meta).toEqual(meta);
+  });
+
+  it('normalizes student tags by trimming and removing case-insensitive duplicates', () => {
+    const student = createStudent({
+      id: 'student-1',
+      firstName: 'John',
+      tags: [' Honors ', '', 'ELL', 'honors', '  ELL  ', 'Student Leader']
+    });
+
+    expect(student.tags).toEqual(['Honors', 'ELL', 'Student Leader']);
+    expect(normalizeStudentTags(['  A  ', 'a', 'B'])).toEqual(['A', 'B']);
   });
 });
 

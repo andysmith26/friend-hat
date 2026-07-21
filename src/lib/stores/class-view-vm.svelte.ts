@@ -253,6 +253,7 @@ export interface ClassViewVm {
       lastName?: string;
       gradeLevel?: string;
       gender?: string;
+      tags?: string[];
     }) => Promise<{ success: boolean; studentId?: string }>;
     refreshPeerRequests: () => Promise<void>;
     createPeerRequest: (payload: {
@@ -270,6 +271,7 @@ export interface ClassViewVm {
       lastName?: string;
       gradeLevel?: string;
       gender?: string;
+      tags?: string[];
       sourceStudentId?: string;
     }) => Promise<boolean>;
     updateStudentPreference: (input: StudentPreference) => Promise<boolean>;
@@ -1234,6 +1236,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
       firstName: string;
       preferredName?: string;
       lastName: string;
+      tags?: string[];
       sourceStudentId?: string;
     }>
   ): Promise<void> {

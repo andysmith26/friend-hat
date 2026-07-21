@@ -30,6 +30,7 @@
     { value: 'firstName', label: 'First Name', required: true },
     { value: 'preferredName', label: 'Preferred Name', required: false },
     { value: 'lastName', label: 'Last Name', required: false },
+    { value: 'tags', label: 'Tags', required: false },
     { value: 'choice1', label: 'Choice 1', required: false },
     { value: 'choice2', label: 'Choice 2', required: false },
     { value: 'choice3', label: 'Choice 3', required: false },

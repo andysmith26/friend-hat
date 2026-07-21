@@ -47,6 +47,7 @@ export interface RawSheetData {
  * - displayName or firstName: One is required to identify each student.
  * - preferredName: Optional. Name the student uses in class.
  * - lastName: Optional. Student's last name.
+ * - tags: Optional. Comma, semicolon, or pipe-separated student labels.
  * - choice1-5: Optional. Ranked group preferences (Shape B format).
  * - ignore: Explicitly skip this column.
  */
@@ -56,6 +57,7 @@ export type MappedField =
   | 'firstName'
   | 'preferredName'
   | 'lastName'
+  | 'tags'
   | 'choice1'
   | 'choice2'
   | 'choice3'
@@ -127,6 +129,7 @@ export const OPTIONAL_FIELDS: MappedField[] = [
   'displayName',
   'preferredName',
   'lastName',
+  'tags',
   'choice1',
   'choice2',
   'choice3',
@@ -158,6 +161,7 @@ export interface RowValidationResult {
     firstName: string;
     preferredName?: string;
     lastName?: string;
+    tags?: string[];
     sourceStudentId?: string;
   };
   /** Extracted group choices in rank order (if any) */
@@ -375,6 +379,14 @@ export function validateMappedData(
           : firstNameIdx === undefined
             ? nameParts.slice(1).join(' ')
             : '';
+      const tagsIdx = fieldToColumn.get('tags');
+      const tags =
+        tagsIdx !== undefined
+          ? (row.cells[tagsIdx] ?? '')
+              .split(/[,;|]/)
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+          : [];
       const studentIdIdx = fieldToColumn.get('studentId');
       const sourceStudentId =
         studentIdIdx !== undefined ? (row.cells[studentIdIdx] ?? '').trim() : '';
@@ -383,7 +395,8 @@ export function validateMappedData(
         firstName,
         lastName: lastName || undefined,
         sourceStudentId: sourceStudentId || undefined,
-        ...(preferredName ? { preferredName } : {})
+        ...(preferredName ? { preferredName } : {}),
+        ...(tags.length > 0 ? { tags } : {})
       };
     }
 

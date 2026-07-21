@@ -107,6 +107,7 @@ export function prepareWorkspaceExport(
         lastName: student.lastName,
         gradeLevel: student.gradeLevel,
         gender: student.gender,
+        tags: student.tags,
         meta: student.meta
       }))
     },

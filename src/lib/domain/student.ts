@@ -59,6 +59,11 @@ export interface Student {
   gender?: string;
 
   /**
+   * Optional teacher-defined labels for organizing or identifying a student.
+   */
+  tags?: string[];
+
+  /**
    * Arbitrary metadata collected from roster import.
    * Examples: email (if not used as id), homeroom, advisor, etc.
    */
@@ -80,6 +85,7 @@ export function createStudent(input: {
   lastName?: string;
   gradeLevel?: string;
   gender?: string;
+  tags?: string[];
   meta?: Record<string, unknown>;
 }): Student {
   if (!input.id || typeof input.id !== 'string') {
@@ -97,8 +103,30 @@ export function createStudent(input: {
     lastName: input.lastName?.trim(),
     gradeLevel: input.gradeLevel?.trim(),
     gender: input.gender?.trim(),
+    tags: normalizeStudentTags(input.tags),
     meta: input.meta
   };
+}
+
+/**
+ * Normalize student tags while preserving the teacher's capitalization.
+ * Empty values are removed and duplicate tags are matched case-insensitively.
+ */
+export function normalizeStudentTags(tags: readonly string[] | undefined): string[] {
+  if (!tags) return [];
+
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const tag of tags) {
+    const cleaned = tag.trim();
+    const key = cleaned.toLocaleLowerCase();
+    if (!cleaned || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(cleaned);
+  }
+
+  return normalized;
 }
 
 /**

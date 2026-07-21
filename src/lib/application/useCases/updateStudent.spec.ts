@@ -53,4 +53,19 @@ describe('updateStudent', () => {
     expect(result.value.student.firstName).toBe('Ada');
     expect(result.value.student.preferredName).toBe('Addy');
   });
+
+  it("replaces the student's tags", async () => {
+    const result = await updateStudent(
+      { studentRepo },
+      {
+        studentId: 'gw-student-1',
+        tags: ['Honors', 'ELL', 'honors']
+      }
+    );
+
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+
+    expect(result.value.student.tags).toEqual(['Honors', 'ELL']);
+  });
 });

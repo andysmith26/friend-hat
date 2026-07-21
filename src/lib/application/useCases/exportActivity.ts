@@ -135,6 +135,7 @@ export async function exportActivity(
           lastName: s.lastName,
           gradeLevel: s.gradeLevel,
           gender: s.gender,
+          tags: s.tags,
           meta: s.meta
         }))
       },

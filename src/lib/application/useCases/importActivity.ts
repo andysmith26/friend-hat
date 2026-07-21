@@ -31,6 +31,7 @@ import type {
   Placement,
   Observation
 } from '$lib/domain';
+import { normalizeStudentTags } from '$lib/domain/student';
 import type { Preference, StudentPreference } from '$lib/domain/preference';
 import type { Group } from '$lib/domain/group';
 import { createPeerRequestEntry } from '$lib/domain/peerRequest';
@@ -152,6 +153,9 @@ export async function importActivity(
       lastName: s.lastName ? String(s.lastName) : undefined,
       gradeLevel: s.gradeLevel ? String(s.gradeLevel) : undefined,
       gender: s.gender ? String(s.gender) : undefined,
+      tags: normalizeStudentTags(
+        Array.isArray(s.tags) ? s.tags.filter((tag): tag is string => typeof tag === 'string') : []
+      ),
       meta: s.meta ? JSON.parse(JSON.stringify(s.meta)) : undefined
     }));
 

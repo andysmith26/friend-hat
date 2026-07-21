@@ -307,6 +307,24 @@ describe('validateMappedData', () => {
     });
   });
 
+  it('extracts multiple tags from a mapped tags column', () => {
+    const data: RawSheetData = {
+      headers: ['First Name', 'Tags'],
+      rows: [{ rowIndex: 2, cells: ['Alex', 'Honors; ELL | Student Leader'] }]
+    };
+    const mappings: ColumnMapping[] = [
+      { columnIndex: 0, headerName: 'First Name', mappedTo: 'firstName' },
+      { columnIndex: 1, headerName: 'Tags', mappedTo: 'tags' }
+    ];
+
+    const result = validateMappedData(data, mappings);
+
+    expect(result.validRows[0].student).toMatchObject({
+      firstName: 'Alex',
+      tags: ['Honors', 'ELL', 'Student Leader']
+    });
+  });
+
   it('handles rows with missing lastName', () => {
     const data: RawSheetData = {
       headers: ['First', 'Choice'],

@@ -1,5 +1,5 @@
 import type { Student, StudentPreference } from '$lib/domain';
-import { setSourceStudentId } from '$lib/domain/student';
+import { normalizeStudentTags, setSourceStudentId } from '$lib/domain/student';
 import type { ColumnMapping, RawSheetData } from '$lib/domain/import';
 import { generateStudentId, hasRequiredMappings, validateMappedData } from '$lib/domain/import';
 
@@ -30,6 +30,7 @@ export interface SheetStudentPayload {
   firstName?: string;
   preferredName?: string;
   lastName?: string;
+  tags?: string[];
   gender?: string;
 }
 
@@ -46,6 +47,7 @@ interface ParsedRosterStudent {
   firstName: string;
   preferredName?: string;
   lastName: string;
+  tags?: string[];
 }
 
 /**
@@ -85,6 +87,7 @@ export function parseRosterFromPaste(text: string): RosterData {
     'chosen name',
     'chosenname'
   );
+  const tagsIdx = colName('tags', 'tag', 'labels', 'label', 'categories', 'category');
   const lastNameIdx = colName('last name', 'lastname', 'last');
   const idIdx = colName('id', 'student id', 'studentid');
   if ((nameIdx === -1 && firstNameIdx === -1) || idIdx === -1) {
@@ -112,6 +115,8 @@ export function parseRosterFromPaste(text: string): RosterData {
     const nameParts = name.trim().split(' ');
     const firstName = nameParts[0] || '';
     const preferredName = preferredNameIdx === -1 ? '' : (cells[preferredNameIdx] ?? '').trim();
+    const tags =
+      tagsIdx === -1 ? [] : normalizeStudentTags((cells[tagsIdx] ?? '').split(/[,;|]/));
     const lastName = nameParts.slice(1).join(' ') || '';
 
     students.push({
@@ -119,7 +124,8 @@ export function parseRosterFromPaste(text: string): RosterData {
       sourceStudentId,
       firstName,
       preferredName: preferredName || undefined,
-      lastName
+      lastName,
+      tags
     });
   }
 
@@ -160,7 +166,8 @@ export function parseRosterFromMappedData(
           generateStudentId(row.student.firstName, row.student.lastName, row.rowIndex),
         firstName: row.student.firstName,
         preferredName: row.student.preferredName,
-        lastName: row.student.lastName ?? ''
+        lastName: row.student.lastName ?? '',
+        tags: row.student.tags
       }
     ];
   });
@@ -218,6 +225,7 @@ function buildRosterData(students: ParsedRosterStudent[]): RosterData {
       firstName: student.firstName,
       preferredName: student.preferredName,
       lastName: student.lastName,
+      tags: student.tags,
       gender: '',
       meta: setSourceStudentId(undefined, student.sourceStudentId)
     };
@@ -250,6 +258,7 @@ export function parseRosterFromSheets(
     firstName: string;
     preferredName?: string;
     lastName: string;
+    tags?: string[];
     gender: string;
   }>,
   _connections: Record<string, string[]> = {} // Deprecated parameter, ignored
@@ -272,6 +281,7 @@ export function parseRosterFromSheets(
       firstName: student.firstName,
       preferredName: student.preferredName,
       lastName: student.lastName,
+      tags: normalizeStudentTags(student.tags),
       gender: student.gender
     };
 
@@ -319,6 +329,7 @@ export function normalizeSheetResponse(payload: unknown) {
     firstName: string;
     preferredName?: string;
     lastName: string;
+    tags?: string[];
     gender: string;
   }> = [];
   for (const student of students) {
@@ -330,6 +341,7 @@ export function normalizeSheetResponse(payload: unknown) {
       firstName: typeof student.firstName === 'string' ? student.firstName : '',
       preferredName: typeof student.preferredName === 'string' ? student.preferredName : undefined,
       lastName: typeof student.lastName === 'string' ? student.lastName : '',
+      tags: normalizeStudentTags(student.tags),
       gender: typeof student.gender === 'string' ? student.gender : ''
     });
   }

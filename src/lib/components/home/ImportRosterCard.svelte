@@ -289,6 +289,7 @@
           firstName: student.firstName,
           preferredName: student.preferredName,
           lastName: student.lastName ?? '',
+          tags: student.tags,
           displayName: getStudentLongName(student)
         };
       });
@@ -336,6 +337,8 @@
       firstName: student.firstName,
       preferredName: student.preferredName,
       lastName: student.lastName || undefined
+      ,
+      tags: student.tags
     }));
 
     if (

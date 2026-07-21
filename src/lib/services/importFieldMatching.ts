@@ -44,6 +44,17 @@ export function guessImportFieldMapping(header: string): MappedField | null {
   }
 
   if (
+    normalized === 'tags' ||
+    normalized === 'tag' ||
+    normalized === 'labels' ||
+    normalized === 'label' ||
+    normalized === 'categories' ||
+    normalized === 'category'
+  ) {
+    return 'tags';
+  }
+
+  if (
     normalized === 'last name' ||
     normalized === 'lastname' ||
     normalized === 'last' ||

@@ -112,6 +112,7 @@
       firstName: string;
       preferredName?: string;
       lastName: string;
+      tags?: string[];
       sourceStudentId?: string;
     }> = [];
 
@@ -126,6 +127,7 @@
             firstName: student?.firstName ?? '',
             preferredName: student?.preferredName,
             lastName: student?.lastName ?? '',
+            tags: student?.tags,
             sourceStudentId: student ? getSourceStudentId(student) : undefined
           };
         });
@@ -151,12 +153,13 @@
 
     const { program, pool } = createResult.value;
 
-    for (const { firstName, preferredName, lastName, sourceStudentId } of parsedStudents) {
+    for (const { firstName, preferredName, lastName, tags, sourceStudentId } of parsedStudents) {
       await addStudentToPool(env, {
         poolId: pool.id,
         firstName,
         preferredName,
         lastName,
+        tags,
         sourceStudentId
       });
     }

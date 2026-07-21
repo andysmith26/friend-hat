@@ -17,6 +17,7 @@ export interface UpdateStudentInput {
   lastName?: string;
   gradeLevel?: string;
   gender?: string;
+  tags?: string[];
   sourceStudentId?: string;
 }
 
@@ -49,6 +50,7 @@ export async function updateStudent(
       lastName: input.lastName !== undefined ? input.lastName : existing.lastName,
       gradeLevel: input.gradeLevel !== undefined ? input.gradeLevel : existing.gradeLevel,
       gender: input.gender !== undefined ? input.gender : existing.gender,
+      tags: input.tags !== undefined ? input.tags : existing.tags,
       meta:
         input.sourceStudentId !== undefined
           ? setSourceStudentId(existing.meta, input.sourceStudentId)

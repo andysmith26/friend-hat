@@ -15,6 +15,7 @@ import {
   addNameVariant,
   computeDisplayName
 } from '$lib/domain/studentIdentity';
+import { normalizeStudentTags } from '$lib/domain/student';
 import type { StudentRepository } from '$lib/application/ports/StudentRepository';
 import type { StudentIdentityRepository } from '$lib/application/ports/StudentIdentityRepository';
 import type { IdGenerator, Clock } from '$lib/application/ports';
@@ -42,6 +43,8 @@ export interface StudentToImport {
   gradeLevel?: string;
   /** Gender (optional) */
   gender?: string;
+  /** Teacher-defined labels (optional) */
+  tags?: string[];
   /** Additional metadata */
   meta?: Record<string, unknown>;
 }
@@ -132,6 +135,7 @@ async function linkToExistingIdentity(
     lastName: studentData.lastName?.trim(),
     gradeLevel: studentData.gradeLevel?.trim(),
     gender: studentData.gender?.trim(),
+    tags: normalizeStudentTags(studentData.tags),
     meta: studentData.meta
   };
 
@@ -210,6 +214,7 @@ async function createNewStudentWithIdentity(
     lastName: studentData.lastName?.trim(),
     gradeLevel: studentData.gradeLevel?.trim(),
     gender: studentData.gender?.trim(),
+    tags: normalizeStudentTags(studentData.tags),
     meta: studentData.meta
   };
 

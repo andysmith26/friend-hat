@@ -65,4 +65,20 @@ describe('parseRosterFromPaste', () => {
       lastName: 'Anderson'
     });
   });
+
+  it('preserves multiple tags selected in the reviewed mapping', () => {
+    const result = parseRosterFromMappedData(
+      {
+        headers: ['Given', 'Tags', 'School email'],
+        rows: [{ rowIndex: 2, cells: ['Alex', 'Honors; ELL', 'alex@example.edu'] }]
+      },
+      [
+        { columnIndex: 0, headerName: 'Given', mappedTo: 'firstName' },
+        { columnIndex: 1, headerName: 'Tags', mappedTo: 'tags' },
+        { columnIndex: 2, headerName: 'School email', mappedTo: 'studentId' }
+      ]
+    );
+
+    expect(result.studentsById['alex@example.edu'].tags).toEqual(['Honors', 'ELL']);
+  });
 });

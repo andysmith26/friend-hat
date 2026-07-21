@@ -12,7 +12,7 @@
 
 import type { PoolRepository, StudentRepository, IdGenerator } from '$lib/application/ports';
 import type { Student } from '$lib/domain';
-import { setSourceStudentId } from '$lib/domain/student';
+import { normalizeStudentTags, setSourceStudentId } from '$lib/domain/student';
 import type { Result } from '$lib/types/result';
 import { ok, err } from '$lib/types/result';
 
@@ -27,6 +27,7 @@ export interface UpgradeQuickStartRosterInput {
     firstName: string;
     preferredName?: string;
     lastName: string;
+    tags?: string[];
     sourceStudentId?: string;
   }>;
 }
@@ -91,6 +92,7 @@ export async function upgradeQuickStartRoster(
       firstName: s.firstName,
       preferredName: s.preferredName,
       lastName: s.lastName,
+      tags: normalizeStudentTags(s.tags),
       meta: setSourceStudentId(undefined, s.sourceStudentId)
     }));
 

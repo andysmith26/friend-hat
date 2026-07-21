@@ -39,6 +39,7 @@ export interface ExportedStudent {
   lastName?: string;
   gradeLevel?: string;
   gender?: string;
+  tags?: string[];
   meta?: Record<string, unknown>;
 }
 
@@ -381,6 +382,9 @@ export function parseActivityFile(jsonString: string): ActivityFileValidation {
         lastName: typeof s.lastName === 'string' ? s.lastName.trim() : undefined,
         gradeLevel: typeof s.gradeLevel === 'string' ? s.gradeLevel.trim() : undefined,
         gender: typeof s.gender === 'string' ? s.gender.trim() : undefined,
+        tags: Array.isArray(s.tags)
+          ? s.tags.filter((tag): tag is string => typeof tag === 'string')
+          : undefined,
         meta: s.meta && typeof s.meta === 'object' ? (s.meta as Record<string, unknown>) : undefined
       }))
     },

@@ -41,6 +41,7 @@ describe('serializeActivityToJson', () => {
 
   it('should preserve all fields', () => {
     const data = validExportData();
+    data.roster.students[0].tags = ['Honors', 'ELL'];
     data.peerRequests = [
       {
         id: 'req-1',
@@ -68,6 +69,7 @@ describe('serializeActivityToJson', () => {
     expect(parsed.version).toBe(ACTIVITY_FILE_VERSION);
     expect(parsed.activity.name).toBe('Fall Clubs');
     expect(parsed.roster.students).toHaveLength(2);
+    expect(parsed.roster.students[0].tags).toEqual(['Honors', 'ELL']);
     expect(parsed.peerRequests).toHaveLength(1);
   });
 });
@@ -105,13 +107,16 @@ describe('generateExportFilename', () => {
 
 describe('parseActivityFile', () => {
   it('should parse valid activity file', () => {
-    const json = JSON.stringify(validExportData());
+    const data = validExportData();
+    data.roster.students[0].tags = ['Honors', 'ELL'];
+    const json = JSON.stringify(data);
     const result = parseActivityFile(json);
 
     expect(result.valid).toBe(true);
     if (result.valid) {
       expect(result.data.activity.name).toBe('Fall Clubs');
       expect(result.data.roster.students).toHaveLength(2);
+      expect(result.data.roster.students[0].tags).toEqual(['Honors', 'ELL']);
     }
   });
 
