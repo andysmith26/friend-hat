@@ -42,7 +42,7 @@ function readSkipDeleteConfirm(): boolean {
 export class UiSettingsStore {
   showGender = $state(true);
   highlightUnhappy = $state(false);
-  cardSize = $state<CardSize>('sm');
+  cardSize = $state<CardSize>('md');
   groupLayout = $state<GroupLayout>('scroll');
   peerRequestIndicatorMode = $state<PeerRequestIndicatorMode>('dot');
   skipDeleteGroupConfirm = $state(readSkipDeleteConfirm());
@@ -101,7 +101,7 @@ export class UiSettingsStore {
   reset() {
     this.showGender = true;
     this.highlightUnhappy = false;
-    this.cardSize = 'sm';
+    this.cardSize = 'md';
     this.groupLayout = 'scroll';
     this.peerRequestIndicatorMode = 'dot';
     this.skipDeleteGroupConfirm = false;

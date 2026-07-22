@@ -1,0 +1,224 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Validate student card redesign",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"check"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Show type-check errors",
+			"type": "shell",
+			"command": "pnpm check 2>&1 | grep -E -C 2 'Error:|error TS|\\bError\\b'",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Show remaining type-check errors",
+			"type": "shell",
+			"command": "pnpm check 2>&1 | grep -E -C 2 'Error:|error TS|\\bError\\b'",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Test student card details",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"test:e2e",
+				"--",
+				"drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Lint student card changes",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"lint:eslint"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Confirm student card type check",
+			"type": "shell",
+			"command": "pnpm check 2>&1 | grep -E -C 2 'Error:|error TS|\\bError\\b' || test ${pipestatus[1]} -eq 0",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Check student card formatting",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"prettier",
+				"--check",
+				"src/lib/utils/cardSizeTokens.ts",
+				"src/lib/stores/uiSettings.svelte.ts",
+				"src/lib/components/editing/DraggableStudentCard.svelte",
+				"src/lib/components/editing/EditableGroupColumn.svelte",
+				"src/lib/components/editing/UnassignedArea.svelte",
+				"src/lib/components/editing/GroupEditingLayout.svelte",
+				"src/lib/components/class-view/GroupsPanel.svelte",
+				"src/lib/components/class-view/ClassView.svelte",
+				"src/lib/components/workspace/StudentDetailSidebar.svelte",
+				"e2e/drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Show student card formatting diff",
+			"type": "shell",
+			"command": "pnpm exec prettier src/lib/components/editing/DraggableStudentCard.svelte | diff -u src/lib/components/editing/DraggableStudentCard.svelte - || true",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Confirm student card formatting",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"prettier",
+				"--check",
+				"src/lib/utils/cardSizeTokens.ts",
+				"src/lib/stores/uiSettings.svelte.ts",
+				"src/lib/components/editing/DraggableStudentCard.svelte",
+				"src/lib/components/editing/EditableGroupColumn.svelte",
+				"src/lib/components/editing/UnassignedArea.svelte",
+				"src/lib/components/editing/GroupEditingLayout.svelte",
+				"src/lib/components/class-view/GroupsPanel.svelte",
+				"src/lib/components/class-view/ClassView.svelte",
+				"src/lib/components/workspace/StudentDetailSidebar.svelte",
+				"e2e/drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Confirm student card type check",
+			"type": "shell",
+			"command": "pnpm check >/dev/null && echo 'Type check passed'",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Confirm student card type check v2",
+			"type": "shell",
+			"command": "pnpm check >/dev/null && echo 'Type check passed'",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Test migrated drag-drop suite",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"test:e2e",
+				"--",
+				"drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Retest migrated drag-drop suite",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"test:e2e",
+				"--",
+				"drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Confirm migrated drag-drop suite",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"test:e2e",
+				"--",
+				"drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Verify migrated drag-drop suite",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"test:e2e",
+				"--",
+				"drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Pass migrated drag-drop suite",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"test:e2e",
+				"--",
+				"drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Check migrated E2E formatting",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"prettier",
+				"--check",
+				"e2e/helpers/createActivity.ts",
+				"e2e/drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Show migrated E2E formatting diff",
+			"type": "shell",
+			"command": "pnpm exec prettier e2e/drag-drop.spec.ts | diff -u e2e/drag-drop.spec.ts - || true",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Confirm migrated E2E formatting",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"exec",
+				"prettier",
+				"--check",
+				"e2e/helpers/createActivity.ts",
+				"e2e/drag-drop.spec.ts"
+			],
+			"isBackground": false,
+			"group": "test"
+		}
+	]
+}

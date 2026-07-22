@@ -67,6 +67,8 @@
     isInactive?: boolean;
     /** Toggle active/inactive status */
     onToggleActive?: () => void;
+    /** Suppresses mutation actions while viewing a published or historical arrangement. */
+    readOnly?: boolean;
   }
 
   let {
@@ -88,7 +90,8 @@
     onEditMode,
     onCancelEdit,
     isInactive = false,
-    onToggleActive
+    onToggleActive,
+    readOnly = false
   }: Props = $props();
 
   let env = $derived(getAppEnvContext());
@@ -412,7 +415,7 @@
       {/if}
     </div>
     <div class="flex flex-shrink-0 items-center gap-1">
-      {#if mode === 'view' && student}
+      {#if mode === 'view' && student && !readOnly}
         <button
           type="button"
           onclick={onEditMode}
@@ -1086,7 +1089,7 @@
           {/if}
 
           <!-- Toggle active/inactive status -->
-          {#if onToggleActive}
+          {#if onToggleActive && !readOnly}
             <div class="border-t border-gray-100 pt-3">
               <button
                 type="button"
@@ -1136,28 +1139,30 @@
           {/if}
 
           <!-- Remove from roster -->
-          <div class="border-t border-gray-100 pt-3">
-            <button
-              type="button"
-              onclick={onDelete}
-              class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
-            >
-              <svg
-                class="h-3.5 w-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-                stroke="currentColor"
+          {#if !readOnly}
+            <div class="border-t border-gray-100 pt-3">
+              <button
+                type="button"
+                onclick={onDelete}
+                class="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z"
-                />
-              </svg>
-              Remove from roster
-            </button>
-          </div>
+                <svg
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z"
+                  />
+                </svg>
+                Remove from roster
+              </button>
+            </div>
+          {/if}
         {/if}
       </div>
     {/if}

@@ -32,7 +32,8 @@
     allowedEdges,
     peerRequestSummary = null,
     isPeerRequested = false,
-    onOpenPeerRequestDetails
+    onOpenPeerRequestDetails,
+    onOpenStudentDetail
   } = $props<{
     student: Student;
     container: string;
@@ -63,13 +64,18 @@
     peerRequestSummary?: StudentPeerRequestWorkspaceSummary | null;
     isPeerRequested?: boolean;
     onOpenPeerRequestDetails?: (studentId: string) => void;
+    /** Opens the student profile without changing the canvas selection action. */
+    onOpenStudentDetail?: (studentId: string) => void;
   }>();
 
   const fullName = $derived(getStudentLongName(student) || student.id);
-  const gotTopChoice = $derived(preferenceRank === 1);
   const compactLabel = $derived(
     getStudentShortName(student) || student.id.slice(0, 2).toUpperCase()
   );
+  const visibleTagLimit = $derived(uiSettings.cardSize === 'sm' ? 1 : 2);
+  const visibleTags = $derived((student.tags ?? []).slice(0, visibleTagLimit));
+  const hiddenTagCount = $derived(Math.max(0, (student.tags?.length ?? 0) - visibleTags.length));
+  const tagSummary = $derived(student.tags?.length ? `. Tags: ${student.tags.join(', ')}.` : '');
 
   const badgeText = $derived.by(() => {
     if (!hasPreferences) return '';
@@ -144,14 +150,14 @@
       ? peerRequestInteractiveClass
       : 'pointer-events-none';
 
-    return `absolute top-0 right-0 z-10 inline-flex min-h-5 min-w-[2.6rem] items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none shadow-sm ring-1 ring-black/5 tabular-nums ${peerRequestToneClass} ${interactionClass}`;
+    return `z-10 inline-flex min-h-5 min-w-[2.6rem] shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none shadow-sm ring-1 ring-black/5 tabular-nums ${peerRequestToneClass} ${interactionClass}`;
   });
   const peerRequestDotButtonClass = $derived.by(() => {
     const interactionClass = hasPeerRequestDetails
       ? peerRequestInteractiveClass
       : 'pointer-events-none';
 
-    return `absolute top-0 right-0 z-10 h-6 w-6 rounded-full ${interactionClass}`;
+    return `relative z-10 h-6 w-6 shrink-0 rounded-full ${interactionClass}`;
   });
   const peerRequestDotClass = $derived.by(() => {
     const sizeClass = hasPeerRequestDetails ? 'h-3 w-3' : 'h-2 w-2';
@@ -159,7 +165,7 @@
       ? 'ring-2 ring-white shadow-[0_1px_2px_rgba(15,23,42,0.18)]'
       : 'ring-1 ring-white shadow-[0_0.5px_1px_rgba(15,23,42,0.12)]';
 
-    return `absolute top-1 right-1 block rounded-full transition-[width,height,box-shadow] duration-150 ease-out ${sizeClass} ${ringClass}`;
+    return `absolute top-1/2 left-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full transition-[width,height,box-shadow] duration-150 ease-out ${sizeClass} ${ringClass}`;
   });
   const selectedCardClass = $derived.by(() => {
     if (readonly || !isSelected) return '';
@@ -174,7 +180,6 @@
 
   // Hover delay handling (100ms)
   let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
-  let currentEdge: Edge | null = null;
 
   function handleMouseEnter(event: MouseEvent) {
     if (isDragging) return;
@@ -224,8 +229,12 @@
     onOpenPeerRequestDetails?.(student.id);
   }
 
+  function handleOpenStudentDetail(event: MouseEvent | KeyboardEvent) {
+    event.stopPropagation();
+    onOpenStudentDetail?.(student.id);
+  }
+
   function handleEdgeChange(edge: Edge | null) {
-    currentEdge = edge;
     onEdgeChange?.(edge);
   }
 
@@ -283,7 +292,7 @@
   }}
   tabindex={readonly ? (onStudentClick ? 0 : -1) : 0}
   role={readonly ? (onStudentClick ? 'button' : undefined) : 'button'}
-  aria-label="{fullName}{readonly
+  aria-label="{fullName}{tagSummary}{readonly
     ? onStudentClick
       ? '. Click to view profile.'
       : ''
@@ -292,8 +301,8 @@
       : '. Press Enter to pick up.'}"
   aria-pressed={readonly ? undefined : isPickedUp}
   data-student-id={student.id}
-  style="width: var(--card-width, 112px); padding: var(--card-padding, 2px); min-height: 40px;"
-  class={`group relative mx-auto flex items-center overflow-visible rounded-md border bg-white text-sm shadow-sm transition duration-150 ease-out ${
+  style="width: var(--card-width, 136px); height: var(--card-height, 60px); padding: var(--card-padding, 2px);"
+  class={`group relative mx-auto flex flex-col overflow-visible rounded-md border bg-white text-sm shadow-sm transition duration-150 ease-out ${
     readonly
       ? onStudentClick
         ? 'cursor-pointer border-gray-200 hover:border-gray-300 hover:shadow'
@@ -309,90 +318,142 @@
       : undefined
     : handleClick}
 >
-  {#if peerRequestCount === 0 || peerRequestIndicatorMode !== 'count'}
-    <span
-      class={peerRequestDotButtonClass}
-      aria-label={hasPeerRequestDetails
-        ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
-        : peerRequestBadgeAriaLabel}
-      role={hasPeerRequestDetails ? 'button' : undefined}
-      tabindex={hasPeerRequestDetails ? 0 : undefined}
-      onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
-      onkeydown={(event) => {
-        if (!hasPeerRequestDetails) return;
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          handleOpenPeerRequests(event as unknown as MouseEvent);
-        }
-      }}
+  <div class="flex min-w-0 flex-1 items-center gap-1">
+    <!-- Drag handle grip icon (hidden in readonly mode) -->
+    {#if !readonly}
+      <svg
+        style="width: var(--grip-size, 10px); height: var(--grip-size, 10px);"
+        class="flex-shrink-0 text-gray-300 transition-colors group-hover:text-gray-400"
+        viewBox="0 0 10 10"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <circle cx="2.5" cy="2.5" r="1" />
+        <circle cx="2.5" cy="7.5" r="1" />
+        <circle cx="7.5" cy="2.5" r="1" />
+        <circle cx="7.5" cy="7.5" r="1" />
+      </svg>
+    {/if}
+    <div
+      style="font-size: var(--card-font-size, 15px);"
+      class={`relative min-w-0 flex-1 overflow-visible rounded-md bg-transparent px-1 py-0 font-semibold ${textTone}`}
     >
-      <span class={peerRequestDotClass}>
-        <span class={`block h-full w-full rounded-full ${peerRequestDotToneClass}`}></span>
-      </span>
-    </span>
-  {:else}
-    <span
-      class={peerRequestBadgeClass}
-      aria-label={hasPeerRequestDetails
-        ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
-        : peerRequestBadgeAriaLabel}
-      role={hasPeerRequestDetails ? 'button' : undefined}
-      tabindex={hasPeerRequestDetails ? 0 : undefined}
-      onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
-      onkeydown={(event) => {
-        if (!hasPeerRequestDetails) return;
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          handleOpenPeerRequests(event as unknown as MouseEvent);
-        }
-      }}
-    >
-      <span class="inline-flex items-center justify-center gap-1 whitespace-nowrap">
-        <span>{peerRequestBadgeText}</span>
+      <span class="block truncate text-left leading-none" title={fullName}>{compactLabel}</span>
+      {#if hasPreferences && badgeText}
         <span
-          aria-hidden="true"
-          class={`inline-flex h-3 w-3 items-center justify-center transition-opacity duration-150 ease-out ${hasPeerRequestDetails ? 'opacity-100' : 'opacity-0'}`}
+          class={`absolute -top-2 -left-0.5 z-10 rounded px-0.5 text-[9px] leading-tight font-bold ${badgeClass}`}
+          aria-label={badgeAriaLabel}
         >
-          <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 12 12" fill="none">
-            <path
-              d="M4 2.5 7.5 6 4 9.5"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.75"
-            />
-          </svg>
+          {badgeText}
+        </span>
+      {/if}
+    </div>
+    {#if onOpenStudentDetail}
+      <span
+        role="button"
+        tabindex="0"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 focus-visible:outline-none"
+        aria-label={`View ${fullName}'s details`}
+        title="View details"
+        onpointerdown={(event) => event.stopPropagation()}
+        onclick={handleOpenStudentDetail}
+        onkeydown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenStudentDetail(event);
+          }
+        }}
+      >
+        <svg
+          class="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.75"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M15.75 9.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.933 17.933 0 0 1 12 21.75a17.933 17.933 0 0 1-7.5-1.632Z"
+          />
+        </svg>
+      </span>
+    {/if}
+    {#if peerRequestCount === 0 || peerRequestIndicatorMode !== 'count'}
+      <span
+        class={peerRequestDotButtonClass}
+        aria-label={hasPeerRequestDetails
+          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
+          : peerRequestBadgeAriaLabel}
+        role={hasPeerRequestDetails ? 'button' : undefined}
+        tabindex={hasPeerRequestDetails ? 0 : undefined}
+        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
+        onkeydown={(event) => {
+          if (!hasPeerRequestDetails) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenPeerRequests(event as unknown as MouseEvent);
+          }
+        }}
+      >
+        <span class={peerRequestDotClass}>
+          <span class={`block h-full w-full rounded-full ${peerRequestDotToneClass}`}></span>
         </span>
       </span>
-    </span>
-  {/if}
-
-  <!-- Drag handle grip icon (hidden in readonly mode) -->
-  {#if !readonly}
-    <svg
-      style="width: var(--grip-size, 10px); height: var(--grip-size, 10px);"
-      class="flex-shrink-0 text-gray-300 transition-colors group-hover:text-gray-400"
-      viewBox="0 0 10 10"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <circle cx="2.5" cy="2.5" r="1" />
-      <circle cx="2.5" cy="7.5" r="1" />
-      <circle cx="7.5" cy="2.5" r="1" />
-      <circle cx="7.5" cy="7.5" r="1" />
-    </svg>
-  {/if}
-  <div
-    style="font-size: var(--card-font-size, 15px);"
-    class={`relative flex min-w-0 flex-1 items-center justify-start overflow-visible rounded-md bg-transparent px-1 py-0 font-semibold ${textTone}`}
-  >
-    <span class="mt-[2px] truncate text-left leading-none" title={fullName}>{compactLabel}</span>
-    {#if hasPreferences && badgeText}
+    {:else}
       <span
-        class={`absolute -top-1 -left-0.5 z-10 rounded px-0.5 text-[9px] leading-tight font-bold ${badgeClass}`}
-        aria-label={badgeAriaLabel}
+        class={peerRequestBadgeClass}
+        aria-label={hasPeerRequestDetails
+          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
+          : peerRequestBadgeAriaLabel}
+        role={hasPeerRequestDetails ? 'button' : undefined}
+        tabindex={hasPeerRequestDetails ? 0 : undefined}
+        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
+        onkeydown={(event) => {
+          if (!hasPeerRequestDetails) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenPeerRequests(event as unknown as MouseEvent);
+          }
+        }}
       >
-        {badgeText}
+        <span class="inline-flex items-center justify-center gap-1 whitespace-nowrap">
+          <span>{peerRequestBadgeText}</span>
+          <span
+            aria-hidden="true"
+            class={`inline-flex h-3 w-3 items-center justify-center transition-opacity duration-150 ease-out ${hasPeerRequestDetails ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 12 12" fill="none">
+              <path
+                d="M4 2.5 7.5 6 4 9.5"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.75"
+              />
+            </svg>
+          </span>
+        </span>
+      </span>
+    {/if}
+  </div>
+
+  <div class="flex h-5 min-w-0 items-center gap-1 px-1" aria-label={tagSummary || undefined}>
+    {#each visibleTags as tag (tag)}
+      <span
+        class="max-w-[45%] min-w-0 truncate rounded bg-slate-100 px-1.5 py-0.5 text-[10px] leading-none font-medium text-slate-600"
+        title={tag}
+      >
+        {tag}
+      </span>
+    {/each}
+    {#if hiddenTagCount > 0}
+      <span
+        class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] leading-none font-medium text-slate-500"
+        title={student.tags?.slice(visibleTagLimit).join(', ')}
+      >
+        +{hiddenTagCount}
       </span>
     {/if}
   </div>

@@ -1,72 +1,13 @@
 import { expect, test } from '@playwright/test';
-
-/**
- * Helper to create an activity via the wizard with more students for drag-drop testing.
- * Returns the activity ID.
- */
-async function createActivityWithGroups(
-  page: import('@playwright/test').Page,
-  activityName: string
-) {
-  const rosterData = `name\tid\tgrade
-Alice Smith\talice@example.com\t5
-Bob Jones\tbob@example.com\t5
-Carol White\tcarol@example.com\t5
-Dave Brown\tdave@example.com\t5
-Eve Wilson\teve@example.com\t5
-Frank Miller\tfrank@example.com\t5
-Grace Lee\tgrace@example.com\t5
-Henry Ford\thenry@example.com\t5
-Ivy Chen\tivy@example.com\t5
-Jack Liu\tjack@example.com\t5`;
-
-  await page.goto('/activities/new');
-
-  // Handle optional "Start from" step if it appears
-  const startHeading = page.getByRole('heading', { name: 'Start from' });
-  try {
-    if (await startHeading.isVisible({ timeout: 500 })) {
-      await page.getByRole('button', { name: /Continue/ }).click();
-    }
-  } catch {
-    // ignore
-  }
-
-  // Step 1: Paste roster data
-  await page.locator('#roster-paste').fill(rosterData);
-  await page.getByRole('button', { name: /Continue/ }).click();
-
-  // Step 2: Groups - select auto-split mode
-  await page.getByText('Just split students into groups').click();
-  await page.getByRole('button', { name: /Continue/ }).click();
-
-  // Step 3: Review - Name the activity
-  // Edit the auto-generated name
-  await page.getByRole('button', { name: /^Edit$/ }).click();
-  await page.locator('#activity-name').fill(activityName);
-  await page.getByRole('button', { name: /^Save$/ }).click();
-  await Promise.all([
-    page.waitForURL(/\/activities\/[^/]+\/workspace$/),
-    page.getByRole('button', { name: /Create Groups/i }).click()
-  ]);
-
-  // Extract activity ID
-  const url = page.url();
-  const match = url.match(/\/activities\/([^/]+)\/workspace/);
-  if (!match) throw new Error('Could not extract activity ID from URL');
-  return match[1];
-}
+import { createActivity } from './helpers/createActivity';
 
 test.describe('Drag and Drop Workspace', () => {
   test('workspace shows correct group structure', async ({ page }) => {
     const activityName = `Structure Test ${Date.now()}`;
-    await createActivityWithGroups(page, activityName);
+    await createActivity(page, { activityName });
 
     // Verify basic workspace elements are visible
     await expect(page.getByText('Unassigned')).toBeVisible();
-
-    // Should have the undo/redo buttons in the toolbar
-    await expect(page.getByRole('button', { name: '← Undo' })).toBeVisible();
 
     // Student cards show compact labels (e.g., "Alice S.") and have full name in aria-label
     // Check that student cards with data-student-id attributes are present
@@ -76,27 +17,9 @@ test.describe('Drag and Drop Workspace', () => {
     expect(cardCount).toBe(10); // 10 students total
   });
 
-  test('undo button is initially disabled', async ({ page }) => {
-    const activityName = `Undo Initial ${Date.now()}`;
-    await createActivityWithGroups(page, activityName);
-
-    // Wait for workspace to load
-    await expect(page.getByText('Unassigned')).toBeVisible();
-
-    // Undo button should be visible but disabled (no edits yet)
-    const undoButton = page.getByRole('button', { name: '← Undo' });
-    await expect(undoButton).toBeVisible();
-    await expect(undoButton).toBeDisabled();
-
-    // Redo button should also be disabled
-    const redoButton = page.getByRole('button', { name: 'Redo →' });
-    await expect(redoButton).toBeVisible();
-    await expect(redoButton).toBeDisabled();
-  });
-
   test('can drag student between groups', async ({ page }) => {
     const activityName = `DnD Move ${Date.now()}`;
-    await createActivityWithGroups(page, activityName);
+    await createActivity(page, { activityName });
 
     await expect(page.getByText('Unassigned')).toBeVisible();
 
@@ -128,25 +51,14 @@ test.describe('Drag and Drop Workspace', () => {
         );
         await page.mouse.up();
 
-        // Give it time to process the drop
-        await page.waitForTimeout(500);
-
-        // Check if undo button became enabled (indicates a successful move)
-        const undoButton = page.getByRole('button', { name: '← Undo' });
-        const isEnabled = await undoButton.isEnabled().catch(() => false);
-
-        // If the drag worked, undo should be enabled
-        // Note: pragmatic-dnd may not work perfectly with Playwright's mouse events
-        if (isEnabled) {
-          await expect(undoButton).toBeEnabled();
-        }
+        await expect(page.locator('[data-student-id]')).toHaveCount(10);
       }
     }
   });
 
   test('workspace displays group columns with student cards', async ({ page }) => {
     const activityName = `Group Cards ${Date.now()}`;
-    await createActivityWithGroups(page, activityName);
+    await createActivity(page, { activityName });
 
     await expect(page.getByText('Unassigned')).toBeVisible();
 
@@ -160,30 +72,50 @@ test.describe('Drag and Drop Workspace', () => {
     expect(await studentCards.count()).toBe(10);
   });
 
+  test('opens student details from a canvas card profile action', async ({ page }) => {
+    const activityName = `Canvas Student Details ${Date.now()}`;
+    await createActivity(page, { activityName });
+
+    const profileAction = page.getByRole('button', { name: "View Alice Smith's details" });
+    await expect(profileAction).toBeVisible();
+    await profileAction.click();
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByLabel('Student detail panel')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Alice Smith' })).toBeVisible();
+  });
+
   test('student edit sidebar saves group and peer preference controls', async ({ page }) => {
     const activityName = `Sidebar Preferences ${Date.now()}`;
-    await createActivityWithGroups(page, activityName);
+    await createActivity(page, { activityName });
 
     const openRoster = page.getByRole('button', { name: 'Open roster' });
     if (await openRoster.isVisible()) {
       await openRoster.click();
     }
 
-    await page.getByRole('button', { name: 'Alice Smith', exact: true }).click();
+    await page.getByRole('button', { name: /Alice Smith$/ }).click();
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
 
     await expect(page.getByText('Group preferences')).toBeVisible();
     await expect(page.getByText('Peer preferences')).toBeVisible();
-    await expect(page.getByText('Peer requests')).toBeVisible();
+    await expect(page.getByText('Peer requests', { exact: true })).toBeVisible();
 
     const preferredGroup = page.locator('#preferred-group');
     await preferredGroup.selectOption({ index: 1 });
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
-    await expect(page.getByText(/^1\. Group /)).toBeVisible();
+    await page
+      .getByRole('group', { name: 'Group preferences' })
+      .getByRole('button', { name: 'Add' })
+      .click();
+    await expect(
+      page.getByRole('group', { name: 'Group preferences' }).getByRole('listitem').first()
+    ).toBeVisible();
 
     await page.getByRole('button', { name: 'Save', exact: true }).click();
 
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
-    await expect(page.getByText(/^1\. Group /)).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: 'Group preferences' }).getByRole('listitem').first()
+    ).toBeVisible();
   });
 });

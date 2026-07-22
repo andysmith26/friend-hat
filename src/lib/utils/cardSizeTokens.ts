@@ -2,6 +2,7 @@ import type { CardSize } from '$lib/stores/uiSettings.svelte';
 
 interface SizeTokens {
   '--card-width': string;
+  '--card-height': string;
   '--card-font-size': string;
   '--card-padding': string;
   '--card-gap': string;
@@ -13,34 +14,37 @@ interface SizeTokens {
 
 const TOKEN_MAP: Record<CardSize, SizeTokens> = {
   sm: {
-    '--card-width': '112px',
+    '--card-width': '136px',
+    '--card-height': '60px',
     '--card-font-size': '15px',
     '--card-padding': '2px',
     '--card-gap': '4px',
     '--grip-size': '10px',
     '--dot-size': '6px',
-    '--group-col-width': '136px',
-    '--sidebar-width': '148px'
+    '--group-col-width': '160px',
+    '--sidebar-width': '172px'
   },
   md: {
-    '--card-width': '140px',
+    '--card-width': '160px',
+    '--card-height': '64px',
     '--card-font-size': '17px',
     '--card-padding': '4px',
     '--card-gap': '4px',
     '--grip-size': '12px',
     '--dot-size': '7px',
-    '--group-col-width': '168px',
-    '--sidebar-width': '180px'
+    '--group-col-width': '188px',
+    '--sidebar-width': '200px'
   },
   lg: {
-    '--card-width': '168px',
+    '--card-width': '192px',
+    '--card-height': '68px',
     '--card-font-size': '19px',
     '--card-padding': '6px',
     '--card-gap': '6px',
     '--grip-size': '14px',
     '--dot-size': '8px',
-    '--group-col-width': '200px',
-    '--sidebar-width': '212px'
+    '--group-col-width': '224px',
+    '--sidebar-width': '236px'
   }
 };
 

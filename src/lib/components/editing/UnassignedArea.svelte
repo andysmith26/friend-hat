@@ -32,6 +32,7 @@
     studentPeerRequestSummaryById = new Map<string, StudentPeerRequestWorkspaceSummary>(),
     selectedStudentRequestedPeerIds = null,
     onOpenPeerRequestDetails,
+    onOpenStudentDetail,
     onAlphabetize,
     vertical = false,
     compact = false
@@ -62,6 +63,7 @@
     studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
     selectedStudentRequestedPeerIds?: string[] | null;
     onOpenPeerRequestDetails?: (studentId: string) => void;
+    onOpenStudentDetail?: (studentId: string) => void;
     onAlphabetize?: () => void;
     vertical?: boolean;
     /** When true, hides the header and outer wrapper (for embedding in a parent bench zone) */
@@ -292,7 +294,7 @@
         }`}
     style={vertical
       ? 'grid-template-columns: 1fr; gap: var(--card-gap, 4px);'
-      : 'grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: var(--card-gap, 8px);'}
+      : 'grid-template-columns: repeat(auto-fill, minmax(var(--card-width, 136px), 1fr)); gap: var(--card-gap, 8px);'}
   >
     {#if unassignedIds.length === 0}
       <p
@@ -332,6 +334,7 @@
                 peerRequestSummary={studentPeerRequestSummaryById.get(studentId) ?? null}
                 isPeerRequested={selectedRequestedPeerIdSet.has(studentId)}
                 {onOpenPeerRequestDetails}
+                {onOpenStudentDetail}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}
                 {onKeyboardCancel}
@@ -375,6 +378,7 @@
                 peerRequestSummary={studentPeerRequestSummaryById.get(studentId) ?? null}
                 isPeerRequested={selectedRequestedPeerIdSet.has(studentId)}
                 {onOpenPeerRequestDetails}
+                {onOpenStudentDetail}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}
                 {onKeyboardCancel}

@@ -41,7 +41,8 @@
     clickedStudentId = null,
     studentPeerRequestSummaryById = new Map<string, StudentPeerRequestWorkspaceSummary>(),
     selectedRequestedPeerIdSet = new Set<string>(),
-    onOpenPeerRequestDetails
+    onOpenPeerRequestDetails,
+    onOpenStudentDetail
   } = $props<{
     group: Group;
     studentsById: Record<string, Student>;
@@ -88,6 +89,7 @@
     studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
     selectedRequestedPeerIdSet?: Set<string>;
     onOpenPeerRequestDetails?: (studentId: string) => void;
+    onOpenStudentDetail?: (studentId: string) => void;
   }>();
 
   const capacityStatus = $derived(getCapacityStatus(group));
@@ -420,6 +422,7 @@
                 peerRequestSummary={studentPeerRequestSummaryById.get(memberId) ?? null}
                 isPeerRequested={selectedRequestedPeerIdSet.has(memberId)}
                 {onOpenPeerRequestDetails}
+                {onOpenStudentDetail}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}
                 {onKeyboardCancel}
@@ -441,7 +444,7 @@
         {/each}
       {/if}
       <div
-        style="width: var(--card-width, 112px);"
+        style="width: var(--card-width, 136px);"
         class="pointer-events-none mx-auto p-0.5 opacity-0 select-none"
         aria-hidden="true"
       >

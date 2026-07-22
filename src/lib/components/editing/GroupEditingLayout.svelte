@@ -57,6 +57,7 @@
     onRenameComplete,
     clickedStudentId = null,
     onOpenPeerRequestDetails,
+    onOpenStudentDetail,
     fillHeight = false
   } = $props<{
     groups?: Group[];
@@ -104,11 +105,14 @@
     /** ID of the click-selected student (for blue border highlight). */
     clickedStudentId?: string | null;
     onOpenPeerRequestDetails?: (studentId: string) => void;
+    onOpenStudentDetail?: (studentId: string) => void;
     /** When true, stretch the scroll container to fill parent height. */
     fillHeight?: boolean;
   }>();
 
-  const selectedRequestedPeerIdSet = $derived(new Set(selectedStudentRequestedPeerIds ?? []));
+  const selectedRequestedPeerIdSet = $derived(
+    new Set<string>(selectedStudentRequestedPeerIds ?? [])
+  );
 
   // Helper to get sibling group names for duplicate validation
   function getSiblingNames(groupId: string): string[] {
@@ -199,6 +203,7 @@
           {studentPeerRequestSummaryById}
           {selectedRequestedPeerIdSet}
           {onOpenPeerRequestDetails}
+          {onOpenStudentDetail}
         />
       {/each}
     </div>
@@ -240,6 +245,7 @@
         {studentPeerRequestSummaryById}
         {selectedRequestedPeerIdSet}
         {onOpenPeerRequestDetails}
+        {onOpenStudentDetail}
       />
     {/each}
   </div>

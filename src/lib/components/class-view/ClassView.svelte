@@ -75,6 +75,7 @@
     if (opening && studentSidebarOpen && (!isDesktop || !canCoexist())) {
       selectedStudentId = null;
       studentSidebarMode = 'view';
+      studentDetailPanelOpen = false;
     }
   }
 
@@ -207,6 +208,8 @@
   // Student detail sidebar
   let selectedStudentId = $state<string | null>(null);
   let studentSidebarMode = $state<'view' | 'edit' | 'create'>('view');
+  /** Explicit visibility keeps roster selection inline while canvas profile actions open the right panel. */
+  let studentDetailPanelOpen = $state(false);
   let showRemoveConfirm = $state(false);
   let deletingSessionId = $state<string | null>(null);
   let deletingSession = $derived(
@@ -247,7 +250,9 @@
   });
 
   let studentSidebarOpen = $derived(
-    (selectedStudent !== null && studentSidebarMode === 'edit') || studentSidebarMode === 'create'
+    studentDetailPanelOpen ||
+      (selectedStudent !== null && studentSidebarMode === 'edit') ||
+      studentSidebarMode === 'create'
   );
   let removeStudentIsInGroup = $derived.by(() => {
     if (!selectedStudentId || !view) return false;
@@ -472,6 +477,7 @@
 
   function handleToggleHistory() {
     selectedStudentId = null;
+    studentDetailPanelOpen = false;
     // When closing the history panel, return to current session
     if (historyPanelOpen && viewingSessionId) {
       vm.actions.selectSession(null);
@@ -481,6 +487,7 @@
 
   /** Roster click: toggle inline student detail in roster panel */
   function handleStudentClick(studentId: string) {
+    studentDetailPanelOpen = false;
     // Toggle: clicking the same student collapses the detail
     if (selectedStudentId === studentId) {
       selectedStudentId = null;
@@ -499,6 +506,24 @@
     }
     groupClickStudentId = studentId;
     vm.actions.selectStudentPeerRequests(studentId);
+  }
+
+  function handleOpenStudentDetailFromCard(studentId: string) {
+    selectedStudentId = studentId;
+    studentSidebarMode = 'view';
+    studentDetailPanelOpen = true;
+    groupClickStudentId = studentId;
+    vm.actions.selectStudentPeerRequests(studentId);
+
+    // On mobile or when space is constrained, show one side panel at a time.
+    if (rosterDrawerOpen && (!isDesktop || !canCoexist())) {
+      rosterDrawerOpen = false;
+      try {
+        localStorage.setItem(rosterStorageKey, 'false');
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   async function handleQuickEditPeerRequest(payload: { requestId: string; studentId: string }) {
@@ -523,6 +548,7 @@
   function handleCloseStudentDetail() {
     // When closing the edit/create sidebar, keep student selected in roster
     // but return to view mode (which shows inline detail, not sidebar)
+    studentDetailPanelOpen = false;
     studentSidebarMode = 'view';
     if (!selectedStudentId) {
       // Only clear if we were in create mode (no student to go back to)
@@ -534,6 +560,7 @@
     if (historyPanelOpen) vm.actions.toggleHistoryPanel();
     selectedStudentId = null;
     studentSidebarMode = 'create';
+    studentDetailPanelOpen = true;
     // On mobile or when gap too small, auto-close roster
     if (rosterDrawerOpen && (!isDesktop || !canCoexist())) {
       rosterDrawerOpen = false;
@@ -561,6 +588,7 @@
       if (result.success && result.studentId) {
         selectedStudentId = result.studentId;
         studentSidebarMode = 'view';
+        studentDetailPanelOpen = false;
         return true;
       }
       return result.success;
@@ -577,6 +605,7 @@
       }
       if (success) {
         studentSidebarMode = 'view';
+        studentDetailPanelOpen = false;
       }
       return success;
     }
@@ -584,6 +613,7 @@
 
   function handleEditStudent() {
     studentSidebarMode = 'edit';
+    studentDetailPanelOpen = true;
   }
 
   function handleCancelEditStudent() {
@@ -593,6 +623,7 @@
     } else {
       studentSidebarMode = 'view';
     }
+    studentDetailPanelOpen = false;
   }
 
   function handleRequestRemoveStudent() {
@@ -604,6 +635,7 @@
     await vm.actions.removeStudent(selectedStudentId);
     selectedStudentId = null;
     studentSidebarMode = 'view';
+    studentDetailPanelOpen = false;
     showRemoveConfirm = false;
   }
 
@@ -905,6 +937,7 @@
           onQuickEditPeerRequest={handleQuickEditPeerRequest}
           onClearPeerRequest={handleClearPeerRequest}
           onDeletePeerRequest={handleDeletePeerRequest}
+          onOpenStudentDetail={handleOpenStudentDetailFromCard}
           clickedStudentId={groupClickStudentId}
         />
 
@@ -1059,6 +1092,7 @@
         onToggleActive={selectedStudentId
           ? () => vm.actions.toggleStudentActive(selectedStudentId!)
           : undefined}
+        readOnly={isPublished || isViewingHistory}
       />
     </OverlaySheet>
   {/if}

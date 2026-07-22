@@ -86,6 +86,7 @@
     }) => Promise<void> | void;
     onClearPeerRequest?: (requestId: string) => Promise<void> | void;
     onDeletePeerRequest?: (requestId: string) => Promise<void> | void;
+    onOpenStudentDetail?: (studentId: string) => void;
 
     // Read-only mode (published session)
     readOnly?: boolean;
@@ -128,7 +129,8 @@
     onAddPeerRequest,
     onQuickEditPeerRequest,
     onClearPeerRequest,
-    onDeletePeerRequest
+    onDeletePeerRequest,
+    onOpenStudentDetail
   }: Props = $props();
 
   let peerRequestDetailsStudentId = $state<string | null>(null);
@@ -305,6 +307,7 @@
               {studentPeerRequestSummaryById}
               {selectedStudentRequestedPeerIds}
               onOpenPeerRequestDetails={handleOpenPeerRequestDetails}
+              {onOpenStudentDetail}
               compact
             />
           </div>
@@ -344,6 +347,7 @@
         {studentPeerRequestSummaryById}
         {selectedStudentRequestedPeerIds}
         onOpenPeerRequestDetails={handleOpenPeerRequestDetails}
+        {onOpenStudentDetail}
         {clickedStudentId}
       />
     </div>
