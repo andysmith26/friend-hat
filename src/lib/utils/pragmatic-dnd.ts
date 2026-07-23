@@ -16,18 +16,11 @@ import {
   extractClosestEdge,
   type Edge
 } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
-import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 
 const isBrowser = typeof window !== 'undefined';
 
 /** CSS custom properties to copy onto drag preview clones */
-const CARD_SIZE_VARS = [
-  '--card-width',
-  '--card-font-size',
-  '--card-padding',
-  '--grip-size',
-  '--dot-size'
-];
+const CARD_SIZE_VARS = ['--card-width', '--card-font-size', '--card-padding', '--grip-size'];
 
 /** Copy card size CSS variables from a source element onto a clone for drag preview */
 function copyCardSizeVars(source: HTMLElement, clone: HTMLElement) {
@@ -316,14 +309,6 @@ export function sortableItem(element: HTMLElement, config: SortableItemConfig) {
           clone.style.width = `${element.offsetWidth}px`;
           copyCardSizeVars(element, clone);
 
-          const dot = clone.querySelector('span.rounded-full');
-          if (dot) {
-            const isHollow = dot.classList.contains('bg-transparent');
-            if (!isHollow) {
-              dot.className = 'absolute right-0.5 top-0.5 rounded-full bg-gray-400';
-            }
-          }
-
           container.appendChild(clone);
         }
       });
@@ -431,7 +416,6 @@ const GROUP_SIZE_VARS = [
   '--card-font-size',
   '--card-padding',
   '--grip-size',
-  '--dot-size',
   '--card-gap'
 ];
 

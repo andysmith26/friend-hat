@@ -8,7 +8,6 @@
    */
 
   import type { Group } from '$lib/domain';
-  import { uiSettings, type PeerRequestIndicatorMode } from '$lib/stores/uiSettings.svelte';
   import { resolveGroupColorHex } from '$lib/utils/groupColors';
 
   interface Props {
@@ -79,28 +78,10 @@
   function formatMax(group: Group): string {
     return group.capacity != null ? `max: ${group.capacity}` : 'max: —';
   }
-
-  const peerRequestIndicatorOptions: Array<{
-    value: PeerRequestIndicatorMode;
-    label: string;
-    description: string;
-  }> = [
-    {
-      value: 'dot',
-      label: 'Dot',
-      description: 'Small status light in the card corner.'
-    },
-    {
-      value: 'count',
-      label: 'Count',
-      description: 'Show peer request progress as numbers.'
-    }
-  ];
 </script>
 
 <svelte:window onclick={handleClickOutside} onkeydown={handleKeydown} />
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   bind:this={popoverEl}
   class="absolute top-full right-0 z-30 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-xl"
@@ -182,34 +163,6 @@
         </button>
       </div>
     {/if}
-
-    <!-- Card Indicator Section -->
-    <div class="border-b border-gray-200 px-4 py-4">
-      <h4 class="mb-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
-        Card Indicators
-      </h4>
-
-      <fieldset>
-        <legend class="text-sm font-medium text-gray-900">Peer request indicator</legend>
-        <div class="mt-2 grid grid-cols-2 gap-2">
-          {#each peerRequestIndicatorOptions as option (option.value)}
-            <button
-              type="button"
-              onclick={() => uiSettings.setPeerRequestIndicatorMode(option.value)}
-              class={`rounded-lg border px-3 py-2 text-left transition-colors ${
-                uiSettings.peerRequestIndicatorMode === option.value
-                  ? 'border-teal-500 bg-teal-50 text-teal-900'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-              aria-pressed={uiSettings.peerRequestIndicatorMode === option.value}
-            >
-              <span class="block text-sm font-medium">{option.label}</span>
-              <span class="mt-1 block text-xs text-gray-500">{option.description}</span>
-            </button>
-          {/each}
-        </div>
-      </fieldset>
-    </div>
 
     <!-- Rotation Avoidance Section -->
     <div class="px-4 py-4">

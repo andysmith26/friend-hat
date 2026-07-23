@@ -12,7 +12,6 @@
 
 export type CardSize = 'sm' | 'md' | 'lg';
 export type GroupLayout = 'scroll' | 'wrap';
-export type PeerRequestIndicatorMode = 'dot' | 'count';
 
 /**
  * Store implementation that keeps each preference in a $state rune.
@@ -54,7 +53,6 @@ export class UiSettingsStore {
   highlightUnhappy = $state(false);
   cardSize = $state<CardSize>('md');
   groupLayout = $state<GroupLayout>('scroll');
-  peerRequestIndicatorMode = $state<PeerRequestIndicatorMode>('dot');
   skipDeleteGroupConfirm = $state(readSkipDeleteConfirm());
   useExperimentalFeatures = $state(readUseExperimentalFeatures());
 
@@ -88,10 +86,6 @@ export class UiSettingsStore {
     this.groupLayout = value;
   }
 
-  setPeerRequestIndicatorMode(value: PeerRequestIndicatorMode) {
-    this.peerRequestIndicatorMode = value;
-  }
-
   toggleGroupLayout() {
     this.groupLayout = this.groupLayout === 'scroll' ? 'wrap' : 'scroll';
   }
@@ -123,7 +117,6 @@ export class UiSettingsStore {
     this.highlightUnhappy = false;
     this.cardSize = 'md';
     this.groupLayout = 'scroll';
-    this.peerRequestIndicatorMode = 'dot';
     this.skipDeleteGroupConfirm = false;
     this.useExperimentalFeatures = false;
     try {

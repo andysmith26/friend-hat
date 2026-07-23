@@ -76,7 +76,9 @@ test.describe('Drag and Drop Workspace', () => {
     const activityName = `Canvas Student Details ${Date.now()}`;
     await createActivity(page, { activityName });
 
-    const profileAction = page.getByRole('button', { name: "View Alice Smith's details" });
+    const profileAction = page.getByRole('button', {
+      name: "View Alice Smith's details. No peer requests."
+    });
     await expect(profileAction).toBeVisible();
     await profileAction.click();
 
@@ -85,13 +87,6 @@ test.describe('Drag and Drop Workspace', () => {
     await expect(page.getByRole('heading', { name: 'Edit Student' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Close panel' }).click();
-
-    const aliceCard = page.locator('[data-student-id]').filter({ hasText: 'Alice S.' });
-    await aliceCard.getByRole('button', { name: /Open peer requests/ }).click();
-
-    await expect(page.getByLabel('Student detail panel')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Edit Student' })).toBeVisible();
-    await expect(page.getByText('Peer requests', { exact: true })).toBeVisible();
   });
 
   test('student edit sidebar saves group and peer preference controls', async ({ page }) => {

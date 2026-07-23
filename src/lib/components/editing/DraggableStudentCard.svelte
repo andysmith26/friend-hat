@@ -100,70 +100,22 @@
         ? 'Not a preferred group'
         : 'No preferences'
   );
-  const peerRequestCount = $derived(peerRequestSummary?.requestCount ?? 0);
-  const confirmedPeerRequestCount = $derived(peerRequestSummary?.confirmedRequestCount ?? 0);
+  const finalizedPeerRequestCount = $derived(peerRequestSummary?.confirmedRequestCount ?? 0);
   const satisfiedPeerRequestCount = $derived(
-    confirmedPeerRequestCount > 0
-      ? Math.min(peerRequestSummary?.satisfiedCount ?? 0, confirmedPeerRequestCount)
+    finalizedPeerRequestCount > 0
+      ? Math.min(peerRequestSummary?.satisfiedCount ?? 0, finalizedPeerRequestCount)
       : 0
   );
-  const peerRequestBadgeText = $derived(
-    confirmedPeerRequestCount > 0
-      ? `${satisfiedPeerRequestCount}/${confirmedPeerRequestCount}`
-      : 'na'
+  const peerRequestProgressDescription = $derived(
+    finalizedPeerRequestCount === 0
+      ? 'No peer requests.'
+      : `${satisfiedPeerRequestCount} of ${finalizedPeerRequestCount} peer requests met.`
   );
-  const peerRequestBadgeAriaLabel = $derived.by(() => {
-    if (!peerRequestSummary || peerRequestSummary.requestCount === 0) {
-      return 'No peer requests';
-    }
-    if (confirmedPeerRequestCount === 0) {
-      return `${peerRequestCount} peer requests, no confirmed requests`;
-    }
-    return `${satisfiedPeerRequestCount} of ${confirmedPeerRequestCount} confirmed peer requests satisfied`;
-  });
-  const peerRequestToneClass = $derived.by(() => {
-    if (!peerRequestSummary || peerRequestSummary.requestCount === 0)
-      return 'bg-gray-200 text-gray-500';
-    if (confirmedPeerRequestCount === 0) return 'bg-gray-200 text-gray-500';
-    if (satisfiedPeerRequestCount === confirmedPeerRequestCount) return 'bg-emerald-700 text-white';
-    if (satisfiedPeerRequestCount > 0) return 'bg-emerald-100 text-emerald-800';
-    return 'bg-rose-100 text-rose-700';
-  });
-  const peerRequestDotToneClass = $derived.by(() => {
-    if (!peerRequestSummary || peerRequestSummary.requestCount === 0) return 'bg-slate-300';
-    if (confirmedPeerRequestCount === 0) return 'bg-slate-300';
-    if (satisfiedPeerRequestCount === confirmedPeerRequestCount) return 'bg-emerald-600';
-    if (satisfiedPeerRequestCount > 0) return 'bg-amber-400';
-    return 'bg-rose-500';
-  });
-  const peerRequestIndicatorMode = $derived(uiSettings.peerRequestIndicatorMode);
   const hasPeerRequestDetails = $derived(Boolean(onOpenStudentDetail));
-  const peerRequestInteractiveClass = $derived.by(() => {
-    return hasPeerRequestDetails
-      ? 'cursor-pointer transition-[filter,box-shadow,transform] duration-150 ease-out hover:brightness-95 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 focus-visible:outline-none'
-      : 'pointer-events-none';
-  });
-  const peerRequestBadgeClass = $derived.by(() => {
-    const interactionClass = hasPeerRequestDetails
-      ? peerRequestInteractiveClass
-      : 'pointer-events-none';
-
-    return `z-10 inline-flex min-h-5 min-w-[2.6rem] shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none shadow-sm ring-1 ring-black/5 tabular-nums ${peerRequestToneClass} ${interactionClass}`;
-  });
-  const peerRequestDotButtonClass = $derived.by(() => {
-    const interactionClass = hasPeerRequestDetails
-      ? peerRequestInteractiveClass
-      : 'pointer-events-none';
-
-    return `relative z-10 h-6 w-6 shrink-0 rounded-full ${interactionClass}`;
-  });
-  const peerRequestDotClass = $derived.by(() => {
-    const sizeClass = hasPeerRequestDetails ? 'h-3 w-3' : 'h-2 w-2';
-    const ringClass = hasPeerRequestDetails
-      ? 'ring-2 ring-white shadow-[0_1px_2px_rgba(15,23,42,0.18)]'
-      : 'ring-1 ring-white shadow-[0_0.5px_1px_rgba(15,23,42,0.12)]';
-
-    return `absolute top-1/2 left-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full transition-[width,height,box-shadow] duration-150 ease-out ${sizeClass} ${ringClass}`;
+  const profileButtonToneClass = $derived.by(() => {
+    if (finalizedPeerRequestCount === 0) return 'bg-slate-400';
+    if (satisfiedPeerRequestCount > 0) return 'bg-emerald-600';
+    return 'bg-rose-500';
   });
   const selectedCardClass = $derived.by(() => {
     if (readonly || !isSelected) return '';
@@ -220,11 +172,6 @@
     }
     if (isPickedUp) return;
     onStudentClick?.(student.id);
-  }
-
-  function handleOpenPeerRequests(event: MouseEvent) {
-    event.stopPropagation();
-    onOpenStudentDetail?.(student.id);
   }
 
   function handleOpenStudentDetail(event: MouseEvent | KeyboardEvent) {
@@ -317,63 +264,32 @@
     : handleClick}
 >
   <div class="flex min-w-0 flex-1 items-center gap-1">
-    {#if peerRequestCount === 0 || peerRequestIndicatorMode !== 'count'}
+    <span class="group/profile relative shrink-0">
       <button
         type="button"
-        class={peerRequestDotButtonClass}
-        aria-label={hasPeerRequestDetails
-          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
-          : peerRequestBadgeAriaLabel}
+        class={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-white shadow-sm transition-[filter,box-shadow,transform] duration-150 ease-out ${profileButtonToneClass} ${
+          hasPeerRequestDetails
+            ? 'cursor-pointer hover:brightness-95 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 focus-visible:outline-none'
+            : 'cursor-default opacity-70'
+        }`}
+        aria-label={`View ${fullName}'s details. ${peerRequestProgressDescription}`}
         disabled={!hasPeerRequestDetails}
-        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
-        onkeydown={(event) => {
-          if (!hasPeerRequestDetails) return;
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleOpenPeerRequests(event as unknown as MouseEvent);
-          }
-        }}
+        onpointerdown={(event) => event.stopPropagation()}
+        onclick={hasPeerRequestDetails ? handleOpenStudentDetail : undefined}
+        onkeydown={(event) => event.stopPropagation()}
       >
-        <span class={peerRequestDotClass}>
-          <span class={`block h-full w-full rounded-full ${peerRequestDotToneClass}`}></span>
-        </span>
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+        </svg>
       </button>
-    {:else}
-      <button
-        type="button"
-        class={peerRequestBadgeClass}
-        aria-label={hasPeerRequestDetails
-          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
-          : peerRequestBadgeAriaLabel}
-        disabled={!hasPeerRequestDetails}
-        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
-        onkeydown={(event) => {
-          if (!hasPeerRequestDetails) return;
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleOpenPeerRequests(event as unknown as MouseEvent);
-          }
-        }}
+      <span
+        role="tooltip"
+        class="pointer-events-none invisible absolute bottom-full left-0 z-30 mb-1 w-max max-w-48 rounded bg-gray-900 px-2 py-1 text-[11px] leading-tight font-medium text-white opacity-0 shadow transition-opacity group-focus-within/profile:visible group-focus-within/profile:opacity-100 group-hover/profile:visible group-hover/profile:opacity-100"
       >
-        <span class="inline-flex items-center justify-center gap-1 whitespace-nowrap">
-          <span>{peerRequestBadgeText}</span>
-          <span
-            aria-hidden="true"
-            class={`inline-flex h-3 w-3 items-center justify-center transition-opacity duration-150 ease-out ${hasPeerRequestDetails ? 'opacity-100' : 'opacity-0'}`}
-          >
-            <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 12 12" fill="none">
-              <path
-                d="M4 2.5 7.5 6 4 9.5"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.75"
-              />
-            </svg>
-          </span>
-        </span>
-      </button>
-    {/if}
+        {peerRequestProgressDescription}
+      </span>
+    </span>
     <div
       style="font-size: var(--card-font-size, 15px);"
       class={`relative min-w-0 flex-1 overflow-visible rounded-md bg-transparent px-1 py-0 font-semibold ${textTone}`}
@@ -388,38 +304,6 @@
         </span>
       {/if}
     </div>
-    {#if onOpenStudentDetail}
-      <span
-        role="button"
-        tabindex="0"
-        class="flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 focus-visible:outline-none"
-        aria-label={`View ${fullName}'s details`}
-        title="View details"
-        onpointerdown={(event) => event.stopPropagation()}
-        onclick={handleOpenStudentDetail}
-        onkeydown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleOpenStudentDetail(event);
-          }
-        }}
-      >
-        <svg
-          class="h-4 w-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="1.75"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M15.75 9.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.933 17.933 0 0 1 12 21.75a17.933 17.933 0 0 1-7.5-1.632Z"
-          />
-        </svg>
-      </span>
-    {/if}
   </div>
 
   <div class="flex h-5 min-w-0 items-center gap-1 px-1" aria-label={tagSummary || undefined}>

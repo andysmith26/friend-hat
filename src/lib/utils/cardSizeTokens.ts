@@ -7,7 +7,6 @@ interface SizeTokens {
   '--card-padding': string;
   '--card-gap': string;
   '--grip-size': string;
-  '--dot-size': string;
   '--group-col-width': string;
   '--sidebar-width': string;
 }
@@ -20,7 +19,6 @@ const TOKEN_MAP: Record<CardSize, SizeTokens> = {
     '--card-padding': '2px',
     '--card-gap': '4px',
     '--grip-size': '10px',
-    '--dot-size': '6px',
     '--group-col-width': '160px',
     '--sidebar-width': '172px'
   },
@@ -31,7 +29,6 @@ const TOKEN_MAP: Record<CardSize, SizeTokens> = {
     '--card-padding': '4px',
     '--card-gap': '4px',
     '--grip-size': '12px',
-    '--dot-size': '7px',
     '--group-col-width': '188px',
     '--sidebar-width': '200px'
   },
@@ -42,7 +39,6 @@ const TOKEN_MAP: Record<CardSize, SizeTokens> = {
     '--card-padding': '6px',
     '--card-gap': '6px',
     '--grip-size': '14px',
-    '--dot-size': '8px',
     '--group-col-width': '224px',
     '--sidebar-width': '236px'
   }
