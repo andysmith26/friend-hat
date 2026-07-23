@@ -494,7 +494,7 @@
       return;
     }
     selectedStudentId = studentId;
-    studentSidebarMode = 'view';
+    studentSidebarMode = 'edit';
   }
 
   /** Group card click: toggle preference highlighting only (no sidebar) */
@@ -510,7 +510,7 @@
 
   function handleOpenStudentDetailFromCard(studentId: string) {
     selectedStudentId = studentId;
-    studentSidebarMode = 'view';
+    studentSidebarMode = 'edit';
     studentDetailPanelOpen = true;
     groupClickStudentId = studentId;
     vm.actions.selectStudentPeerRequests(studentId);

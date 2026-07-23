@@ -24,6 +24,7 @@
   import CollapsibleSection from '$lib/components/setup/CollapsibleSection.svelte';
   import Skeleton from '$lib/components/ui/Skeleton.svelte';
   import { Button, InlineError } from '$lib/components/ui';
+  import { uiSettings } from '$lib/stores/uiSettings.svelte';
 
   interface RecentGroupmate {
     studentName: string;
@@ -131,6 +132,7 @@
   let firstNameInputEl = $state<HTMLInputElement | null>(null);
 
   const isEditing = $derived(mode === 'edit' || mode === 'create');
+  const showExperimentalFields = $derived(uiSettings.useExperimentalFeatures);
 
   const fullName = $derived(student ? getStudentLongName(student) || student.id : '');
 
@@ -526,7 +528,7 @@
           <p class="mt-1 text-[11px] text-gray-500">Editable source-data identifier.</p>
         </div>
 
-        {#if student}
+        {#if student && showExperimentalFields}
           <div>
             <label class="block text-xs font-medium text-gray-700">Groupwheel ID</label>
             <div
@@ -538,34 +540,36 @@
           </div>
         {/if}
 
-        <div>
-          <label for="student-grade" class="block text-xs font-medium text-gray-700">
-            Grade Level
-          </label>
-          <input
-            id="student-grade"
-            type="text"
-            bind:value={formGradeLevel}
-            placeholder="e.g. 5, 10th, Senior"
-            class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
-          />
-        </div>
+        {#if showExperimentalFields}
+          <div>
+            <label for="student-grade" class="block text-xs font-medium text-gray-700">
+              Grade Level
+            </label>
+            <input
+              id="student-grade"
+              type="text"
+              bind:value={formGradeLevel}
+              placeholder="e.g. 5, 10th, Senior"
+              class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+            />
+          </div>
 
-        <div>
-          <label for="student-gender" class="block text-xs font-medium text-gray-700">
-            Gender
-          </label>
-          <select
-            id="student-gender"
-            bind:value={formGender}
-            class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
-          >
-            <option value="">Not specified</option>
-            <option value="F">Female</option>
-            <option value="M">Male</option>
-            <option value="X">Non-binary</option>
-          </select>
-        </div>
+          <div>
+            <label for="student-gender" class="block text-xs font-medium text-gray-700">
+              Gender
+            </label>
+            <select
+              id="student-gender"
+              bind:value={formGender}
+              class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+            >
+              <option value="">Not specified</option>
+              <option value="F">Female</option>
+              <option value="M">Male</option>
+              <option value="X">Non-binary</option>
+            </select>
+          </div>
+        {/if}
 
         <div>
           <label for="student-tags" class="block text-xs font-medium text-gray-700">Tags</label>
@@ -617,7 +621,7 @@
           {/if}
         </div>
 
-        {#if mode === 'edit' && student}
+        {#if mode === 'edit' && student && showExperimentalFields}
           <fieldset class="space-y-3 border-t border-gray-200 pt-4">
             <legend class="text-xs font-semibold tracking-wide text-gray-700 uppercase">
               Group preferences

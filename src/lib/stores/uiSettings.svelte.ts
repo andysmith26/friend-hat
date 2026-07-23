@@ -22,6 +22,7 @@ export type PeerRequestIndicatorMode = 'dot' | 'count';
  */
 const SKIP_DELETE_CONFIRM_KEY = 'groupwheel:skipDeleteGroupConfirm';
 const SKIP_DELETE_CONFIRM_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const USE_EXPERIMENTAL_FEATURES_KEY = 'groupwheel:useExperimentalFeatures';
 
 function readSkipDeleteConfirm(): boolean {
   if (typeof localStorage === 'undefined') return false;
@@ -39,6 +40,15 @@ function readSkipDeleteConfirm(): boolean {
   }
 }
 
+function readUseExperimentalFeatures(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(USE_EXPERIMENTAL_FEATURES_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export class UiSettingsStore {
   showGender = $state(true);
   highlightUnhappy = $state(false);
@@ -46,6 +56,7 @@ export class UiSettingsStore {
   groupLayout = $state<GroupLayout>('scroll');
   peerRequestIndicatorMode = $state<PeerRequestIndicatorMode>('dot');
   skipDeleteGroupConfirm = $state(readSkipDeleteConfirm());
+  useExperimentalFeatures = $state(readUseExperimentalFeatures());
 
   setShowGender(value: boolean) {
     this.showGender = value;
@@ -98,6 +109,15 @@ export class UiSettingsStore {
     }
   }
 
+  setUseExperimentalFeatures(value: boolean) {
+    this.useExperimentalFeatures = value;
+    try {
+      localStorage.setItem(USE_EXPERIMENTAL_FEATURES_KEY, String(value));
+    } catch {
+      /* ignore */
+    }
+  }
+
   reset() {
     this.showGender = true;
     this.highlightUnhappy = false;
@@ -105,8 +125,10 @@ export class UiSettingsStore {
     this.groupLayout = 'scroll';
     this.peerRequestIndicatorMode = 'dot';
     this.skipDeleteGroupConfirm = false;
+    this.useExperimentalFeatures = false;
     try {
       localStorage.removeItem(SKIP_DELETE_CONFIRM_KEY);
+      localStorage.removeItem(USE_EXPERIMENTAL_FEATURES_KEY);
     } catch {
       /* ignore */
     }

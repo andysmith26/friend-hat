@@ -27,13 +27,13 @@ describe('UiSettingsStore', () => {
 
     expect(store.showGender).toBe(true);
     expect(store.highlightUnhappy).toBe(false);
-    expect(store.cardSize).toBe('sm');
+    expect(store.cardSize).toBe('md');
     expect(store.peerRequestIndicatorMode).toBe('dot');
   });
 
-  it('defaults cardSize to sm', () => {
+  it('defaults cardSize to md', () => {
     const store = new UiSettingsStore();
-    expect(store.cardSize).toBe('sm');
+    expect(store.cardSize).toBe('md');
   });
 
   it('sets card size', () => {
@@ -42,15 +42,15 @@ describe('UiSettingsStore', () => {
     expect(store.cardSize).toBe('lg');
   });
 
-  it('cycles card size sm -> md -> lg -> sm', () => {
+  it('cycles card size md -> lg -> sm -> md', () => {
     const store = new UiSettingsStore();
-    expect(store.cardSize).toBe('sm');
-    store.cycleCardSize();
     expect(store.cardSize).toBe('md');
     store.cycleCardSize();
     expect(store.cardSize).toBe('lg');
     store.cycleCardSize();
     expect(store.cardSize).toBe('sm');
+    store.cycleCardSize();
+    expect(store.cardSize).toBe('md');
   });
 
   it('defaults peer request indicator mode to dot', () => {
@@ -62,5 +62,13 @@ describe('UiSettingsStore', () => {
     const store = new UiSettingsStore();
     store.setPeerRequestIndicatorMode('count');
     expect(store.peerRequestIndicatorMode).toBe('count');
+  });
+
+  it('defaults experimental features to off and can enable them', () => {
+    const store = new UiSettingsStore();
+
+    expect(store.useExperimentalFeatures).toBe(false);
+    store.setUseExperimentalFeatures(true);
+    expect(store.useExperimentalFeatures).toBe(true);
   });
 });
