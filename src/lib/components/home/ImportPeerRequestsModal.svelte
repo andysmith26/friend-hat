@@ -11,7 +11,7 @@
     UnmatchedStudentIdRow
   } from '$lib/domain/import';
   import { reconcileRowsByStudentId } from '$lib/domain/import';
-  import { createImportColumnMappings } from '$lib/services/importFieldMatching';
+  import { createPeerRequestColumnMappings } from '$lib/services/importFieldMatching';
   import SheetPreview from '$lib/components/import/SheetPreview.svelte';
   import PeerRequestMatchingReview from '$lib/components/import/PeerRequestMatchingReview.svelte';
   import { Button, InlineError } from '$lib/components/ui';
@@ -49,6 +49,15 @@
   type ReviewedUnmatchedRow = UnmatchedStudentIdRow & {
     peerRequestTexts: string[];
   };
+
+  const peerRequestFields: MappedField[] = [
+    'studentId',
+    'peerRequest1',
+    'peerRequest2',
+    'peerRequest3',
+    'peerRequest4',
+    'peerRequest5'
+  ];
 
   let { activityName, programId, students, onClose, onComplete }: Props = $props();
 
@@ -95,7 +104,7 @@
   }
 
   function initializeMappings(data: RawSheetData): void {
-    columnMappings = createImportColumnMappings(data);
+    columnMappings = createPeerRequestColumnMappings(data);
   }
 
   function handleModeSwitch(mode: 'paste' | 'file'): void {
@@ -482,6 +491,8 @@
               <SheetPreview
                 data={rawData}
                 mappings={columnMappings}
+                allowedFields={peerRequestFields}
+                uniformColumnWidth
                 onMappingChange={handleMappingChange}
               />
             </div>
@@ -509,6 +520,8 @@
               <SheetPreview
                 data={rawData}
                 mappings={columnMappings}
+                allowedFields={peerRequestFields}
+                uniformColumnWidth
                 onMappingChange={handleMappingChange}
               />
             </div>

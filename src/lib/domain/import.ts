@@ -207,6 +207,13 @@ export interface ValidStudentIdReference {
   sourceStudentId?: string;
 }
 
+function normalizeStudentIdForMatching(studentId: string): string {
+  return studentId
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
 // =============================================================================
 // Validation Functions
 // =============================================================================
@@ -278,21 +285,41 @@ export function reconcileRowsByStudentId(
   }
 
   const validIdsByLowercase = new Map<string, string>();
+  const validIdsByNormalizedFormat = new Map<string, string | null>();
+
+  const addNormalizedId = (sourceStudentId: string, studentId: string): void => {
+    const normalizedId = normalizeStudentIdForMatching(sourceStudentId);
+    if (!normalizedId) return;
+
+    if (!validIdsByNormalizedFormat.has(normalizedId)) {
+      validIdsByNormalizedFormat.set(normalizedId, studentId);
+      return;
+    }
+
+    const existingStudentId = validIdsByNormalizedFormat.get(normalizedId);
+    if (existingStudentId !== studentId) {
+      validIdsByNormalizedFormat.set(normalizedId, null);
+    }
+  };
 
   for (const validStudent of validStudentIds) {
     if (typeof validStudent === 'string') {
-      validIdsByLowercase.set(validStudent.trim().toLowerCase(), validStudent);
+      const normalizedStudentId = validStudent.trim().toLowerCase();
+      validIdsByLowercase.set(normalizedStudentId, validStudent);
+      addNormalizedId(validStudent, validStudent);
       continue;
     }
 
     const normalizedStudentId = validStudent.studentId.trim().toLowerCase();
     if (normalizedStudentId) {
       validIdsByLowercase.set(normalizedStudentId, validStudent.studentId);
+      addNormalizedId(validStudent.studentId, validStudent.studentId);
     }
 
     const normalizedSourceStudentId = validStudent.sourceStudentId?.trim().toLowerCase();
     if (normalizedSourceStudentId) {
       validIdsByLowercase.set(normalizedSourceStudentId, validStudent.studentId);
+      addNormalizedId(validStudent.sourceStudentId ?? '', validStudent.studentId);
     }
   }
 
@@ -310,7 +337,9 @@ export function reconcileRowsByStudentId(
       continue;
     }
 
-    const matchedStudentId = validIdsByLowercase.get(sourceStudentId.toLowerCase());
+    const matchedStudentId =
+      validIdsByLowercase.get(sourceStudentId.toLowerCase()) ??
+      validIdsByNormalizedFormat.get(normalizeStudentIdForMatching(sourceStudentId));
     if (!matchedStudentId) {
       unmatched.push({
         rowIndex: row.rowIndex,

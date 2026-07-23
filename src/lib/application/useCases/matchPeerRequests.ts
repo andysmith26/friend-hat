@@ -46,6 +46,8 @@ interface ScoredCandidate {
 
 function normalizeName(value: string | undefined): string {
   return (value ?? '')
+    .normalize('NFKD')
+    .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9 ]+/g, ' ')
     .replace(/ +/g, ' ')
@@ -121,11 +123,13 @@ function buildPermutations(student: Student): string[] {
 
   if (firstName && lastName) {
     add(`${firstName} ${lastName}`);
+    add(`${lastName} ${firstName}`);
     add(`${firstName} ${lastName[0]}`);
     add(`${firstName[0]} ${lastName}`);
   }
   if (preferredName && lastName) {
     add(`${preferredName} ${lastName}`);
+    add(`${lastName} ${preferredName}`);
     add(`${preferredName} ${lastName[0]}`);
   }
   add(firstName);

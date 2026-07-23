@@ -226,6 +226,33 @@ describe('reconcileRowsByStudentId', () => {
     ]);
   });
 
+  it('matches harmless Student ID formatting differences when unambiguous', () => {
+    const result = reconcileRowsByStudentId(
+      {
+        headers: ['Student ID'],
+        rows: [{ rowIndex: 2, cells: ['STU 1'] }]
+      },
+      [{ columnIndex: 0, headerName: 'Student ID', mappedTo: 'studentId' }],
+      [{ studentId: 'internal-1', sourceStudentId: 'stu-1' }]
+    );
+
+    expect(result.matched).toEqual([{ rowIndex: 2, studentId: 'internal-1' }]);
+  });
+
+  it('does not use a relaxed Student ID match when it is ambiguous', () => {
+    const result = reconcileRowsByStudentId(
+      {
+        headers: ['Student ID'],
+        rows: [{ rowIndex: 2, cells: ['STU 1'] }]
+      },
+      [{ columnIndex: 0, headerName: 'Student ID', mappedTo: 'studentId' }],
+      ['stu-1', 'stu_1']
+    );
+
+    expect(result.matched).toEqual([]);
+    expect(result.unmatched).toHaveLength(1);
+  });
+
   it('returns unmatched rows with source context', () => {
     const result = reconcileRowsByStudentId(data, mappings, ['stu-1', 'stu-2']);
 

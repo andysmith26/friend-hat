@@ -156,6 +156,23 @@ describe('matchPeerRequests', () => {
     });
   });
 
+  it('matches reversed names and ignores diacritics', () => {
+    const request = createPeerRequestEntry({
+      id: 'request-reversed-name',
+      programId: 'program-1',
+      requesterStudentId: 'alice',
+      rank: 1,
+      rawText: 'Lopez, Cára'
+    });
+
+    const result = matchPeerRequests({ requests: [request], students });
+
+    expect(result.readyToConfirm[0].bestCandidate).toMatchObject({
+      studentId: 'cara',
+      baseScore: 1
+    });
+  });
+
   it('returns no candidates for empty normalized input and total misses', () => {
     const emptyRequest = createPeerRequestEntry({
       id: 'request-8',

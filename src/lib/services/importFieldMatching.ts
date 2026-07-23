@@ -9,10 +9,19 @@ import type { ColumnMapping, MappedField, RawSheetData } from '$lib/domain/impor
  */
 export function guessImportFieldMapping(header: string): MappedField | null {
   const normalized = header.toLowerCase().trim();
+  const normalizedWords = normalized.replace(/[^a-z0-9]+/g, ' ').trim();
+  const compactHeader = normalizedWords.replaceAll(' ', '');
 
   if (
-    normalized === 'student id' ||
-    normalized === 'studentid' ||
+    [
+      'studentid',
+      'studentnumber',
+      'studentno',
+      'studentnum',
+      'pupilid',
+      'sisid',
+      'schoolid'
+    ].includes(compactHeader) ||
     normalized === 'id' ||
     normalized === 'email'
   ) {
@@ -67,8 +76,13 @@ export function guessImportFieldMapping(header: string): MappedField | null {
   if (
     normalized.includes('peer request') ||
     normalized.includes('partner request') ||
+    normalized.includes('requested peer') ||
+    normalized.includes('requested partner') ||
+    normalized.includes('preferred peer') ||
+    normalized.includes('preferred partner') ||
     normalized.includes('work with') ||
-    normalized.includes('want to work with')
+    normalized.includes('want to work with') ||
+    /\b(peer|partner|teammate|groupmate)s?\b/.test(normalizedWords)
   ) {
     return `peerRequest${getRank(normalized)}` as MappedField;
   }
@@ -92,6 +106,26 @@ export function createImportColumnMappings(data: RawSheetData): ColumnMapping[] 
     headerName,
     mappedTo: guessImportFieldMapping(headerName)
   }));
+}
+
+/**
+ * Create mappings for the existing-activity peer request importer.
+ *
+ * This importer accepts only source Student IDs and ranked peer requests.
+ * Group-choice headers are treated as peer request ranks because they are a
+ * common label for the same source data in classroom spreadsheets.
+ */
+export function createPeerRequestColumnMappings(data: RawSheetData): ColumnMapping[] {
+  return data.headers.map((headerName, columnIndex) => {
+    const suggestedField = guessImportFieldMapping(headerName);
+    const mappedTo = suggestedField?.startsWith('choice')
+      ? (`peerRequest${suggestedField.slice('choice'.length)}` as MappedField)
+      : suggestedField === 'studentId' || suggestedField?.startsWith('peerRequest')
+        ? suggestedField
+        : 'ignore';
+
+    return { columnIndex, headerName, mappedTo };
+  });
 }
 
 function getRank(header: string): number {
