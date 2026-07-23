@@ -485,16 +485,11 @@
     vm.actions.toggleHistoryPanel();
   }
 
-  /** Roster click: toggle inline student detail in roster panel */
+  /** Roster click: open the selected student's edit sidebar. */
   function handleStudentClick(studentId: string) {
-    studentDetailPanelOpen = false;
-    // Toggle: clicking the same student collapses the detail
-    if (selectedStudentId === studentId) {
-      selectedStudentId = null;
-      return;
-    }
     selectedStudentId = studentId;
     studentSidebarMode = 'edit';
+    studentDetailPanelOpen = true;
   }
 
   /** Group card click: toggle preference highlighting only (no sidebar) */
@@ -933,10 +928,6 @@
           selectedStudentPreferences={activeStudentLikeGroupIds}
           studentPeerRequestSummaryById={peerRequestSummaryByStudentId}
           {selectedStudentRequestedPeerIds}
-          onAddPeerRequest={handleCreatePeerRequest}
-          onQuickEditPeerRequest={handleQuickEditPeerRequest}
-          onClearPeerRequest={handleClearPeerRequest}
-          onDeletePeerRequest={handleDeletePeerRequest}
           onOpenStudentDetail={handleOpenStudentDetailFromCard}
           clickedStudentId={groupClickStudentId}
         />
@@ -1055,11 +1046,6 @@
         onStudentClick={handleStudentClick}
         {selectedStudentId}
         inactiveStudentIds={vm.state.inactiveStudentIds}
-        onToggleActive={(studentId) => vm.actions.toggleStudentActive(studentId)}
-        {selectedStudentPreferences}
-        {groupNameMap}
-        {selectedStudentRecentGroupmates}
-        onEditStudent={handleEditStudent}
       />
     </OverlaySheet>
 

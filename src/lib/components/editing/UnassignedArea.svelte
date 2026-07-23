@@ -31,7 +31,6 @@
     clickedStudentId = null,
     studentPeerRequestSummaryById = new Map<string, StudentPeerRequestWorkspaceSummary>(),
     selectedStudentRequestedPeerIds = null,
-    onOpenPeerRequestDetails,
     onOpenStudentDetail,
     onAlphabetize,
     vertical = false,
@@ -62,7 +61,6 @@
     clickedStudentId?: string | null;
     studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
     selectedStudentRequestedPeerIds?: string[] | null;
-    onOpenPeerRequestDetails?: (studentId: string) => void;
     onOpenStudentDetail?: (studentId: string) => void;
     onAlphabetize?: () => void;
     vertical?: boolean;
@@ -333,7 +331,6 @@
                 isSelected={clickedStudentId === studentId}
                 peerRequestSummary={studentPeerRequestSummaryById.get(studentId) ?? null}
                 isPeerRequested={selectedRequestedPeerIdSet.has(studentId)}
-                {onOpenPeerRequestDetails}
                 {onOpenStudentDetail}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}
@@ -377,7 +374,6 @@
                 isSelected={clickedStudentId === studentId}
                 peerRequestSummary={studentPeerRequestSummaryById.get(studentId) ?? null}
                 isPeerRequested={selectedRequestedPeerIdSet.has(studentId)}
-                {onOpenPeerRequestDetails}
                 {onOpenStudentDetail}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}

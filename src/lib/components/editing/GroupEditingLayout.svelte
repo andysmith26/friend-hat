@@ -56,7 +56,6 @@
     renamingGroupId = null,
     onRenameComplete,
     clickedStudentId = null,
-    onOpenPeerRequestDetails,
     onOpenStudentDetail,
     fillHeight = false
   } = $props<{
@@ -104,7 +103,6 @@
     onRenameComplete?: () => void;
     /** ID of the click-selected student (for blue border highlight). */
     clickedStudentId?: string | null;
-    onOpenPeerRequestDetails?: (studentId: string) => void;
     onOpenStudentDetail?: (studentId: string) => void;
     /** When true, stretch the scroll container to fill parent height. */
     fillHeight?: boolean;
@@ -202,7 +200,6 @@
           {clickedStudentId}
           {studentPeerRequestSummaryById}
           {selectedRequestedPeerIdSet}
-          {onOpenPeerRequestDetails}
           {onOpenStudentDetail}
         />
       {/each}
@@ -244,7 +241,6 @@
         {clickedStudentId}
         {studentPeerRequestSummaryById}
         {selectedRequestedPeerIdSet}
-        {onOpenPeerRequestDetails}
         {onOpenStudentDetail}
       />
     {/each}

@@ -19,7 +19,9 @@
     }) => Promise<void> | void;
     onClearPeerRequest?: (requestId: string) => Promise<void> | void;
     onDeletePeerRequest?: (requestId: string) => Promise<void> | void;
-    onClose: () => void;
+    /** Render as sidebar content instead of a floating dialog. */
+    embedded?: boolean;
+    onClose?: () => void;
   }
 
   let {
@@ -30,6 +32,7 @@
     onQuickEditPeerRequest,
     onClearPeerRequest,
     onDeletePeerRequest,
+    embedded = false,
     onClose
   }: Props = $props();
 
@@ -59,14 +62,14 @@
 
   function handleClickOutside(event: MouseEvent) {
     if (ready && panelEl && !panelEl.contains(event.target as Node)) {
-      onClose();
+      onClose?.();
     }
   }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.stopPropagation();
-      onClose();
+      onClose?.();
     }
   }
 
@@ -147,39 +150,52 @@
   }
 </script>
 
-<svelte:window onclick={handleClickOutside} onkeydown={handleKeydown} />
+<svelte:window
+  onclick={embedded ? undefined : handleClickOutside}
+  onkeydown={embedded ? undefined : handleKeydown}
+/>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   bind:this={panelEl}
-  class="absolute right-4 bottom-4 left-4 z-20 rounded-2xl border border-gray-200 bg-white shadow-xl md:left-auto md:w-[30rem]"
-  role="dialog"
-  aria-label="Peer request details"
+  class={embedded
+    ? 'space-y-3 border-t border-gray-200 pt-4'
+    : 'absolute right-4 bottom-4 left-4 z-20 rounded-2xl border border-gray-200 bg-white shadow-xl md:left-auto md:w-[30rem]'}
+  role={embedded ? undefined : 'dialog'}
+  aria-label={embedded ? undefined : 'Peer request details'}
   onclick={(event) => event.stopPropagation()}
 >
-  <div class="flex items-start justify-between gap-3 border-b border-gray-200 px-4 py-3">
+  {#if embedded}
     <div>
-      <h3 class="text-sm font-semibold text-gray-900">Peer requests</h3>
-      <p class="text-sm text-gray-600">{getStudentDisplayName(student)}</p>
-      <p class="mt-1 text-xs text-gray-500">Review imported requests and adjust assignments.</p>
+      <h3 class="text-xs font-semibold tracking-wide text-gray-700 uppercase">Peer requests</h3>
+      <p class="mt-1 text-[11px] text-gray-500">Review imported requests and adjust assignments.</p>
     </div>
-    <button
-      type="button"
-      onclick={onClose}
-      class="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-      aria-label="Close peer request details"
-    >
-      <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path
-          fill-rule="evenodd"
-          d="M4.22 4.22a.75.75 0 0 1 1.06 0L10 8.94l4.72-4.72a.75.75 0 1 1 1.06 1.06L11.06 10l4.72 4.72a.75.75 0 1 1-1.06 1.06L10 11.06l-4.72 4.72a.75.75 0 1 1-1.06-1.06L8.94 10 4.22 5.28a.75.75 0 0 1 0-1.06Z"
-          clip-rule="evenodd"
-        />
-      </svg>
-    </button>
-  </div>
+  {:else}
+    <div class="flex items-start justify-between gap-3 border-b border-gray-200 px-4 py-3">
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">Peer requests</h3>
+        <p class="text-sm text-gray-600">{getStudentDisplayName(student)}</p>
+        <p class="mt-1 text-xs text-gray-500">Review imported requests and adjust assignments.</p>
+      </div>
+      <button
+        type="button"
+        onclick={onClose}
+        class="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+        aria-label="Close peer request details"
+      >
+        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path
+            fill-rule="evenodd"
+            d="M4.22 4.22a.75.75 0 0 1 1.06 0L10 8.94l4.72-4.72a.75.75 0 1 1 1.06 1.06L11.06 10l4.72 4.72a.75.75 0 1 1-1.06 1.06L10 11.06l-4.72 4.72a.75.75 0 1 1-1.06-1.06L8.94 10 4.22 5.28a.75.75 0 0 1 0-1.06Z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </button>
+    </div>
+  {/if}
 
-  <div class="max-h-[min(60vh,32rem)] space-y-3 overflow-y-auto px-4 py-4">
+  <div
+    class={embedded ? 'space-y-3' : 'max-h-[min(60vh,32rem)] space-y-3 overflow-y-auto px-4 py-4'}
+  >
     <section class="rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-3">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
         <label class="min-w-0 flex-1">

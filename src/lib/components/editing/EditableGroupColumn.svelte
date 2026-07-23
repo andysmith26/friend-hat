@@ -41,7 +41,6 @@
     clickedStudentId = null,
     studentPeerRequestSummaryById = new Map<string, StudentPeerRequestWorkspaceSummary>(),
     selectedRequestedPeerIdSet = new Set<string>(),
-    onOpenPeerRequestDetails,
     onOpenStudentDetail
   } = $props<{
     group: Group;
@@ -88,7 +87,6 @@
     clickedStudentId?: string | null;
     studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
     selectedRequestedPeerIdSet?: Set<string>;
-    onOpenPeerRequestDetails?: (studentId: string) => void;
     onOpenStudentDetail?: (studentId: string) => void;
   }>();
 
@@ -421,7 +419,6 @@
                 isSelected={clickedStudentId === memberId}
                 peerRequestSummary={studentPeerRequestSummaryById.get(memberId) ?? null}
                 isPeerRequested={selectedRequestedPeerIdSet.has(memberId)}
-                {onOpenPeerRequestDetails}
                 {onOpenStudentDetail}
                 {onKeyboardPickUp}
                 {onKeyboardDrop}

@@ -72,7 +72,7 @@ test.describe('Drag and Drop Workspace', () => {
     expect(await studentCards.count()).toBe(10);
   });
 
-  test('opens student details from a canvas card profile action', async ({ page }) => {
+  test('opens the edit sidebar from canvas card actions', async ({ page }) => {
     const activityName = `Canvas Student Details ${Date.now()}`;
     await createActivity(page, { activityName });
 
@@ -82,10 +82,23 @@ test.describe('Drag and Drop Workspace', () => {
 
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByLabel('Student detail panel')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Alice Smith' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Edit Student' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Close panel' }).click();
+
+    const aliceCard = page.locator('[data-student-id]').filter({ hasText: 'Alice S.' });
+    await aliceCard.getByRole('button', { name: /Open peer requests/ }).click();
+
+    await expect(page.getByLabel('Student detail panel')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Edit Student' })).toBeVisible();
+    await expect(page.getByText('Peer requests', { exact: true })).toBeVisible();
   });
 
   test('student edit sidebar saves group and peer preference controls', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('groupwheel:useExperimentalFeatures', 'true');
+    });
+
     const activityName = `Sidebar Preferences ${Date.now()}`;
     await createActivity(page, { activityName });
 
@@ -95,7 +108,6 @@ test.describe('Drag and Drop Workspace', () => {
     }
 
     await page.getByRole('button', { name: /Alice Smith$/ }).click();
-    await page.getByRole('button', { name: 'Edit', exact: true }).click();
 
     await expect(page.getByText('Group preferences')).toBeVisible();
     await expect(page.getByText('Peer preferences')).toBeVisible();
@@ -113,7 +125,7 @@ test.describe('Drag and Drop Workspace', () => {
 
     await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.getByRole('button', { name: /Alice Smith$/ }).click();
     await expect(
       page.getByRole('group', { name: 'Group preferences' }).getByRole('listitem').first()
     ).toBeVisible();

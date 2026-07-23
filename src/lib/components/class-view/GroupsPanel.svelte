@@ -6,14 +6,10 @@
    */
 
   import type { Group, Student } from '$lib/domain';
-  import {
-    createEmptyPeerRequestWorkspaceSummary,
-    type StudentPeerRequestWorkspaceSummary
-  } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
+  import type { StudentPeerRequestWorkspaceSummary } from '$lib/application/useCases/getPeerRequestWorkspaceSummary';
   import type { KeyboardMoveDirection } from '$lib/components/editing/DraggableStudentCard.svelte';
   import { Alert } from '$lib/components/ui';
   import GroupEditingLayout from '$lib/components/editing/GroupEditingLayout.svelte';
-  import PeerRequestQuickEditPanel from './PeerRequestQuickEditPanel.svelte';
   import UnassignedArea from '$lib/components/editing/UnassignedArea.svelte';
   import DeleteGroupConfirmDialog from '$lib/components/editing/DeleteGroupConfirmDialog.svelte';
   import { droppable, type DropState } from '$lib/utils/pragmatic-dnd';
@@ -76,16 +72,6 @@
     // Peer request summary/highlight state
     studentPeerRequestSummaryById?: Map<string, StudentPeerRequestWorkspaceSummary>;
     selectedStudentRequestedPeerIds?: string[] | null;
-    onAddPeerRequest?: (payload: {
-      requesterStudentId: string;
-      requestedStudentId: string;
-    }) => Promise<void> | void;
-    onQuickEditPeerRequest?: (payload: {
-      requestId: string;
-      studentId: string;
-    }) => Promise<void> | void;
-    onClearPeerRequest?: (requestId: string) => Promise<void> | void;
-    onDeletePeerRequest?: (requestId: string) => Promise<void> | void;
     onOpenStudentDetail?: (studentId: string) => void;
 
     // Read-only mode (published session)
@@ -126,33 +112,8 @@
     clickedStudentId = null,
     studentPeerRequestSummaryById = new Map(),
     selectedStudentRequestedPeerIds = null,
-    onAddPeerRequest,
-    onQuickEditPeerRequest,
-    onClearPeerRequest,
-    onDeletePeerRequest,
     onOpenStudentDetail
   }: Props = $props();
-
-  let peerRequestDetailsStudentId = $state<string | null>(null);
-  const peerRequestDetailsSummary = $derived(
-    peerRequestDetailsStudentId
-      ? (studentPeerRequestSummaryById.get(peerRequestDetailsStudentId) ??
-          createEmptyPeerRequestWorkspaceSummary(peerRequestDetailsStudentId))
-      : null
-  );
-  const peerRequestDetailsStudent = $derived(
-    peerRequestDetailsStudentId ? (studentsById[peerRequestDetailsStudentId] ?? null) : null
-  );
-
-  $effect(() => {
-    if (
-      peerRequestDetailsStudentId &&
-      clickedStudentId &&
-      peerRequestDetailsStudentId !== clickedStudentId
-    ) {
-      peerRequestDetailsStudentId = null;
-    }
-  });
 
   /** Drop handler for the bench zone — appends to end of unassigned list */
   function handleBenchDrop(event: DropState) {
@@ -224,10 +185,6 @@
       unassignedCollapsed = false;
     }
   });
-
-  function handleOpenPeerRequestDetails(studentId: string) {
-    peerRequestDetailsStudentId = peerRequestDetailsStudentId === studentId ? null : studentId;
-  }
 </script>
 
 <div class="relative flex h-full flex-col bg-gray-50">
@@ -306,7 +263,6 @@
               {clickedStudentId}
               {studentPeerRequestSummaryById}
               {selectedStudentRequestedPeerIds}
-              onOpenPeerRequestDetails={handleOpenPeerRequestDetails}
               {onOpenStudentDetail}
               compact
             />
@@ -346,26 +302,10 @@
         {selectedStudentPreferences}
         {studentPeerRequestSummaryById}
         {selectedStudentRequestedPeerIds}
-        onOpenPeerRequestDetails={handleOpenPeerRequestDetails}
         {onOpenStudentDetail}
         {clickedStudentId}
       />
     </div>
-
-    {#if peerRequestDetailsStudent && peerRequestDetailsSummary}
-      <PeerRequestQuickEditPanel
-        student={peerRequestDetailsStudent}
-        {studentsById}
-        summary={peerRequestDetailsSummary}
-        {onAddPeerRequest}
-        {onQuickEditPeerRequest}
-        {onClearPeerRequest}
-        {onDeletePeerRequest}
-        onClose={() => {
-          peerRequestDetailsStudentId = null;
-        }}
-      />
-    {/if}
   {:else}
     <div
       class="flex flex-1 flex-col items-center justify-center gap-4 overflow-auto p-8 text-center"

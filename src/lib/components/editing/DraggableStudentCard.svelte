@@ -32,7 +32,6 @@
     allowedEdges,
     peerRequestSummary = null,
     isPeerRequested = false,
-    onOpenPeerRequestDetails,
     onOpenStudentDetail
   } = $props<{
     student: Student;
@@ -63,7 +62,6 @@
     allowedEdges?: Edge[];
     peerRequestSummary?: StudentPeerRequestWorkspaceSummary | null;
     isPeerRequested?: boolean;
-    onOpenPeerRequestDetails?: (studentId: string) => void;
     /** Opens the student profile without changing the canvas selection action. */
     onOpenStudentDetail?: (studentId: string) => void;
   }>();
@@ -139,7 +137,7 @@
     return 'bg-rose-500';
   });
   const peerRequestIndicatorMode = $derived(uiSettings.peerRequestIndicatorMode);
-  const hasPeerRequestDetails = $derived(Boolean(onOpenPeerRequestDetails));
+  const hasPeerRequestDetails = $derived(Boolean(onOpenStudentDetail));
   const peerRequestInteractiveClass = $derived.by(() => {
     return hasPeerRequestDetails
       ? 'cursor-pointer transition-[filter,box-shadow,transform] duration-150 ease-out hover:brightness-95 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 focus-visible:outline-none'
@@ -226,7 +224,7 @@
 
   function handleOpenPeerRequests(event: MouseEvent) {
     event.stopPropagation();
-    onOpenPeerRequestDetails?.(student.id);
+    onOpenStudentDetail?.(student.id);
   }
 
   function handleOpenStudentDetail(event: MouseEvent | KeyboardEvent) {
@@ -319,20 +317,62 @@
     : handleClick}
 >
   <div class="flex min-w-0 flex-1 items-center gap-1">
-    <!-- Drag handle grip icon (hidden in readonly mode) -->
-    {#if !readonly}
-      <svg
-        style="width: var(--grip-size, 10px); height: var(--grip-size, 10px);"
-        class="flex-shrink-0 text-gray-300 transition-colors group-hover:text-gray-400"
-        viewBox="0 0 10 10"
-        fill="currentColor"
-        aria-hidden="true"
+    {#if peerRequestCount === 0 || peerRequestIndicatorMode !== 'count'}
+      <button
+        type="button"
+        class={peerRequestDotButtonClass}
+        aria-label={hasPeerRequestDetails
+          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
+          : peerRequestBadgeAriaLabel}
+        disabled={!hasPeerRequestDetails}
+        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
+        onkeydown={(event) => {
+          if (!hasPeerRequestDetails) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenPeerRequests(event as unknown as MouseEvent);
+          }
+        }}
       >
-        <circle cx="2.5" cy="2.5" r="1" />
-        <circle cx="2.5" cy="7.5" r="1" />
-        <circle cx="7.5" cy="2.5" r="1" />
-        <circle cx="7.5" cy="7.5" r="1" />
-      </svg>
+        <span class={peerRequestDotClass}>
+          <span class={`block h-full w-full rounded-full ${peerRequestDotToneClass}`}></span>
+        </span>
+      </button>
+    {:else}
+      <button
+        type="button"
+        class={peerRequestBadgeClass}
+        aria-label={hasPeerRequestDetails
+          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
+          : peerRequestBadgeAriaLabel}
+        disabled={!hasPeerRequestDetails}
+        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
+        onkeydown={(event) => {
+          if (!hasPeerRequestDetails) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenPeerRequests(event as unknown as MouseEvent);
+          }
+        }}
+      >
+        <span class="inline-flex items-center justify-center gap-1 whitespace-nowrap">
+          <span>{peerRequestBadgeText}</span>
+          <span
+            aria-hidden="true"
+            class={`inline-flex h-3 w-3 items-center justify-center transition-opacity duration-150 ease-out ${hasPeerRequestDetails ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 12 12" fill="none">
+              <path
+                d="M4 2.5 7.5 6 4 9.5"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.75"
+              />
+            </svg>
+          </span>
+        </span>
+      </button>
     {/if}
     <div
       style="font-size: var(--card-font-size, 15px);"
@@ -378,63 +418,6 @@
             d="M15.75 9.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.933 17.933 0 0 1 12 21.75a17.933 17.933 0 0 1-7.5-1.632Z"
           />
         </svg>
-      </span>
-    {/if}
-    {#if peerRequestCount === 0 || peerRequestIndicatorMode !== 'count'}
-      <span
-        class={peerRequestDotButtonClass}
-        aria-label={hasPeerRequestDetails
-          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
-          : peerRequestBadgeAriaLabel}
-        role={hasPeerRequestDetails ? 'button' : undefined}
-        tabindex={hasPeerRequestDetails ? 0 : undefined}
-        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
-        onkeydown={(event) => {
-          if (!hasPeerRequestDetails) return;
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleOpenPeerRequests(event as unknown as MouseEvent);
-          }
-        }}
-      >
-        <span class={peerRequestDotClass}>
-          <span class={`block h-full w-full rounded-full ${peerRequestDotToneClass}`}></span>
-        </span>
-      </span>
-    {:else}
-      <span
-        class={peerRequestBadgeClass}
-        aria-label={hasPeerRequestDetails
-          ? `Open peer requests. ${peerRequestBadgeAriaLabel}`
-          : peerRequestBadgeAriaLabel}
-        role={hasPeerRequestDetails ? 'button' : undefined}
-        tabindex={hasPeerRequestDetails ? 0 : undefined}
-        onclick={hasPeerRequestDetails ? handleOpenPeerRequests : undefined}
-        onkeydown={(event) => {
-          if (!hasPeerRequestDetails) return;
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleOpenPeerRequests(event as unknown as MouseEvent);
-          }
-        }}
-      >
-        <span class="inline-flex items-center justify-center gap-1 whitespace-nowrap">
-          <span>{peerRequestBadgeText}</span>
-          <span
-            aria-hidden="true"
-            class={`inline-flex h-3 w-3 items-center justify-center transition-opacity duration-150 ease-out ${hasPeerRequestDetails ? 'opacity-100' : 'opacity-0'}`}
-          >
-            <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 12 12" fill="none">
-              <path
-                d="M4 2.5 7.5 6 4 9.5"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.75"
-              />
-            </svg>
-          </span>
-        </span>
       </span>
     {/if}
   </div>
