@@ -19,6 +19,7 @@ const ALL_STORES = [
   'sessions',
   'placements',
   'preferences',
+  'peerRequests',
   'observations',
   'groupTemplates',
   'studentIdentities'
@@ -47,6 +48,7 @@ export interface BackupSummary {
   sessions: number;
   placements: number;
   preferences: number;
+  peerRequests: number;
   observations: number;
   groupTemplates: number;
   studentIdentities: number;
@@ -144,7 +146,10 @@ export function parseBackupFile(jsonString: string): BackupValidation {
   const data = parsed as Record<string, unknown>;
 
   if (typeof data.version !== 'number') {
-    return { valid: false, error: 'Missing or invalid version field. This may not be a Groupwheel backup file.' };
+    return {
+      valid: false,
+      error: 'Missing or invalid version field. This may not be a Groupwheel backup file.'
+    };
   }
 
   if (data.version > BACKUP_FILE_VERSION) {
@@ -155,7 +160,10 @@ export function parseBackupFile(jsonString: string): BackupValidation {
   }
 
   if (!data.stores || typeof data.stores !== 'object') {
-    return { valid: false, error: 'Missing data stores. This may not be a Groupwheel backup file.' };
+    return {
+      valid: false,
+      error: 'Missing data stores. This may not be a Groupwheel backup file.'
+    };
   }
 
   const stores = data.stores as Record<string, unknown>;
@@ -174,7 +182,7 @@ export function parseBackupFile(jsonString: string): BackupValidation {
     stores: stores as Record<string, unknown[]>
   };
 
-  const storeCount = (name: string) => (backupData.stores[name]?.length ?? 0);
+  const storeCount = (name: string) => backupData.stores[name]?.length ?? 0;
 
   const summary: BackupSummary = {
     exportedAt: backupData.exportedAt,
@@ -186,6 +194,7 @@ export function parseBackupFile(jsonString: string): BackupValidation {
     sessions: storeCount('sessions'),
     placements: storeCount('placements'),
     preferences: storeCount('preferences'),
+    peerRequests: storeCount('peerRequests'),
     observations: storeCount('observations'),
     groupTemplates: storeCount('groupTemplates'),
     studentIdentities: storeCount('studentIdentities')
@@ -213,11 +222,7 @@ export async function restoreAllData(backup: BackupData): Promise<void> {
 /**
  * Clear a store and write all records into it.
  */
-function clearAndWriteStore(
-  db: IDBDatabase,
-  storeName: string,
-  records: unknown[]
-): Promise<void> {
+function clearAndWriteStore(db: IDBDatabase, storeName: string, records: unknown[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);

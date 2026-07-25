@@ -39,6 +39,10 @@
     onPrint?: () => void;
     onDisplay?: () => void;
     onPublish?: () => void;
+    /** Keeps a parent auto-hide shell visible while a toolbar menu is open. */
+    onMenuOpenChange?: (isOpen: boolean) => void;
+    /** Collapses the parent auto-hide shell when Escape is pressed outside a menu. */
+    onRequestCollapse?: () => void;
   }
 
   let {
@@ -66,17 +70,46 @@
     onSave,
     onPrint,
     onDisplay,
-    onPublish
+    onPublish,
+    onMenuOpenChange,
+    onRequestCollapse
   }: Props = $props();
 
   let settingsOpen = $state(false);
   let shareOpen = $state(false);
+
+  function setMenuOpen(menu: 'settings' | 'share', isOpen: boolean) {
+    if (menu === 'settings') {
+      settingsOpen = isOpen;
+      if (isOpen) shareOpen = false;
+    } else {
+      shareOpen = isOpen;
+      if (isOpen) settingsOpen = false;
+    }
+    onMenuOpenChange?.(settingsOpen || shareOpen);
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return;
+
+    if (settingsOpen || shareOpen) {
+      settingsOpen = false;
+      shareOpen = false;
+      onMenuOpenChange?.(false);
+      return;
+    }
+
+    onRequestCollapse?.();
+  }
 </script>
 
 <div
   class="flex items-center justify-between border-b px-4 py-2 {isViewingHistory
     ? 'border-amber-200 bg-amber-50'
     : 'bg-white'}"
+  role="toolbar"
+  aria-label="Workspace toolbar"
+  onkeydown={handleKeydown}
 >
   <div class="flex min-w-0 items-center gap-3">
     <button
@@ -162,8 +195,7 @@
         <button
           type="button"
           onclick={() => {
-            settingsOpen = !settingsOpen;
-            shareOpen = false;
+            setMenuOpen('settings', !settingsOpen);
           }}
           class="flex h-9 w-9 items-center justify-center rounded-md transition-colors {settingsOpen
             ? 'bg-teal-50 text-teal-700'
@@ -202,7 +234,7 @@
             onLookbackChange={onLookbackChange ?? (() => {})}
             onEditGroup={onEditGroup ?? (() => {})}
             onAddGroup={onAddGroup ?? (() => {})}
-            onClose={() => (settingsOpen = false)}
+            onClose={() => setMenuOpen('settings', false)}
           />
         {/if}
       </div>
@@ -212,8 +244,7 @@
         <button
           type="button"
           onclick={() => {
-            shareOpen = !shareOpen;
-            settingsOpen = false;
+            setMenuOpen('share', !shareOpen);
           }}
           class="flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium shadow-sm transition-colors {shareOpen
             ? 'bg-teal-700 text-white'
@@ -241,7 +272,7 @@
             {onPrint}
             {onDisplay}
             {onPublish}
-            onClose={() => (shareOpen = false)}
+            onClose={() => setMenuOpen('share', false)}
           />
         {/if}
       </div>

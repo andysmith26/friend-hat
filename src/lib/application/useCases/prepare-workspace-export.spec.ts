@@ -11,7 +11,8 @@ describe('prepareWorkspaceExport', () => {
         id: 'grp-1',
         name: 'Group One',
         capacity: 4,
-        memberIds: ['stu-2', 'stu-1']
+        memberIds: ['stu-2', 'stu-1'],
+        colorIndex: 3
       },
       {
         id: 'grp-2',
@@ -79,6 +80,7 @@ describe('prepareWorkspaceExport', () => {
       'grp-2',
       'grp-1'
     ]);
+    expect(result.value.activityExportData.scenario?.groups[1].colorIndex).toBe(3);
     expect(result.value.activityExportData.preferences[0]).toEqual({
       studentId: 'stu-1',
       likeGroupIds: ['grp-2'],

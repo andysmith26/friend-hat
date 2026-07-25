@@ -202,6 +202,50 @@
     viewingSessionId ? (sessions.find((s) => s.id === viewingSessionId) ?? null) : null
   );
 
+  // Desktop workspace chrome begins visible, then yields its height once the teacher
+  // starts working in the canvas. Narrow layouts retain the standard fixed toolbar.
+  let workspaceToolbarExpanded = $state(true);
+  let toolbarMenuOpen = $state(false);
+  let toolbarRevealButton = $state<HTMLButtonElement | null>(null);
+  let toolbarFocusTarget = $state<HTMLDivElement | null>(null);
+  const canAutoHideToolbar = $derived(isDesktop && !isViewingHistory);
+
+  $effect(() => {
+    if (!canAutoHideToolbar) {
+      workspaceToolbarExpanded = true;
+      toolbarMenuOpen = false;
+    }
+  });
+
+  function showWorkspaceToolbar(focusReveal = false) {
+    workspaceToolbarExpanded = true;
+    if (focusReveal) {
+      requestAnimationFrame(() => toolbarFocusTarget?.focus());
+    }
+  }
+
+  function hideWorkspaceToolbar() {
+    if (!canAutoHideToolbar || !hasGroups || toolbarMenuOpen) return;
+    workspaceToolbarExpanded = false;
+  }
+
+  function handleToolbarMenuOpenChange(isOpen: boolean) {
+    toolbarMenuOpen = isOpen;
+    if (isOpen) showWorkspaceToolbar();
+  }
+
+  function handleToolbarCollapseRequest() {
+    hideWorkspaceToolbar();
+    requestAnimationFrame(() => toolbarRevealButton?.focus());
+  }
+
+  function handleWorkspaceKeydown(event: KeyboardEvent) {
+    if (event.altKey && event.shiftKey && event.key.toLowerCase() === 't' && canAutoHideToolbar) {
+      event.preventDefault();
+      showWorkspaceToolbar(true);
+    }
+  }
+
   // Map group IDs to display names for preference display
   let groupNameMap = $derived(Object.fromEntries((view?.groups ?? []).map((g) => [g.id, g.name])));
 
@@ -261,6 +305,8 @@
 
   onMount(() => {
     vm.actions.init(activityId);
+    window.addEventListener('keydown', handleWorkspaceKeydown);
+    return () => window.removeEventListener('keydown', handleWorkspaceKeydown);
   });
 
   onDestroy(() => {
@@ -773,10 +819,6 @@
         ></div>
         <p class="mt-3 text-sm text-gray-500">Loading activity...</p>
       </div>
-    </div>
-  {:else if loadError}
-    <div class="mx-auto max-w-md p-8">
-      <Alert variant="error" dismissible>{loadError}</Alert>
       <button
         type="button"
         class="mt-4 text-sm text-gray-500 hover:text-gray-700"
@@ -786,35 +828,70 @@
       </button>
     </div>
   {:else}
-    <ClassViewToolbar
-      {activityName}
-      {saveStatus}
-      {lastSavedAt}
-      {hasGroups}
-      {isViewingHistory}
-      onBack={handleBack}
-      onRetrySave={handleRetrySave}
-      onToggleRoster={handleToggleRoster}
-      rosterOpen={rosterDrawerOpen}
-      onToggleHistory={handleToggleHistory}
-      {historyPanelOpen}
-      {hasHistory}
-      groups={displayGroups}
-      {avoidRecentGroupmates}
-      {lookbackSessions}
-      {publishedSessionCount}
-      onToggleAvoidance={(enabled) => vm.actions.setAvoidRecentGroupmates(enabled)}
-      onLookbackChange={(s) => vm.actions.setLookbackSessions(s)}
-      onEditGroup={handleEditGroup}
-      onAddGroup={handleCreateGroup}
-      onCopyForSpreadsheet={handleCopyForSpreadsheet}
-      onSave={handleMoveToComputer}
-      onPrint={handlePrint}
-      onDisplay={handleDisplay}
-      onPublish={handleShowToClass}
-    />
+    <div
+      class="relative shrink-0 transition-[height] duration-150 motion-reduce:transition-none {canAutoHideToolbar &&
+      !workspaceToolbarExpanded
+        ? 'h-3'
+        : 'h-[60px]'}"
+    >
+      <div
+        bind:this={toolbarFocusTarget}
+        tabindex="-1"
+        class="absolute inset-x-0 top-0 z-40 origin-top transition-[opacity,transform] duration-150 motion-reduce:transition-none {canAutoHideToolbar &&
+        !workspaceToolbarExpanded
+          ? 'pointer-events-none invisible -translate-y-full opacity-0'
+          : 'translate-y-0 opacity-100'}"
+        onfocusin={() => showWorkspaceToolbar()}
+      >
+        <ClassViewToolbar
+          {activityName}
+          {saveStatus}
+          {lastSavedAt}
+          {hasGroups}
+          {isViewingHistory}
+          onBack={handleBack}
+          onRetrySave={handleRetrySave}
+          onToggleRoster={handleToggleRoster}
+          rosterOpen={rosterDrawerOpen}
+          onToggleHistory={handleToggleHistory}
+          {historyPanelOpen}
+          {hasHistory}
+          groups={displayGroups}
+          {avoidRecentGroupmates}
+          {lookbackSessions}
+          {publishedSessionCount}
+          onToggleAvoidance={(enabled) => vm.actions.setAvoidRecentGroupmates(enabled)}
+          onLookbackChange={(s) => vm.actions.setLookbackSessions(s)}
+          onEditGroup={handleEditGroup}
+          onAddGroup={handleCreateGroup}
+          onCopyForSpreadsheet={handleCopyForSpreadsheet}
+          onSave={handleMoveToComputer}
+          onPrint={handlePrint}
+          onDisplay={handleDisplay}
+          onPublish={handleShowToClass}
+          onMenuOpenChange={handleToolbarMenuOpenChange}
+          onRequestCollapse={handleToolbarCollapseRequest}
+        />
+      </div>
 
-    <div class="flex flex-1 overflow-hidden">
+      {#if canAutoHideToolbar && !workspaceToolbarExpanded}
+        <button
+          bind:this={toolbarRevealButton}
+          type="button"
+          class="absolute inset-x-0 top-0 z-50 h-3 border-b border-gray-200 bg-white/95 text-transparent hover:border-teal-400 focus-visible:h-11 focus-visible:text-sm focus-visible:text-teal-800 focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none focus-visible:ring-inset"
+          aria-label="Show workspace toolbar"
+          aria-expanded={workspaceToolbarExpanded}
+          title="Show workspace toolbar (Option-Shift-T)"
+          onmouseenter={() => showWorkspaceToolbar()}
+          onclick={() => showWorkspaceToolbar()}
+          onfocus={() => showWorkspaceToolbar(true)}
+        >
+          Show workspace toolbar
+        </button>
+      {/if}
+    </div>
+
+    <div class="flex flex-1 overflow-hidden" onpointerdown={hideWorkspaceToolbar}>
       <!-- Center: Groups canvas (always full remaining width) -->
       <div
         class="flex flex-1 flex-col overflow-hidden bg-gray-50"

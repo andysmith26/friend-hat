@@ -62,6 +62,7 @@ export interface ExportedGroup {
   name: string;
   capacity: number | null;
   memberIds: string[];
+  colorIndex?: number;
 }
 
 /**
@@ -406,7 +407,8 @@ export function parseActivityFile(jsonString: string): ActivityFileValidation {
         id: typeof g.id === 'string' ? g.id : `group-${Math.random().toString(36).slice(2, 8)}`,
         name: (g.name as string).trim(),
         capacity: typeof g.capacity === 'number' ? g.capacity : null,
-        memberIds: (g.memberIds as string[]).filter((id) => typeof id === 'string')
+        memberIds: (g.memberIds as string[]).filter((id) => typeof id === 'string'),
+        colorIndex: isValidColorIndex(g.colorIndex) ? g.colorIndex : undefined
       })),
       algorithmConfig: scenario.algorithmConfig
     };
@@ -604,6 +606,10 @@ function isValidProgramType(value: unknown): value is ProgramType {
     value === 'CLASS_ACTIVITY' ||
     value === 'OTHER'
   );
+}
+
+function isValidColorIndex(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
 function isValidPeerRequestResolutionStatus(value: unknown): value is PeerRequestResolutionStatus {

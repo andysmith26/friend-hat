@@ -173,7 +173,8 @@ export async function exportActivity(
               id: g.id,
               name: g.name,
               capacity: g.capacity,
-              memberIds: [...g.memberIds]
+              memberIds: [...g.memberIds],
+              colorIndex: g.colorIndex
             })),
             algorithmConfig: scenario.algorithmConfig
           }

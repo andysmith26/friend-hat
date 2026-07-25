@@ -213,6 +213,16 @@ export async function importActivity(
           continue;
         }
 
+        // Keep group references only when the corresponding groups will be imported.
+        // Leaving old IDs here creates preferences that point to no group.
+        const remapGroupIds = (oldIds: string[]): string[] =>
+          importScenario
+            ? oldIds.flatMap((oldId) => {
+                const newId = groupIdMap.get(oldId);
+                return newId ? [newId] : [];
+              })
+            : [];
+
         // Remap all IDs to their new equivalents (students and groups get new IDs on import)
         const preference: Preference = {
           id: deps.idGenerator.generateId(),
@@ -220,15 +230,11 @@ export async function importActivity(
           studentId: newStudentId,
           payload: {
             studentId: newStudentId,
-            likeGroupIds: [...exportedPref.likeGroupIds].map(
-              (oldId) => groupIdMap.get(oldId) ?? oldId
-            ),
+            likeGroupIds: remapGroupIds(exportedPref.likeGroupIds),
             avoidStudentIds: [...exportedPref.avoidStudentIds]
               .map((oldId) => studentIdMap.get(oldId))
               .filter((id): id is string => id !== undefined),
-            avoidGroupIds: [...exportedPref.avoidGroupIds].map(
-              (oldId) => groupIdMap.get(oldId) ?? oldId
-            )
+            avoidGroupIds: remapGroupIds(exportedPref.avoidGroupIds)
           } satisfies StudentPreference
         };
 
@@ -275,7 +281,8 @@ export async function importActivity(
           capacity: g.capacity,
           memberIds: [...g.memberIds]
             .map((oldId) => studentIdMap.get(oldId))
-            .filter((id): id is string => id !== undefined)
+            .filter((id): id is string => id !== undefined),
+          colorIndex: g.colorIndex
         };
       });
 
@@ -350,14 +357,15 @@ export async function importActivity(
         const newStudentId = studentIdMap.get(exportedPlacement.studentId);
         const newGroupId = groupIdMap.get(exportedPlacement.groupId);
 
-        // Skip placements that reference missing sessions or students
-        if (!newSessionId || !newStudentId) continue;
+        // Placements must reference entities created by this import. Retaining
+        // source IDs would produce records that cannot be resolved locally.
+        if (!newSessionId || !newStudentId || !newGroupId) continue;
 
         const placement: Placement = {
           id: deps.idGenerator.generateId(),
           sessionId: newSessionId,
           studentId: newStudentId,
-          groupId: newGroupId ?? exportedPlacement.groupId,
+          groupId: newGroupId,
           groupName: String(exportedPlacement.groupName),
           preferenceRank: exportedPlacement.preferenceRank,
           preferenceSnapshot: exportedPlacement.preferenceSnapshot?.map(
@@ -393,11 +401,14 @@ export async function importActivity(
           : undefined;
         const newGroupId = groupIdMap.get(exportedObs.groupId);
 
+        // Observations are only useful when their group exists in the imported scenario.
+        if (!newGroupId) continue;
+
         const observation: Observation = {
           id: deps.idGenerator.generateId(),
           programId: program.id,
           sessionId: newSessionId,
-          groupId: newGroupId ?? exportedObs.groupId,
+          groupId: newGroupId,
           groupName: String(exportedObs.groupName),
           content: String(exportedObs.content),
           sentiment: exportedObs.sentiment as Observation['sentiment'],

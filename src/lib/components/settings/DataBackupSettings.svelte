@@ -183,6 +183,13 @@
           {#if pendingSummary.sessions > 0}
             <li>{pendingSummary.sessions} session{pendingSummary.sessions === 1 ? '' : 's'}</li>
           {/if}
+          {#if pendingSummary.peerRequests > 0}
+            <li>
+              {pendingSummary.peerRequests} peer request{pendingSummary.peerRequests === 1
+                ? ''
+                : 's'}
+            </li>
+          {/if}
           {#if pendingSummary.observations > 0}
             <li>
               {pendingSummary.observations} observation{pendingSummary.observations === 1

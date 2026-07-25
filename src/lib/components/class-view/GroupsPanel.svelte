@@ -177,7 +177,18 @@
 
   const isRowLayout = $derived(uiSettings.groupLayout === 'scroll');
 
-  let unassignedCollapsed = $state(false);
+  // Keep an empty bench compact so group columns use the available vertical space.
+  // A populated bench remains expanded so students needing placement stay discoverable.
+  let unassignedCollapsed = $state(unassignedStudentIds.length === 0);
+  let previousUnassignedCount = $state(unassignedStudentIds.length);
+
+  $effect(() => {
+    // Reveal newly unassigned students, but preserve an explicit user collapse.
+    if (unassignedStudentIds.length > previousUnassignedCount && unassignedCollapsed) {
+      unassignedCollapsed = false;
+    }
+    previousUnassignedCount = unassignedStudentIds.length;
+  });
 
   // Auto-expand when dragging starts (so user can drop into unassigned)
   $effect(() => {
@@ -198,10 +209,16 @@
 
   {#if groups.length > 0}
     <!-- Unassigned bar: pinned at top -->
-    <div class="shrink-0 border-b border-gray-200 px-4 pt-4 pb-3">
+    <div
+      class="shrink-0 border-b border-gray-200 px-4 {unassignedCollapsed
+        ? 'pt-2 pb-2'
+        : 'pt-3 pb-2'}"
+    >
       <div
         use:droppable={{ container: 'unassigned', callbacks: { onDrop: handleBenchDrop } }}
-        class="rounded-xl border p-3 {unassignedStudentIds.length > 0
+        class="rounded-xl border {unassignedCollapsed
+          ? 'p-2'
+          : 'p-3'} {unassignedStudentIds.length > 0
           ? 'border-amber-200 bg-amber-50/50'
           : 'border-gray-200 bg-gray-100/50'}"
       >
@@ -273,7 +290,9 @@
 
     <!-- Groups canvas: fills remaining height, scrollbar at bottom in row mode -->
     <div
-      class="min-h-0 flex-1 p-6 {isRowLayout ? 'flex flex-col overflow-hidden' : 'overflow-auto'}"
+      class="min-h-0 flex-1 px-6 pt-2 pb-6 {isRowLayout
+        ? 'flex flex-col overflow-hidden'
+        : 'overflow-auto'}"
       style={cardSizeStyle(uiSettings.cardSize)}
     >
       <GroupEditingLayout

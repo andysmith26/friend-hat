@@ -72,6 +72,35 @@ test.describe('Drag and Drop Workspace', () => {
     expect(await studentCards.count()).toBe(10);
   });
 
+  test('maximizes short desktop canvas height while keeping workspace commands reachable', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const activityName = `Compact Canvas ${Date.now()}`;
+    await createActivity(page, { activityName });
+
+    await page.locator('.rounded-xl.border-2').first().click();
+    const toolbarReveal = page.getByRole('button', { name: 'Show workspace toolbar' });
+    await expect(toolbarReveal).toBeVisible();
+    await expect(page.getByRole('button', { name: /Unassigned/ })).toBeVisible();
+
+    const firstGroupColumn = page.locator('.rounded-xl.border-2').first();
+    await expect(firstGroupColumn).toBeVisible();
+    const groupBounds = await firstGroupColumn.boundingBox();
+    expect(groupBounds).not.toBeNull();
+    expect(groupBounds!.y).toBeLessThan(180);
+
+    await toolbarReveal.hover();
+    await expect(page.getByRole('button', { name: 'Back to Home' })).toBeVisible();
+
+    const profileAction = page.getByRole('button', {
+      name: "View Alice Smith's details. No peer requests."
+    });
+    await profileAction.click();
+    await expect(page.getByLabel('Student detail panel')).toBeVisible();
+    await expect(page.getByText('Peer requests', { exact: true })).toBeVisible();
+  });
+
   test('opens the edit sidebar from canvas card actions', async ({ page }) => {
     const activityName = `Canvas Student Details ${Date.now()}`;
     await createActivity(page, { activityName });

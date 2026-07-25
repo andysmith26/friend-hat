@@ -4,6 +4,72 @@ import { ACTIVITY_FILE_VERSION, type ActivityExportData } from '$lib/utils/activ
 import { importActivity } from './importActivity';
 
 describe('importActivity', () => {
+  it('preserves group colors and drops group preferences when groups are not imported', async () => {
+    const env = createInMemoryEnvironment(undefined, { useIndexedDb: false });
+    let counter = 0;
+    const exportData: ActivityExportData = {
+      version: ACTIVITY_FILE_VERSION,
+      exportedAt: '2026-05-25T12:00:00.000Z',
+      activity: { name: 'WIP Groups', type: 'CLASS_ACTIVITY' },
+      roster: {
+        students: [
+          { id: 'old-alice', firstName: 'Alice' },
+          { id: 'old-bob', firstName: 'Bob' }
+        ]
+      },
+      preferences: [
+        {
+          studentId: 'old-alice',
+          likeGroupIds: ['old-group'],
+          avoidStudentIds: [],
+          avoidGroupIds: ['old-group']
+        }
+      ],
+      scenario: {
+        groups: [
+          {
+            id: 'old-group',
+            name: 'Blue Group',
+            capacity: 4,
+            memberIds: ['old-alice'],
+            colorIndex: 5
+          }
+        ]
+      }
+    };
+
+    const deps = {
+      poolRepo: env.poolRepo,
+      studentRepo: env.studentRepo,
+      programRepo: env.programRepo,
+      preferenceRepo: env.preferenceRepo,
+      scenarioRepo: env.scenarioRepo,
+      sessionRepo: env.sessionRepo,
+      placementRepo: env.placementRepo,
+      observationRepo: env.observationRepo,
+      idGenerator: { generateId: () => `new-id-${++counter}` },
+      clock: { now: () => new Date('2026-05-25T12:00:00.000Z') }
+    };
+
+    const withGroups = await importActivity(deps, { exportData, ownerStaffId: 'owner-1' });
+    expect(withGroups.status).toBe('ok');
+    if (withGroups.status !== 'ok') return;
+    expect(withGroups.value.scenario?.groups[0].colorIndex).toBe(5);
+
+    const withoutGroups = await importActivity(deps, {
+      exportData,
+      ownerStaffId: 'owner-1',
+      importScenario: false
+    });
+    expect(withoutGroups.status).toBe('ok');
+    if (withoutGroups.status !== 'ok') return;
+    const preferences = await env.preferenceRepo.listByProgramId(withoutGroups.value.program.id);
+    expect(preferences[0].payload).toMatchObject({
+      likeGroupIds: [],
+      avoidGroupIds: []
+    });
+  });
+
   it('imports peer requests and remaps student references to imported IDs', async () => {
     const env = createInMemoryEnvironment(undefined, { useIndexedDb: false });
     let counter = 0;
