@@ -165,57 +165,59 @@
       </div>
     {/if}
 
-    <!-- Rotation Avoidance Section -->
-    <div class="px-4 py-4">
-      <h4 class="mb-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
-        Group Rotation
-      </h4>
+    <!-- Rotation Avoidance Section (experimental) -->
+    {#if uiSettings.useExperimentalFeatures}
+      <div class="px-4 py-4">
+        <h4 class="mb-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+          Group Rotation
+        </h4>
 
-      <!-- Avoid Recent Groupmates Toggle -->
-      <label class="flex cursor-pointer items-start gap-3">
-        <input
-          type="checkbox"
-          checked={avoidRecentGroupmates}
-          onchange={handleToggle}
-          class="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-        />
-        <div>
-          <span class="text-sm font-medium text-gray-900">Avoid recent groupmates</span>
-          <p class="mt-0.5 text-xs text-gray-500">
-            Students won't be grouped with people they recently worked with.
-          </p>
-        </div>
-      </label>
-
-      <!-- Lookback Window -->
-      {#if avoidRecentGroupmates}
-        <div class="mt-4 pl-7">
-          <label for="lookback-sessions" class="block text-sm font-medium text-gray-700">
-            Look back
-            <span class="font-semibold text-gray-900">{lookbackSessions}</span>
-            {lookbackSessions === 1 ? 'session' : 'sessions'}
-          </label>
+        <!-- Avoid Recent Groupmates Toggle -->
+        <label class="flex cursor-pointer items-start gap-3">
           <input
-            id="lookback-sessions"
-            type="range"
-            min="1"
-            max="10"
-            value={lookbackSessions}
-            oninput={handleLookbackChange}
-            class="mt-2 w-full accent-teal-600"
+            type="checkbox"
+            checked={avoidRecentGroupmates}
+            onchange={handleToggle}
+            class="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
           />
-          <div class="mt-1 flex justify-between text-xs text-gray-400">
-            <span>1</span>
-            <span>10</span>
-          </div>
-          {#if publishedSessionCount < 2}
-            <p class="mt-2 text-xs text-gray-400">
-              Rotation avoidance will take effect after your second session.
+          <div>
+            <span class="text-sm font-medium text-gray-900">Avoid recent groupmates</span>
+            <p class="mt-0.5 text-xs text-gray-500">
+              Students won't be grouped with people they recently worked with.
             </p>
-          {/if}
-        </div>
-      {/if}
-    </div>
+          </div>
+        </label>
+
+        <!-- Lookback Window -->
+        {#if avoidRecentGroupmates}
+          <div class="mt-4 pl-7">
+            <label for="lookback-sessions" class="block text-sm font-medium text-gray-700">
+              Look back
+              <span class="font-semibold text-gray-900">{lookbackSessions}</span>
+              {lookbackSessions === 1 ? 'session' : 'sessions'}
+            </label>
+            <input
+              id="lookback-sessions"
+              type="range"
+              min="1"
+              max="10"
+              value={lookbackSessions}
+              oninput={handleLookbackChange}
+              class="mt-2 w-full accent-teal-600"
+            />
+            <div class="mt-1 flex justify-between text-xs text-gray-400">
+              <span>1</span>
+              <span>10</span>
+            </div>
+            {#if publishedSessionCount < 2}
+              <p class="mt-2 text-xs text-gray-400">
+                Rotation avoidance will take effect after your second session.
+              </p>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/if}
     <!-- Display Section -->
     <div class="border-t border-gray-200 px-4 py-4">
       <h4 class="mb-3 text-xs font-medium tracking-wider text-gray-500 uppercase">Display</h4>

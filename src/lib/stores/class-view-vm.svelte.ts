@@ -47,6 +47,7 @@ import { getGenerationErrorMessage } from '$lib/utils/generationErrorMessages';
 import { buildPreferenceMap } from '$lib/utils/preferenceAdapter';
 import { getGenerationSettings, saveGenerationSettings } from '$lib/utils/generationSettings';
 import { isQuickStartPlaceholderName } from '$lib/utils/quickStartPlaceholderNames';
+import { uiSettings } from '$lib/stores/uiSettings.svelte';
 
 /**
  * A snapshot of a past generation for the history panel.
@@ -770,7 +771,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
         programId: state.program.id,
         groupSize: Math.ceil(state.students.length / effectiveGroupCount),
         groups: groupDefs,
-        avoidRecentGroupmates: state.avoidRecentGroupmates,
+        avoidRecentGroupmates: uiSettings.useExperimentalFeatures && state.avoidRecentGroupmates,
         lookbackSessions: state.lookbackSessions
       });
 
@@ -822,7 +823,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
         algorithmId: 'balanced',
         algorithmConfig: {
           groups,
-          avoidRecentGroupmates: state.avoidRecentGroupmates,
+          avoidRecentGroupmates: uiSettings.useExperimentalFeatures && state.avoidRecentGroupmates,
           lookbackSessions: state.lookbackSessions
         }
       });
@@ -1149,7 +1150,7 @@ export function createClassViewVm(env: AppEnvContext): ClassViewVm {
         algorithmId: 'balanced',
         algorithmConfig: {
           groups,
-          avoidRecentGroupmates: state.avoidRecentGroupmates,
+          avoidRecentGroupmates: uiSettings.useExperimentalFeatures && state.avoidRecentGroupmates,
           lookbackSessions: state.lookbackSessions
         }
       });

@@ -176,6 +176,7 @@
   }
 
   const isRowLayout = $derived(uiSettings.groupLayout === 'scroll');
+  const isVerticalUnassigned = $derived(uiSettings.unassignedLayout === 'vertical');
 
   // Keep an empty bench compact so group columns use the available vertical space.
   // A populated bench remains expanded so students needing placement stay discoverable.
@@ -208,94 +209,7 @@
   {/if}
 
   {#if groups.length > 0}
-    <!-- Unassigned bar: pinned at top -->
-    <div
-      class="shrink-0 border-b border-gray-200 px-4 {unassignedCollapsed
-        ? 'pt-2 pb-2'
-        : 'pt-3 pb-2'}"
-    >
-      <div
-        use:droppable={{ container: 'unassigned', callbacks: { onDrop: handleBenchDrop } }}
-        class="rounded-xl border {unassignedCollapsed
-          ? 'p-2'
-          : 'p-3'} {unassignedStudentIds.length > 0
-          ? 'border-amber-200 bg-amber-50/50'
-          : 'border-gray-200 bg-gray-100/50'}"
-      >
-        <button
-          type="button"
-          onclick={() => (unassignedCollapsed = !unassignedCollapsed)}
-          class="flex w-full items-center justify-between {unassignedCollapsed ? '' : 'mb-2'}"
-          aria-expanded={!unassignedCollapsed}
-          aria-controls="unassigned-content"
-        >
-          <div class="flex items-center gap-2">
-            <svg
-              class="h-3.5 w-3.5 transition-transform {unassignedCollapsed
-                ? '-rotate-90'
-                : 'rotate-0'} {unassignedStudentIds.length > 0
-                ? 'text-amber-600'
-                : 'text-gray-400'}"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-            <span
-              class="text-xs font-semibold {unassignedStudentIds.length > 0
-                ? 'text-amber-800'
-                : 'text-gray-500'}"
-            >
-              Unassigned
-            </span>
-            <span
-              class="rounded-full px-1.5 py-0.5 text-xs font-medium {unassignedStudentIds.length > 0
-                ? 'bg-amber-200 text-amber-800'
-                : 'bg-gray-200 text-gray-500'}"
-            >
-              {unassignedStudentIds.length}
-            </span>
-          </div>
-        </button>
-        {#if !unassignedCollapsed}
-          <div id="unassigned-content">
-            <UnassignedArea
-              {studentsById}
-              unassignedIds={unassignedStudentIds}
-              {draggingId}
-              {onDrop}
-              {onReorder}
-              {onDragStart}
-              {onDragEnd}
-              {flashingIds}
-              {studentHasPreferences}
-              {pickedUpStudentId}
-              {onKeyboardPickUp}
-              {onKeyboardDrop}
-              {onKeyboardCancel}
-              {onKeyboardMove}
-              {onStudentClick}
-              {clickedStudentId}
-              {studentPeerRequestSummaryById}
-              {selectedStudentRequestedPeerIds}
-              {onOpenStudentDetail}
-              compact
-              vertical={uiSettings.unassignedLayout === 'vertical'}
-            />
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    <!-- Groups canvas: fills remaining height, scrollbar at bottom in row mode -->
-    <div
-      class="min-h-0 flex-1 px-6 pt-2 pb-6 {isRowLayout
-        ? 'flex flex-col overflow-hidden'
-        : 'overflow-auto'}"
-      style={cardSizeStyle(uiSettings.cardSize)}
-    >
+    {#snippet groupsLayout()}
       <GroupEditingLayout
         {groups}
         {studentsById}
@@ -325,7 +239,141 @@
         {onOpenStudentDetail}
         {clickedStudentId}
       />
-    </div>
+    {/snippet}
+
+    {#if isVerticalUnassigned}
+      <!-- Vertical layout: unassigned column beside groups -->
+      <div
+        class="min-h-0 flex-1 flex overflow-hidden"
+        style={cardSizeStyle(uiSettings.cardSize)}
+      >
+        <div
+          use:droppable={{ container: 'unassigned', callbacks: { onDrop: handleBenchDrop } }}
+          class="shrink-0 flex flex-col overflow-hidden border-r border-gray-200 px-2 pt-3 pb-2"
+          style="width: var(--sidebar-width)"
+        >
+          <UnassignedArea
+            {studentsById}
+            unassignedIds={unassignedStudentIds}
+            {draggingId}
+            {onDrop}
+            {onReorder}
+            {onDragStart}
+            {onDragEnd}
+            {flashingIds}
+            {studentHasPreferences}
+            {pickedUpStudentId}
+            {onKeyboardPickUp}
+            {onKeyboardDrop}
+            {onKeyboardCancel}
+            {onKeyboardMove}
+            {onStudentClick}
+            {clickedStudentId}
+            {studentPeerRequestSummaryById}
+            {selectedStudentRequestedPeerIds}
+            {onOpenStudentDetail}
+            vertical
+          />
+        </div>
+        <div
+          class="min-w-0 flex-1 px-6 pt-2 pb-6 {isRowLayout
+            ? 'flex flex-col overflow-hidden'
+            : 'overflow-auto'}"
+        >
+          {@render groupsLayout()}
+        </div>
+      </div>
+    {:else}
+      <!-- Horizontal layout: unassigned bar at top -->
+      <div
+        class="shrink-0 border-b border-gray-200 px-4 {unassignedCollapsed
+          ? 'pt-2 pb-2'
+          : 'pt-3 pb-2'}"
+      >
+        <div
+          use:droppable={{ container: 'unassigned', callbacks: { onDrop: handleBenchDrop } }}
+          class="rounded-xl border {unassignedCollapsed
+            ? 'p-2'
+            : 'p-3'} {unassignedStudentIds.length > 0
+            ? 'border-amber-200 bg-amber-50/50'
+            : 'border-gray-200 bg-gray-100/50'}"
+        >
+          <button
+            type="button"
+            onclick={() => (unassignedCollapsed = !unassignedCollapsed)}
+            class="flex w-full items-center justify-between {unassignedCollapsed ? '' : 'mb-2'}"
+            aria-expanded={!unassignedCollapsed}
+            aria-controls="unassigned-content"
+          >
+            <div class="flex items-center gap-2">
+              <svg
+                class="h-3.5 w-3.5 transition-transform {unassignedCollapsed
+                  ? '-rotate-90'
+                  : 'rotate-0'} {unassignedStudentIds.length > 0
+                  ? 'text-amber-600'
+                  : 'text-gray-400'}"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+              <span
+                class="text-xs font-semibold {unassignedStudentIds.length > 0
+                  ? 'text-amber-800'
+                  : 'text-gray-500'}"
+              >
+                Unassigned
+              </span>
+              <span
+                class="rounded-full px-1.5 py-0.5 text-xs font-medium {unassignedStudentIds.length > 0
+                  ? 'bg-amber-200 text-amber-800'
+                  : 'bg-gray-200 text-gray-500'}"
+              >
+                {unassignedStudentIds.length}
+              </span>
+            </div>
+          </button>
+          {#if !unassignedCollapsed}
+            <div id="unassigned-content">
+              <UnassignedArea
+                {studentsById}
+                unassignedIds={unassignedStudentIds}
+                {draggingId}
+                {onDrop}
+                {onReorder}
+                {onDragStart}
+                {onDragEnd}
+                {flashingIds}
+                {studentHasPreferences}
+                {pickedUpStudentId}
+                {onKeyboardPickUp}
+                {onKeyboardDrop}
+                {onKeyboardCancel}
+                {onKeyboardMove}
+                {onStudentClick}
+                {clickedStudentId}
+                {studentPeerRequestSummaryById}
+                {selectedStudentRequestedPeerIds}
+                {onOpenStudentDetail}
+                compact
+              />
+            </div>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Groups canvas: fills remaining height, scrollbar at bottom in row mode -->
+      <div
+        class="min-h-0 flex-1 px-6 pt-2 pb-6 {isRowLayout
+          ? 'flex flex-col overflow-hidden'
+          : 'overflow-auto'}"
+        style={cardSizeStyle(uiSettings.cardSize)}
+      >
+        {@render groupsLayout()}
+      </div>
+    {/if}
   {:else}
     <div
       class="flex flex-1 flex-col items-center justify-center gap-4 overflow-auto p-8 text-center"

@@ -112,7 +112,7 @@
 <button
   bind:this={chipEl}
   type="button"
-  class="fixed z-50 flex h-9 select-none items-center gap-2 rounded-full bg-white/95 px-3 text-sm font-medium text-gray-700 shadow-lg ring-1 ring-black/10 backdrop-blur-sm transition-shadow hover:bg-white hover:text-gray-900 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 {dragging
+  class="fixed z-50 flex h-9 items-center gap-2 rounded-full bg-white/95 px-3 text-sm font-medium text-gray-700 shadow-lg ring-1 ring-black/10 backdrop-blur-sm transition-shadow select-none hover:bg-white hover:text-gray-900 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none {dragging
     ? 'cursor-grabbing'
     : 'cursor-grab'}"
   style="left: {pos.x}px; top: {pos.y}px; touch-action: none;"

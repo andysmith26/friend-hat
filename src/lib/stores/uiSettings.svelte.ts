@@ -23,6 +23,7 @@ export type UnassignedLayout = 'horizontal' | 'vertical';
 const SKIP_DELETE_CONFIRM_KEY = 'groupwheel:skipDeleteGroupConfirm';
 const SKIP_DELETE_CONFIRM_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const USE_EXPERIMENTAL_FEATURES_KEY = 'groupwheel:useExperimentalFeatures';
+const UNASSIGNED_LAYOUT_KEY = 'groupwheel:unassignedLayout';
 
 function readSkipDeleteConfirm(): boolean {
   if (typeof localStorage === 'undefined') return false;
@@ -49,12 +50,23 @@ function readUseExperimentalFeatures(): boolean {
   }
 }
 
+function readUnassignedLayout(): UnassignedLayout {
+  if (typeof localStorage === 'undefined') return 'vertical';
+  try {
+    const raw = localStorage.getItem(UNASSIGNED_LAYOUT_KEY);
+    if (raw === 'horizontal' || raw === 'vertical') return raw;
+  } catch {
+    /* ignore */
+  }
+  return 'vertical';
+}
+
 export class UiSettingsStore {
   showGender = $state(true);
   highlightUnhappy = $state(false);
   cardSize = $state<CardSize>('md');
   groupLayout = $state<GroupLayout>('scroll');
-  unassignedLayout = $state<UnassignedLayout>('horizontal');
+  unassignedLayout = $state<UnassignedLayout>(readUnassignedLayout());
   skipDeleteGroupConfirm = $state(readSkipDeleteConfirm());
   useExperimentalFeatures = $state(readUseExperimentalFeatures());
 
@@ -94,10 +106,15 @@ export class UiSettingsStore {
 
   setUnassignedLayout(value: UnassignedLayout) {
     this.unassignedLayout = value;
+    try {
+      localStorage.setItem(UNASSIGNED_LAYOUT_KEY, value);
+    } catch {
+      /* ignore */
+    }
   }
 
   toggleUnassignedLayout() {
-    this.unassignedLayout = this.unassignedLayout === 'horizontal' ? 'vertical' : 'horizontal';
+    this.setUnassignedLayout(this.unassignedLayout === 'horizontal' ? 'vertical' : 'horizontal');
   }
 
   setSkipDeleteGroupConfirm(value: boolean) {
@@ -127,12 +144,13 @@ export class UiSettingsStore {
     this.highlightUnhappy = false;
     this.cardSize = 'md';
     this.groupLayout = 'scroll';
-    this.unassignedLayout = 'horizontal';
+    this.unassignedLayout = 'vertical';
     this.skipDeleteGroupConfirm = false;
     this.useExperimentalFeatures = false;
     try {
       localStorage.removeItem(SKIP_DELETE_CONFIRM_KEY);
       localStorage.removeItem(USE_EXPERIMENTAL_FEATURES_KEY);
+      localStorage.removeItem(UNASSIGNED_LAYOUT_KEY);
     } catch {
       /* ignore */
     }

@@ -27,7 +27,8 @@
       <span>
         <span class="block text-sm font-medium text-gray-900">Use experimental features</span>
         <span class="mt-0.5 block text-sm text-gray-500">
-          Show in-progress student details and grouping preference controls.
+          Show in-progress student details, grouping preference controls, and "Avoid recent
+          groupmates" rotation settings.
         </span>
       </span>
     </label>
