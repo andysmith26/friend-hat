@@ -9,8 +9,7 @@
   import { getAppEnvContext } from '$lib/contexts/appEnv';
   import { getActivityData } from '$lib/services/appEnvUseCases';
   import { isErr } from '$lib/types/result';
-  import type { Program, Scenario, Student, Group, Pool } from '$lib/domain';
-  import { getActiveMemberIds } from '$lib/domain/pool';
+  import type { Program, Scenario, Student, Group } from '$lib/domain';
   import { getStudentLongName } from '$lib/domain/student';
   import { sortStudentIds } from '$lib/utils/csvExport';
   import type { SortBy } from '$lib/utils/csvExport';
@@ -22,7 +21,6 @@
   let program = $state<Program | null>(null);
   let scenario = $state<Scenario | null>(null);
   let students = $state<Student[]>([]);
-  let pool = $state<Pool | null>(null);
 
   // --- Loading states ---
   let loading = $state(true);
@@ -78,7 +76,6 @@
     program = data.program;
     scenario = data.scenario;
     students = data.students;
-    pool = data.pool;
     loading = false;
   });
 
@@ -200,29 +197,6 @@
             </div>
           {/each}
         </div>
-
-        <!-- Unassigned students (exclude inactive) -->
-        {@const assignedIds = new Set(groups.flatMap((g) => g.memberIds))}
-        {@const activeIds = pool
-          ? new Set(getActiveMemberIds(pool))
-          : new Set(students.map((s) => s.id))}
-        {@const unassigned = students.filter((s) => !assignedIds.has(s.id) && activeIds.has(s.id))}
-        {#if unassigned.length > 0}
-          <div class="mt-8">
-            <h2 class="mb-3 text-lg font-semibold text-gray-700">
-              Unassigned ({unassigned.length})
-            </h2>
-            <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-              <ul class="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 lg:grid-cols-4">
-                {#each unassigned as student}
-                  <li class="text-sm text-gray-700">
-                    {getStudentName(student.id)}
-                  </li>
-                {/each}
-              </ul>
-            </div>
-          </div>
-        {/if}
       {/if}
 
       <!-- Footer -->

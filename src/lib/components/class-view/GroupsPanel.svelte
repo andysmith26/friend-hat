@@ -243,13 +243,10 @@
 
     {#if isVerticalUnassigned}
       <!-- Vertical layout: unassigned column beside groups -->
-      <div
-        class="min-h-0 flex-1 flex overflow-hidden"
-        style={cardSizeStyle(uiSettings.cardSize)}
-      >
+      <div class="flex min-h-0 flex-1 overflow-hidden" style={cardSizeStyle(uiSettings.cardSize)}>
         <div
           use:droppable={{ container: 'unassigned', callbacks: { onDrop: handleBenchDrop } }}
-          class="shrink-0 flex flex-col overflow-hidden border-r border-gray-200 px-2 pt-3 pb-2"
+          class="flex shrink-0 flex-col overflow-hidden border-r border-gray-200 px-2 pt-3 pb-2"
           style="width: var(--sidebar-width)"
         >
           <UnassignedArea
@@ -327,7 +324,8 @@
                 Unassigned
               </span>
               <span
-                class="rounded-full px-1.5 py-0.5 text-xs font-medium {unassignedStudentIds.length > 0
+                class="rounded-full px-1.5 py-0.5 text-xs font-medium {unassignedStudentIds.length >
+                0
                   ? 'bg-amber-200 text-amber-800'
                   : 'bg-gray-200 text-gray-500'}"
               >
