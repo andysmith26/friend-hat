@@ -12,6 +12,7 @@
 
 export type CardSize = 'sm' | 'md' | 'lg';
 export type GroupLayout = 'scroll' | 'wrap';
+export type UnassignedLayout = 'horizontal' | 'vertical';
 
 /**
  * Store implementation that keeps each preference in a $state rune.
@@ -53,6 +54,7 @@ export class UiSettingsStore {
   highlightUnhappy = $state(false);
   cardSize = $state<CardSize>('md');
   groupLayout = $state<GroupLayout>('scroll');
+  unassignedLayout = $state<UnassignedLayout>('horizontal');
   skipDeleteGroupConfirm = $state(readSkipDeleteConfirm());
   useExperimentalFeatures = $state(readUseExperimentalFeatures());
 
@@ -90,6 +92,14 @@ export class UiSettingsStore {
     this.groupLayout = this.groupLayout === 'scroll' ? 'wrap' : 'scroll';
   }
 
+  setUnassignedLayout(value: UnassignedLayout) {
+    this.unassignedLayout = value;
+  }
+
+  toggleUnassignedLayout() {
+    this.unassignedLayout = this.unassignedLayout === 'horizontal' ? 'vertical' : 'horizontal';
+  }
+
   setSkipDeleteGroupConfirm(value: boolean) {
     this.skipDeleteGroupConfirm = value;
     try {
@@ -117,6 +127,7 @@ export class UiSettingsStore {
     this.highlightUnhappy = false;
     this.cardSize = 'md';
     this.groupLayout = 'scroll';
+    this.unassignedLayout = 'horizontal';
     this.skipDeleteGroupConfirm = false;
     this.useExperimentalFeatures = false;
     try {

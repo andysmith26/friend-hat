@@ -104,7 +104,7 @@
 </script>
 
 <div
-  class="flex items-center justify-between border-b px-4 py-2 {isViewingHistory
+  class="flex items-center justify-between border-b px-4 py-2 shadow-sm {isViewingHistory
     ? 'border-amber-200 bg-amber-50'
     : 'bg-white'}"
   role="toolbar"
@@ -276,6 +276,28 @@
           />
         {/if}
       </div>
+    {/if}
+
+    {#if onRequestCollapse}
+      <!-- Collapse chip: hides the toolbar and restores the floating chip -->
+      <button
+        type="button"
+        onclick={onRequestCollapse}
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+        aria-label="Hide workspace toolbar"
+        title="Hide toolbar (Escape)"
+      >
+        <svg
+          class="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7" />
+        </svg>
+      </button>
     {/if}
   </div>
 </div>

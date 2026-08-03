@@ -9,6 +9,7 @@
 
   import type { Group } from '$lib/domain';
   import { resolveGroupColorHex } from '$lib/utils/groupColors';
+  import { uiSettings } from '$lib/stores/uiSettings.svelte';
 
   interface Props {
     groups: Group[];
@@ -214,6 +215,25 @@
           {/if}
         </div>
       {/if}
+    </div>
+    <!-- Display Section -->
+    <div class="border-t border-gray-200 px-4 py-4">
+      <h4 class="mb-3 text-xs font-medium tracking-wider text-gray-500 uppercase">Display</h4>
+
+      <label class="flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          checked={uiSettings.unassignedLayout === 'vertical'}
+          onchange={() => uiSettings.toggleUnassignedLayout()}
+          class="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+        />
+        <div>
+          <span class="text-sm font-medium text-gray-900">Vertical unassigned list</span>
+          <p class="mt-0.5 text-xs text-gray-500">
+            Stack unassigned students vertically instead of in a horizontal grid.
+          </p>
+        </div>
+      </label>
     </div>
   </div>
 </div>

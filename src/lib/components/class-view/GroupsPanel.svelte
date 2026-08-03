@@ -282,6 +282,7 @@
               {selectedStudentRequestedPeerIds}
               {onOpenStudentDetail}
               compact
+              vertical={uiSettings.unassignedLayout === 'vertical'}
             />
           </div>
         {/if}

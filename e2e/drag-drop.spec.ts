@@ -79,18 +79,25 @@ test.describe('Drag and Drop Workspace', () => {
     const activityName = `Compact Canvas ${Date.now()}`;
     await createActivity(page, { activityName });
 
-    await page.locator('.rounded-xl.border-2').first().click();
-    const toolbarReveal = page.getByRole('button', { name: 'Show workspace toolbar' });
-    await expect(toolbarReveal).toBeVisible();
+    // Ensure toolbar is expanded, then move mouse away to trigger hover-collapse
+    const toolbar = page.getByRole('toolbar', { name: 'Workspace toolbar' });
+    await toolbar.hover();
+    await expect(page.getByRole('button', { name: 'Back to Home' })).toBeVisible();
+
+    // Move mouse to centre of page — triggers mouseleave on toolbar (350ms delay)
+    await page.mouse.move(640, 400);
+    await page.waitForTimeout(600);
+    await expect(page.getByRole('button', { name: 'Back to Home' })).not.toBeVisible();
     await expect(page.getByRole('button', { name: /Unassigned/ })).toBeVisible();
 
     const firstGroupColumn = page.locator('.rounded-xl.border-2').first();
     await expect(firstGroupColumn).toBeVisible();
     const groupBounds = await firstGroupColumn.boundingBox();
     expect(groupBounds).not.toBeNull();
-    expect(groupBounds!.y).toBeLessThan(180);
+    expect(groupBounds!.y).toBeLessThan(155);
 
-    await toolbarReveal.hover();
+    // Hover the collapsed chip to re-expand the toolbar
+    await page.locator('[data-testid="toolbar-chip"]').hover();
     await expect(page.getByRole('button', { name: 'Back to Home' })).toBeVisible();
 
     const profileAction = page.getByRole('button', {
