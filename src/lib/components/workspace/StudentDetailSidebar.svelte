@@ -783,6 +783,7 @@
             {onQuickEditPeerRequest}
             {onClearPeerRequest}
             {onDeletePeerRequest}
+            experimentalFeatures={showExperimentalFields}
             embedded
           />
         {/if}

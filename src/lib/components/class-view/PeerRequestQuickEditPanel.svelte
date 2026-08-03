@@ -22,6 +22,7 @@
     /** Render as sidebar content instead of a floating dialog. */
     embedded?: boolean;
     onClose?: () => void;
+    experimentalFeatures?: boolean;
   }
 
   let {
@@ -33,7 +34,8 @@
     onClearPeerRequest,
     onDeletePeerRequest,
     embedded = false,
-    onClose
+    onClose,
+    experimentalFeatures = false
   }: Props = $props();
 
   let panelEl = $state<HTMLDivElement | null>(null);
@@ -247,35 +249,22 @@
             <p class="truncate text-sm font-medium text-gray-900">{getAssignmentLabel(item)}</p>
           </div>
           <div class="flex items-center gap-1">
-            <button
-              type="button"
-              class="rounded-lg p-2 text-rose-400 hover:bg-rose-100 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Delete peer request"
-              onclick={() => handleDeleteRequest(item.requestId)}
-              disabled={isSaving}
-            >
-              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path
-                  fill-rule="evenodd"
-                  d="M8.5 2a1 1 0 0 0-.8.4L7.1 3H4.75a.75.75 0 0 0 0 1.5h.46l.67 9.07A2.5 2.5 0 0 0 8.37 16h3.26a2.5 2.5 0 0 0 2.49-2.43l.67-9.07h.46a.75.75 0 0 0 0-1.5H12.9l-.6-.6a1 1 0 0 0-.8-.4h-3Zm1.25 4.25a.75.75 0 0 0-1.5 0v5.5a.75.75 0 0 0 1.5 0v-5.5Zm3 0a.75.75 0 0 0-1.5 0v5.5a.75.75 0 0 0 1.5 0v-5.5Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="rounded-lg p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
-              aria-label="Toggle request history"
-              onclick={() => toggleHistory(item.requestId)}
-            >
-              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.5a.75.75 0 0 0-1.5 0v4c0 .199.079.39.22.53l2.5 2.5a.75.75 0 0 0 1.06-1.06l-2.28-2.22V6.5Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
+            {#if experimentalFeatures}
+              <button
+                type="button"
+                class="rounded-lg p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                aria-label="Toggle request history"
+                onclick={() => toggleHistory(item.requestId)}
+              >
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.5a.75.75 0 0 0-1.5 0v4c0 .199.079.39.22.53l2.5 2.5a.75.75 0 0 0 1.06-1.06l-2.28-2.22V6.5Z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            {/if}
             {#if isSaving}
               <span
                 class="rounded-full bg-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600"
@@ -283,6 +272,14 @@
                 Saving...
               </span>
             {:else if isEditing}
+              <button
+                type="button"
+                onclick={() => handleDeleteRequest(item.requestId)}
+                class="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isSaving}
+              >
+                Delete
+              </button>
               <button
                 type="button"
                 class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
@@ -293,20 +290,25 @@
             {:else}
               <button
                 type="button"
-                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                class="rounded-lg p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                aria-label="Edit peer request"
                 onclick={() => toggleEditing(item.requestId)}
               >
-                Change
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path
+                    d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343Z"
+                  />
+                </svg>
               </button>
             {/if}
           </div>
         </div>
 
         {#if isEditing}
-          <div class="mt-3 flex items-end gap-2 border-t border-gray-200 pt-3">
-            <label class="min-w-0 flex-1">
+          <div class="mt-3 border-t border-gray-200 pt-3">
+            <label class="block">
               <span class="mb-1 block text-xs font-medium tracking-wide text-gray-500 uppercase">
-                Assign to
+                Change request to
               </span>
               <select
                 class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 focus:outline-none"
@@ -320,15 +322,6 @@
                 {/each}
               </select>
             </label>
-
-            <button
-              type="button"
-              onclick={() => handleClear(item.requestId)}
-              class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isSaving || !item.resolvedStudentId}
-            >
-              Clear
-            </button>
           </div>
         {/if}
 
