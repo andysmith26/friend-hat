@@ -40,6 +40,7 @@
   import SortOrderDialog from './SortOrderDialog.svelte';
   import { hintState } from '$lib/stores/hintState.svelte';
   import { toastStore } from '$lib/stores/toast.svelte';
+  import { uiSettings } from '$lib/stores/uiSettings.svelte';
 
   interface Props {
     activityId: string;
@@ -51,7 +52,6 @@
   let vm = createClassViewVm(env);
 
   let importModalOpen = $state(false);
-  let groupsCanvasEl = $state<HTMLDivElement | undefined>();
 
   // Roster drawer: persist open/closed state per activity in localStorage
   const rosterStorageKey = `groupwheel:roster:${activityId}`;
@@ -411,24 +411,6 @@
       if (exportResult.status === 'err') return;
       const filename = generateExportFilename(program.name);
       downloadActivityFile(exportResult.value.activityExportData, filename);
-
-      // Also capture a screenshot of the groups canvas
-      if (groupsCanvasEl) {
-        try {
-          const dataUrl = await toPng(groupsCanvasEl, { cacheBust: true });
-          const screenshotFilename = filename.replace(/\.json$/i, '.png');
-          const anchor = document.createElement('a');
-          anchor.href = dataUrl;
-          anchor.download = screenshotFilename;
-          anchor.style.display = 'none';
-          document.body.appendChild(anchor);
-          anchor.click();
-          document.body.removeChild(anchor);
-        } catch {
-          // Screenshot is best-effort; don't block the save on failure
-        }
-      }
-
       toastStore.success('Activity file saved');
     }
   }
@@ -871,7 +853,6 @@
     <div class="flex flex-1 overflow-hidden">
       <!-- Center: Groups canvas (always full remaining width) -->
       <div
-        bind:this={groupsCanvasEl}
         class="flex flex-1 flex-col overflow-hidden bg-gray-50"
         style={isViewingHistory ? 'filter: sepia(0.08); opacity: 0.9;' : ''}
       >
@@ -1035,7 +1016,7 @@
     </div>
 
     <!-- History popover — rendered as a dropdown from the toolbar area -->
-    {#if historyPanelOpen}
+    {#if historyPanelOpen && uiSettings.useExperimentalFeatures}
       <div class="fixed top-14 right-4 z-30">
         <HistoryPopover
           {sessions}

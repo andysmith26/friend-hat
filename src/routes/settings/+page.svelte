@@ -27,8 +27,9 @@
       <span>
         <span class="block text-sm font-medium text-gray-900">Use experimental features</span>
         <span class="mt-0.5 block text-sm text-gray-500">
-          Show in-progress student details, grouping preference controls, and "Avoid recent
-          groupmates" rotation settings.
+          Show in-progress features: student details panel, grouping preference controls, "Avoid
+          recent groupmates" rotation settings, past sessions history, Share › Display &amp;
+          Publish, Save / Back Up, and collapsible floating toolbar.
         </span>
       </span>
     </label>

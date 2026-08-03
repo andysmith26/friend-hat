@@ -9,6 +9,7 @@
   import ShareDropdown from './ShareDropdown.svelte';
   import type { SaveStatus } from '$lib/stores/scenarioEditingStore';
   import type { Group } from '$lib/domain';
+  import { uiSettings } from '$lib/stores/uiSettings.svelte';
 
   interface Props {
     activityName: string;
@@ -160,7 +161,7 @@
 
     {#if hasGroups && !isViewingHistory}
       <!-- History toggle -->
-      {#if onToggleHistory}
+      {#if uiSettings.useExperimentalFeatures && onToggleHistory}
         <button
           type="button"
           onclick={onToggleHistory}

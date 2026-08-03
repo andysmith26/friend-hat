@@ -242,8 +242,9 @@
     onSelect?.(group.id);
   }
 
-  function handleNameDblClick() {
+  function handleNameClick(e: MouseEvent) {
     if (!onUpdateGroup || readonly) return;
+    e.stopPropagation();
     isEditingName = true;
   }
 
@@ -352,11 +353,9 @@
         />
       {:else}
         <span
-          class="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900"
-          ondblclick={handleNameDblClick}
-          title={onUpdateGroup && !readonly
-            ? `Double-click to rename "${editingName}"`
-            : editingName}
+          class={`min-w-0 flex-1 truncate text-sm font-semibold text-gray-900${onUpdateGroup && !readonly ? ' cursor-pointer' : ''}`}
+          onclick={handleNameClick}
+          title={onUpdateGroup && !readonly ? `Click to rename "${editingName}"` : editingName}
         >
           {editingName}
         </span>

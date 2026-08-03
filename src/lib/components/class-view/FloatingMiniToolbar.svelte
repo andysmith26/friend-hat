@@ -13,6 +13,7 @@
   import ShareDropdown from './ShareDropdown.svelte';
   import type { SaveStatus } from '$lib/stores/scenarioEditingStore';
   import type { Group } from '$lib/domain';
+  import { uiSettings } from '$lib/stores/uiSettings.svelte';
 
   interface Props {
     activityName: string;
@@ -162,7 +163,8 @@
   let collapseTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Always stay expanded when there are no groups (nothing to collapse to).
-  const expanded = $derived(!hasGroups || hovering || settingsOpen || shareOpen);
+  // Also stay expanded when experimental features are off (collapse is experimental).
+  const expanded = $derived(!uiSettings.useExperimentalFeatures || !hasGroups || hovering || settingsOpen || shareOpen);
 
   function onMouseEnter() {
     if (collapseTimer) {
@@ -314,7 +316,7 @@
       <div class="mx-0.5 h-5 w-px shrink-0 bg-gray-200"></div>
 
       <!-- History toggle -->
-      {#if onToggleHistory}
+      {#if uiSettings.useExperimentalFeatures && onToggleHistory}
         <div class="relative">
           <button
             type="button"
