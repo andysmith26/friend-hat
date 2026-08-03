@@ -164,7 +164,9 @@
 
   // Always stay expanded when there are no groups (nothing to collapse to).
   // Also stay expanded when experimental features are off (collapse is experimental).
-  const expanded = $derived(!uiSettings.useExperimentalFeatures || !hasGroups || hovering || settingsOpen || shareOpen);
+  const expanded = $derived(
+    !uiSettings.useExperimentalFeatures || !hasGroups || hovering || settingsOpen || shareOpen
+  );
 
   function onMouseEnter() {
     if (collapseTimer) {
@@ -252,7 +254,7 @@
   -->
   <div
     transition:slideLeft
-    class="fixed z-50 flex h-10 items-center rounded-full bg-white shadow-xl ring-1 ring-black/10 select-none"
+    class="fixed z-30 flex h-10 items-center rounded-full bg-white shadow-xl ring-2 ring-teal-400 select-none"
     style="right: {pos.right}px; top: {pos.y}px; max-width: calc(100vw - 8px);"
     role="toolbar"
     aria-label="Workspace toolbar"
@@ -396,7 +398,7 @@
         {/if}
       </div>
 
-      <!-- Share button -->
+      <!-- Export button -->
       <div class="relative">
         <button
           type="button"
@@ -404,11 +406,11 @@
           class="flex h-8 items-center gap-1 rounded-full px-2.5 text-sm font-medium transition-colors {shareOpen
             ? 'bg-teal-700 text-white'
             : 'bg-teal-600 text-white hover:bg-teal-700'}"
-          aria-label="{shareOpen ? 'Close' : 'Open'} share menu"
+          aria-label="{shareOpen ? 'Close' : 'Open'} export menu"
           aria-expanded={shareOpen}
           aria-haspopup="true"
         >
-          Share
+          Export
           <svg
             class="h-3.5 w-3.5"
             fill="none"

@@ -1,10 +1,9 @@
 <script lang="ts">
   /**
-   * ShareDropdown — Dropdown menu for export actions and output modes.
+   * ExportDropdown — Dropdown menu for export actions and output modes.
    *
-   * Follows Google Docs "Share" convention. Items above the divider are
-   * export actions (get data out), ordered by usage frequency. Items below
-   * are output modes (show data to others).
+   * Items above the divider are export actions (get data out), ordered by
+   * usage frequency. Items below are output modes (show data to others).
    */
 
   interface Props {
@@ -131,19 +130,19 @@
       role="menuitem"
       onclick={() => handleAction(onDisplay)}
     >
-    <svg
-      class="h-5 w-5 text-gray-400"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke-width="1.5"
-      stroke="currentColor"
-    >
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.125c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v12c0 .621.504 1.125 1.125 1.125Z"
-      />
-    </svg>
+      <svg
+        class="h-5 w-5 text-gray-400"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.125c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v12c0 .621.504 1.125 1.125 1.125Z"
+        />
+      </svg>
       Display
     </button>
     <button

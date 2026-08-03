@@ -105,9 +105,9 @@
 </script>
 
 <div
-  class="flex items-center justify-between border-b px-4 py-2 shadow-sm {isViewingHistory
-    ? 'border-amber-200 bg-amber-50'
-    : 'bg-white'}"
+  class="flex items-center justify-between border-b-2 px-4 py-2 shadow-sm {isViewingHistory
+    ? 'border-amber-400 bg-amber-50'
+    : 'border-teal-400 bg-white'}"
   role="toolbar"
   aria-label="Workspace toolbar"
   onkeydown={handleKeydown}
@@ -240,7 +240,7 @@
         {/if}
       </div>
 
-      <!-- Share button -->
+      <!-- Export button -->
       <div class="relative">
         <button
           type="button"
@@ -250,11 +250,11 @@
           class="flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium shadow-sm transition-colors {shareOpen
             ? 'bg-teal-700 text-white'
             : 'bg-teal-600 text-white hover:bg-teal-700'}"
-          aria-label="{shareOpen ? 'Close' : 'Open'} share menu"
+          aria-label="{shareOpen ? 'Close' : 'Open'} export menu"
           aria-expanded={shareOpen}
           aria-haspopup="true"
         >
-          <span class="text-sm font-medium">Share</span>
+          <span class="text-sm font-medium">Export</span>
           <svg
             class="h-4 w-4"
             fill="none"
