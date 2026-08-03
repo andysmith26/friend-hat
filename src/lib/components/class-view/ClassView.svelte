@@ -217,6 +217,8 @@
   let studentSidebarMode = $state<'view' | 'edit' | 'create'>('view');
   /** Explicit visibility keeps roster selection inline while canvas profile actions open the right panel. */
   let studentDetailPanelOpen = $state(false);
+  /** Populated by the sidebar on mount — routes backdrop/Escape through the dirty-check guard. */
+  let studentSidebarRequestClose = $state<(() => void) | undefined>(undefined);
   let showRemoveConfirm = $state(false);
   let deletingSessionId = $state<string | null>(null);
   let deletingSession = $derived(
@@ -853,8 +855,14 @@
     <div class="flex flex-1 overflow-hidden">
       <!-- Center: Groups canvas (always full remaining width) -->
       <div
-        class="flex flex-1 flex-col overflow-hidden bg-gray-50"
+        class="flex flex-1 cursor-default flex-col overflow-hidden bg-gray-50"
         style={isViewingHistory ? 'filter: sepia(0.08); opacity: 0.9;' : ''}
+        onclick={() => {
+          if (groupClickStudentId) {
+            groupClickStudentId = null;
+            vm.actions.selectStudentPeerRequests(null);
+          }
+        }}
       >
         {#if isViewingHistory}
           <div class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
@@ -1090,9 +1098,10 @@
       open={studentSidebarOpen}
       side="right"
       widthPx={studentDetailWidth}
-      onClose={handleCloseStudentDetail}
+      onClose={studentSidebarRequestClose ?? handleCloseStudentDetail}
     >
       <StudentDetailSidebar
+        bind:requestCloseHandler={studentSidebarRequestClose}
         student={selectedStudent}
         mode={studentSidebarMode}
         preferences={selectedStudentPreferences}

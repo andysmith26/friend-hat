@@ -120,11 +120,11 @@
   const selectedCardClass = $derived.by(() => {
     if (readonly || !isSelected) return '';
     if (isPickedUp) return 'border-blue-500 shadow-md ring-2 ring-blue-500 ring-offset-1';
-    return 'border-sky-300 bg-sky-50 ring-2 ring-sky-200/90 ring-offset-1 shadow-[0_0_0_1px_rgba(125,211,252,0.35),0_10px_24px_-14px_rgba(56,189,248,0.35)]';
+    return 'border-yellow-400 bg-yellow-50 ring-3 ring-yellow-400 ring-offset-1 shadow-[0_0_0_2px_rgba(234,179,8,0.5)]';
   });
   const peerRequestHighlightClass = $derived(
     isPeerRequested && !isSelected && !isPickedUp
-      ? 'border-blue-700 bg-blue-50/90 ring-2 ring-blue-600/90 ring-offset-2 shadow-[0_0_0_1px_rgba(29,78,216,0.32),0_0_0_7px_rgba(96,165,250,0.20),0_0_28px_10px_rgba(37,99,235,0.34)] scale-[1.03]'
+      ? 'border-blue-700 bg-blue-100 ring-2 ring-blue-600/90 ring-offset-2 shadow-[0_0_0_1px_rgba(29,78,216,0.32),0_0_0_7px_rgba(96,165,250,0.20),0_0_28px_10px_rgba(37,99,235,0.34)] scale-[1.03]'
       : ''
   );
 
@@ -165,13 +165,16 @@
     onDragStart?.();
   }
 
-  function handleClick() {
+  function handleClick(event: MouseEvent) {
     if (didDrag) {
       didDrag = false;
       return;
     }
     if (isPickedUp) return;
-    onStudentClick?.(student.id);
+    if (onStudentClick) {
+      event.stopPropagation();
+      onStudentClick(student.id);
+    }
   }
 
   function handleOpenStudentDetail(event: MouseEvent | KeyboardEvent) {
@@ -247,7 +250,7 @@
   aria-pressed={readonly ? undefined : isPickedUp}
   data-student-id={student.id}
   style="width: var(--card-width, 136px); height: var(--card-height, 60px); padding: var(--card-padding, 2px);"
-  class={`group relative mx-auto flex flex-col overflow-visible rounded-md border bg-white text-sm shadow-sm transition duration-150 ease-out ${
+  class={`group relative mx-auto flex flex-col overflow-visible rounded-md border text-sm shadow-sm transition duration-150 ease-out ${!peerRequestHighlightClass && !selectedCardClass ? 'bg-white' : ''} ${
     readonly
       ? onStudentClick
         ? 'cursor-pointer border-gray-200 hover:border-gray-300 hover:shadow'

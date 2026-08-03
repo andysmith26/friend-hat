@@ -486,9 +486,10 @@
     scroll-snap-align: start;
   }
 
-  /* Drag cursor */
+  /* Drag cursor: show default arrow on background; child elements (student cards)
+     provide their own cursor-grab/cursor-pointer as appropriate */
   .scroll-container.draggable {
-    cursor: grab;
+    cursor: default;
   }
 
   /* Fade gradients */

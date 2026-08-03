@@ -68,6 +68,8 @@
     onDelete: () => void;
     onEditMode: () => void;
     onCancelEdit: () => void;
+    /** Bindable — set by the sidebar so the parent can route backdrop/Escape closes through the dirty-check guard. */
+    requestCloseHandler?: (() => void) | undefined;
     /** Whether this student is marked inactive at pool level */
     isInactive?: boolean;
     /** Toggle active/inactive status */
@@ -94,6 +96,7 @@
     onDelete,
     onEditMode,
     onCancelEdit,
+    requestCloseHandler = $bindable<(() => void) | undefined>(undefined),
     isInactive = false,
     onToggleActive,
     readOnly = false
@@ -129,10 +132,38 @@
   let groupToAdd = $state('');
   let formError = $state<string | null>(null);
   let isSaving = $state(false);
+  let showUnsavedDialog = $state(false);
 
   let firstNameInputEl = $state<HTMLInputElement | null>(null);
 
   const isEditing = $derived(mode === 'edit' || mode === 'create');
+  const isDirty = $derived.by(() => {
+    if (!isEditing) return false;
+    if (mode === 'create') {
+      return (
+        formFirstName.trim() !== '' ||
+        formPreferredName.trim() !== '' ||
+        formLastName.trim() !== '' ||
+        formSourceStudentId.trim() !== '' ||
+        formTags.length > 0
+      );
+    }
+    if (!student) return false;
+    const savedPrefs = preferences ?? createEmptyStudentPreference(student.id);
+    const sortStr = (arr: string[]) => [...arr].sort().join('\x00');
+    return (
+      formFirstName.trim() !== (student.firstName ?? '') ||
+      formPreferredName.trim() !== (student.preferredName ?? '') ||
+      formLastName.trim() !== (student.lastName ?? '') ||
+      formGradeLevel.trim() !== (student.gradeLevel ?? '') ||
+      formGender !== (student.gender ?? '') ||
+      formTags.join('\x00') !== (student.tags ?? []).join('\x00') ||
+      formSourceStudentId.trim() !== (getSourceStudentId(student) ?? '') ||
+      formLikeGroupIds.join('\x00') !== savedPrefs.likeGroupIds.join('\x00') ||
+      sortStr(formAvoidGroupIds) !== sortStr(savedPrefs.avoidGroupIds) ||
+      sortStr(formAvoidStudentIds) !== sortStr(savedPrefs.avoidStudentIds)
+    );
+  });
   const showExperimentalFields = $derived(uiSettings.useExperimentalFeatures);
 
   const fullName = $derived(student ? getStudentLongName(student) || student.id : '');
@@ -200,6 +231,11 @@
         }
       });
     }
+  });
+
+  // Expose requestClose to the parent so backdrop/Escape closes go through the dirty-check guard
+  $effect(() => {
+    requestCloseHandler = requestClose;
   });
 
   // Reset sub-view and load profile when student changes (view mode only)
@@ -321,8 +357,39 @@
       e.preventDefault();
       handleSubmit();
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      requestCancel();
+    }
+  }
+
+  function requestClose() {
+    if (isEditing && isDirty) {
+      showUnsavedDialog = true;
+    } else {
+      onClose();
+    }
+  }
+
+  function requestCancel() {
+    if (isEditing && isDirty) {
+      showUnsavedDialog = true;
+    } else {
       onCancelEdit();
     }
+  }
+
+  async function handleDialogSave() {
+    showUnsavedDialog = false;
+    await handleSubmit();
+  }
+
+  function handleDialogDiscard() {
+    showUnsavedDialog = false;
+    onCancelEdit();
+  }
+
+  function handleDialogKeepEditing() {
+    showUnsavedDialog = false;
   }
 
   function formatDate(date: Date | null | undefined): string {
@@ -344,7 +411,7 @@
 </script>
 
 <aside
-  class="flex h-full w-80 flex-shrink-0 flex-col border-l border-gray-200 bg-white"
+  class="relative flex h-full w-80 flex-shrink-0 flex-col border-l border-gray-200 bg-white"
   aria-label="Student detail panel"
 >
   <!-- Header -->
@@ -408,7 +475,7 @@
       {/if}
       <button
         type="button"
-        onclick={onClose}
+        onclick={requestClose}
         class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
         aria-label="Close panel"
       >
@@ -719,28 +786,6 @@
             embedded
           />
         {/if}
-
-        {#if formError}
-          <InlineError
-            message={formError}
-            size="xs"
-            dismissible
-            onDismiss={() => (formError = null)}
-          />
-        {/if}
-
-        <div class="flex justify-end gap-2 border-t border-gray-100 pt-3">
-          <Button variant="ghost" onclick={onCancelEdit} disabled={isSaving}>Cancel</Button>
-          <Button variant="primary" onclick={handleSubmit} disabled={isSaving}>
-            {#if isSaving}
-              Saving...
-            {:else if mode === 'create'}
-              Add Student
-            {:else}
-              Save
-            {/if}
-          </Button>
-        </div>
       </form>
     {:else if student}
       <!-- View Mode -->
@@ -1082,4 +1127,57 @@
       </div>
     {/if}
   </div>
+
+  <!-- Sticky Save/Cancel footer (edit and create modes) -->
+  {#if isEditing}
+    <div class="border-t border-gray-200 bg-white px-4 py-3">
+      {#if formError}
+        <div class="mb-2">
+          <InlineError
+            message={formError}
+            size="xs"
+            dismissible
+            onDismiss={() => (formError = null)}
+          />
+        </div>
+      {/if}
+      <div class="flex justify-end gap-2">
+        <Button variant="ghost" onclick={requestCancel} disabled={isSaving}>Cancel</Button>
+        <Button variant="primary" onclick={handleSubmit} disabled={isSaving}>
+          {#if isSaving}
+            Saving...
+          {:else if mode === 'create'}
+            Add Student
+          {:else}
+            Save
+          {/if}
+        </Button>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Unsaved changes dialog -->
+  {#if showUnsavedDialog}
+    <div class="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+      <div class="mx-4 w-full max-w-xs rounded-lg bg-white p-4 shadow-lg">
+        <h3 class="text-sm font-semibold text-gray-900">Unsaved changes</h3>
+        <p class="mt-1.5 text-xs text-gray-600">
+          You have unsaved changes. Save them before leaving?
+        </p>
+        <div class="mt-4 flex flex-col gap-2">
+          <Button variant="primary" onclick={handleDialogSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save changes'}
+          </Button>
+          <Button variant="ghost" onclick={handleDialogDiscard}>Discard changes</Button>
+          <button
+            type="button"
+            onclick={handleDialogKeepEditing}
+            class="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Keep editing
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </aside>

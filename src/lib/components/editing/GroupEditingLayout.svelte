@@ -251,7 +251,7 @@
   .group-grid {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 16px;
   }
 
@@ -264,10 +264,10 @@
     display: flex;
     flex-wrap: nowrap;
     align-items: stretch;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 12px;
     width: max-content;
-    margin: 0 auto;
+    margin: 0;
   }
 
   .group-row > :global(*) {
